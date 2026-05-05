@@ -28,6 +28,61 @@ To launch classes Application.java in servecies customerService, accountService 
 Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
 Postgre database initialized with some sample user.
 
+## Development Setup
+
+The project supports two ways of running locally: an in-memory **H2 dev profile** (no external database required) and a **PostgreSQL** setup via docker-compose.
+
+### Option 1: Run with the dev profile (H2, no external DB)
+
+Each service has an `application-dev.yml` that switches the datasource to an in-memory H2 database. Use the `dev` profile to run any service:
+
+```sh
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+When the dev profile is active, `PersonService` and `AccountService` automatically load seed data from `data-dev.sql` so you can interact with the APIs immediately.
+
+The H2 web console is available while a service is running:
+- PersonService: http://localhost:8082/h2-console (JDBC URL: `jdbc:h2:mem:person-service-db-dev`)
+- AccountService: http://localhost:8081/h2-console (JDBC URL: `jdbc:h2:mem:account-service-db-dev`)
+
+Use username `sa` and an empty password.
+
+#### Seed data (dev profile)
+
+The seed data uses fixed UUIDs so AccountService records reference PersonService records consistently:
+
+| Person ID | Name | Accounts | Bills |
+| --- | --- | --- | --- |
+| `11111111-1111-1111-1111-111111111111` | John Doe | John Checking, John Savings | USD 1500 (overdraft), USD 5000 |
+| `22222222-2222-2222-2222-222222222222` | Jane Smith | Jane Checking | EUR 2500 (overdraft) |
+| `33333333-3333-3333-3333-333333333333` | Bob Johnson | Bob Checking | USD 800 |
+
+Total: 3 people, 4 accounts, 4 bills.
+
+### Option 2: Run with PostgreSQL via docker-compose
+
+A `docker-compose.yml` at the repo root starts a single PostgreSQL 13 container that hosts both `person-service-db` and `account-service-db` (plus their `*-test` counterparts), created by `init-db.sh` on first boot.
+
+```sh
+docker-compose up -d
+```
+
+Then run each service without the dev profile:
+
+```sh
+mvn spring-boot:run
+```
+
+The default PostgreSQL credentials match the docker-compose container (`postgres` / `12345`). To point at a different database, override via environment variables:
+
+```sh
+DB_URL=jdbc:postgresql://localhost/person-service-db \
+DB_USERNAME=postgres \
+DB_PASSWORD=12345 \
+mvn spring-boot:run
+```
+
 ## Functional Services
 BankSystem was decomposed into three core microservices. All of them are independently deployable applications, organized around certain business domains.
 
