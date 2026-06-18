@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  person-db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: person-service-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345
+    ports:
+      - "5433:5432"
+    volumes:
+      - person-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d person-service-db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  account-db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: account-service-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345
+    ports:
+      - "5434:5432"
+    volumes:
+      - account-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d account-service-db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  person-service:
+    build: ./PersonService
+    depends_on:
+      person-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://person-db:5432/person-service-db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 12345
+      SERVER_PORT: 8082
+    ports:
+      - "8082:8082"
+
+  account-service:
+    build: ./AccountService
+    depends_on:
+      account-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://account-db:5432/account-service-db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 12345
+      SERVER_PORT: 8081
+    ports:
+      - "8081:8081"
+
+  common-service:
+    build: ./CommonService
+    depends_on:
+      - person-service
+      - account-service
+    environment:
+      PERSON_SERVICE_URL: http://person-service:8082
+      ACCOUNT_SERVICE_URL: http://account-service:8081
+    ports:
+      - "8080:8080"
+
+volumes:
+  person-db-data:
+  account-db-data:
