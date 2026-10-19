@@ -68,8 +68,8 @@ Contains the general logic of working and validating account, bill and transacti
 | PUT | /v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments | commit payment by bill | 
 | PUT | /v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments | commit adjustment by bill | 
 | PUT | /v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId} | commit transfer between two bills | 
-| DELETE | /v1/people/{personId}/accounts/{id} | delete account by id |
-| DELETE | /v1/people/{personId}/accounts/{accountId}/bills/{id} | delete bill by id |
+| DELETE | /v1/people/{personId}/accounts/{id} | close account by id (account and its bills are soft-closed; transaction history is retained) |
+| DELETE | /v1/people/{personId}/accounts/{accountId}/bills/{id} | close bill by id (soft-closed; adjustments, payments and transfers are retained) |
 
 #### Sample JSON for Account Service
 ##### Create an account:

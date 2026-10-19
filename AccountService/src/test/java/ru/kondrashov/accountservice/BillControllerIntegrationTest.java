@@ -139,11 +139,37 @@ public class BillControllerIntegrationTest {
                 .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
                 .findFirst().get();
 
+        AdjustmentRequestDTO adjustment = new AdjustmentRequestDTO(currency, BigDecimal.ONE, LocalDateTime.now(), "Manual correction", bill);
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments", account.getPersonId(), account.getId(), bill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(adjustment)))
+                .andExpect(status().isAccepted());
+
         mockMvc.perform(MockMvcRequestBuilders
                 .delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId()))
                 .andExpect(status().isNoContent());
 
-        assertThat(billsRepository.getBillById(bill.getId()).isPresent()).isFalse();
+        assertThat(billsRepository.getBillById(bill.getId()).get().getClosedAt()).isNotNull();
+        assertThat(billsService.getBillsByAccountId(account.getId())).noneMatch(b -> b.getId().equals(bill.getId()));
+        assertThat(billsService.getAdjustmentsByBillId(bill.getId()))
+                .extracting(Adjustment::getMessage)
+                .containsExactly("Manual correction");
+
+        MvcResult history = mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/transactions", account.getPersonId(), account.getId(), bill.getId()))
+                .andExpect(status().isOk()).andReturn();
+        assertThat(objectMapper.readValue(history.getResponse().getContentAsString(), new TypeReference<List<FinancialTransactionResponseDTO>>() {}))
+                .extracting(FinancialTransactionResponseDTO::getMessage)
+                .containsExactly("Manual correction");
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments", account.getPersonId(), account.getId(), bill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(adjustment)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(MockMvcRequestBuilders
+                .delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId()))
+                .andExpect(status().isNotFound());
+
+        accountsService.delete(account.getId());
     }
 
     @Test

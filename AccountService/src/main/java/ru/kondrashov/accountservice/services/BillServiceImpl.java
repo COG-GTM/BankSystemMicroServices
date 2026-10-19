@@ -13,6 +13,7 @@ import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.interfaces.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.UUID;
 
@@ -28,17 +29,17 @@ public class BillServiceImpl implements BillsService {
 
     @Override
     public Collection<Bill> getBills() {
-        return billsRepository.findAll();
+        return billsRepository.findAllByClosedAtIsNull();
     }
 
     @Override
     public Bill getBill(UUID id) {
-        return billsRepository.getBillById(id).orElseThrow(()->new BillNotFoundException("Bill with id = "+id+" not found."));
+        return billsRepository.getBillByIdAndClosedAtIsNull(id).orElseThrow(()->new BillNotFoundException("Bill with id = "+id+" not found."));
     }
 
     @Override
     public Collection<Bill> getBillsByAccountId(UUID accountID) {
-        return billsRepository.getBillsByAccount_Id(accountID);
+        return billsRepository.getBillsByAccount_IdAndClosedAtIsNull(accountID);
     }
 
     @Override
@@ -46,9 +47,16 @@ public class BillServiceImpl implements BillsService {
         billsRepository.save(bill);
     }
 
+    /**
+     * Closes the bill instead of deleting it, so its adjustments, payments and transfers
+     * are retained until {@link LedgerRetentionService} purges them.
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(UUID id) {
-        billsRepository.delete(getBill(id));
+        Bill bill = getBill(id);
+        bill.setClosedAt(LocalDateTime.now());
+        billsRepository.save(bill);
     }
 
     @Override

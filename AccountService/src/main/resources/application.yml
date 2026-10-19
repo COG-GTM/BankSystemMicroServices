@@ -7,3 +7,10 @@ spring:
 
 server:
   port: 8081
+
+# Closed bills keep their adjustments, payments and transfers for this many years;
+# LedgerRetentionService then purges them and writes a ledger_purge_audit row.
+ledger:
+  retention:
+    years: 7
+    purge-cron: "0 0 3 * * *"
