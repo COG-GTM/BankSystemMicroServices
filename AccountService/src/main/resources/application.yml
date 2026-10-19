@@ -7,3 +7,11 @@ spring:
 
 server:
   port: 8081
+
+# HTTP Basic clients. Unset credentials disable a client; with none configured every /v1/** request is rejected.
+account-service:
+  security:
+    clients:
+      - username: ${ACCOUNT_SERVICE_ADMIN_USERNAME:}
+        password: ${ACCOUNT_SERVICE_ADMIN_PASSWORD:}
+        role: ADMIN

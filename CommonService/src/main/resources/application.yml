@@ -14,3 +14,9 @@ spring:
 
 thymeleaf:
   prefix: classpath:/templates/
+
+# AccountService requires HTTP Basic; must match an ADMIN client in AccountService's account-service.security.clients.
+account-service:
+  base-url: http://localhost:8081
+  username: ${ACCOUNT_SERVICE_ADMIN_USERNAME:}
+  password: ${ACCOUNT_SERVICE_ADMIN_PASSWORD:}

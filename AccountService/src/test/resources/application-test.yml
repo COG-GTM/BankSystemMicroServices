@@ -7,3 +7,14 @@ spring:
 
 server:
   port: 8081
+
+account-service:
+  security:
+    clients:
+      - username: test-admin
+        password: test-admin-password
+        role: ADMIN
+      - username: test-customer
+        password: test-customer-password
+        role: CUSTOMER
+        person-id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
