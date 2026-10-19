@@ -69,13 +69,14 @@ public class AccountsServiceImpl implements AccountsService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(UUID id) {
-        Account account = getAccount(id);
+        // Row locks serialize closure with concurrent bill creation and bill transactions.
+        Account account = accountsRepository.lockAccountById(id).orElseThrow(()-> new AccountNotFoundException("Account with id = "+id+" not found."));
         if (account.getStatus() == RecordStatus.CLOSED) {
             return;
         }
         LocalDateTime closedAt = LocalDateTime.now();
 
-        for (Bill bill : billsRepository.getBillsByAccount_IdAndStatus(id, RecordStatus.OPEN)) {
+        for (Bill bill : billsRepository.lockBillsByAccountIdAndStatus(id, RecordStatus.OPEN)) {
             bill.setStatus(RecordStatus.CLOSED);
             bill.setClosedAt(closedAt);
             billsRepository.save(bill);

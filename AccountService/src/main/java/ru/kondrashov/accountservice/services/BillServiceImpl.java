@@ -45,6 +45,7 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void save(Bill bill) {
         bill.setAccount(getOpenAccount(bill.getAccount()));
         bill.setStatus(RecordStatus.OPEN);
@@ -57,8 +58,9 @@ public class BillServiceImpl implements BillsService {
      * and transfers (including the counterparty side) stay available for the retention period.
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(UUID id) {
-        Bill bill = getBill(id);
+        Bill bill = lockBill(id);
         if (bill.getStatus() == RecordStatus.CLOSED) {
             return;
         }
@@ -68,16 +70,19 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(UUID id, Bill newBill) {
+        Account account = getOpenAccount(newBill.getAccount());
         Bill oldBill = getOpenBill(id);
         oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
         oldBill.setCurrency(newBill.getCurrency());
         oldBill.setIsOverdraft(newBill.getIsOverdraft());
-        oldBill.setAccount(getOpenAccount(newBill.getAccount()));
+        oldBill.setAccount(account);
         billsRepository.save(oldBill);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitAdjustment(UUID billId, Adjustment adjustment) {
 
         Bill bill = getOpenBill(billId);
@@ -102,10 +107,15 @@ public class BillServiceImpl implements BillsService {
 
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
 
-        Bill sourceBill = getOpenBill(sourceBillId);
-        Bill beneficiaryBill = getOpenBill(beneficiaryBillId);
+        // Lock both bills in a fixed order so opposite-direction transfers cannot deadlock.
+        boolean sourceFirst = sourceBillId.compareTo(beneficiaryBillId) <= 0;
+        Bill first = getOpenBill(sourceFirst ? sourceBillId : beneficiaryBillId);
+        Bill second = getOpenBill(sourceFirst ? beneficiaryBillId : sourceBillId);
+        Bill sourceBill = sourceFirst ? first : second;
+        Bill beneficiaryBill = sourceFirst ? second : first;
         transfer.setSourceBill(sourceBill);
         transfer.setBeneficiaryBill(beneficiaryBill);
 
@@ -135,8 +145,12 @@ public class BillServiceImpl implements BillsService {
         return transferService.getTransfersByBeneficiaryBill_Id(billId);
     }
 
+    private Bill lockBill(UUID id) {
+        return billsRepository.lockBillById(id).orElseThrow(()->new BillNotFoundException("Bill with id = "+id+" not found."));
+    }
+
     private Bill getOpenBill(UUID id) {
-        Bill bill = getBill(id);
+        Bill bill = lockBill(id);
         if (bill.getStatus() == RecordStatus.CLOSED) {
             throw new BillClosedException("Bill with id = "+id+" is closed.");
         }
@@ -148,7 +162,7 @@ public class BillServiceImpl implements BillsService {
             throw new AccountNotFoundException("Bill must reference an existing account.");
         }
         UUID id = requested.getId();
-        Account account = accountsRepository.getAccountsById(id).orElseThrow(()-> new AccountNotFoundException("Account with id = "+id+" not found."));
+        Account account = accountsRepository.lockAccountById(id).orElseThrow(()-> new AccountNotFoundException("Account with id = "+id+" not found."));
         if (account.getStatus() == RecordStatus.CLOSED) {
             throw new AccountClosedException("Account with id = "+id+" is closed.");
         }
