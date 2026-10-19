@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 import ru.kondrashov.commonservice.controllers.dto.*;
 
 import java.util.*;
@@ -19,6 +20,8 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class CommonServiceImpl implements CommonService{
+
+    static final int PEOPLE_PAGE_SIZE = 100;
 
     private final RestTemplate restTemplate;
     private final Logger logger;
@@ -46,16 +49,29 @@ public class CommonServiceImpl implements CommonService{
 
     @Override
     public Collection<PersonRequestDTO> getPeople() {
-        logger.info("Send GET request to "+peopleUrl);
-        ResponseEntity<List<PersonRequestDTO>> responseEntity =
-                restTemplate.exchange(
-                        peopleUrl,
-                        HttpMethod.GET,
-                        null,
-                        new ParameterizedTypeReference<List<PersonRequestDTO>>() {}
-                );
-        logger.info("Got response with status code "+ responseEntity.getStatusCode());
-        return responseEntity.getBody();
+        List<PersonRequestDTO> people = new ArrayList<>();
+        for (int page = 0; ; page++) {
+            String url = UriComponentsBuilder.fromHttpUrl(peopleUrl)
+                    .queryParam("page", page)
+                    .queryParam("size", PEOPLE_PAGE_SIZE)
+                    .toUriString();
+            logger.info("Send GET request to "+url);
+            ResponseEntity<List<PersonRequestDTO>> responseEntity =
+                    restTemplate.exchange(
+                            url,
+                            HttpMethod.GET,
+                            null,
+                            new ParameterizedTypeReference<List<PersonRequestDTO>>() {}
+                    );
+            logger.info("Got response with status code "+ responseEntity.getStatusCode());
+            List<PersonRequestDTO> body = responseEntity.getBody();
+            if (body != null) {
+                people.addAll(body);
+            }
+            if (body == null || body.size() < PEOPLE_PAGE_SIZE) {
+                return people;
+            }
+        }
     }
 
     @Override

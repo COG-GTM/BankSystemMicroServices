@@ -8,21 +8,23 @@ import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
- * Adds PersonService HTTP Basic credentials, but only to requests sent to PersonService's origin,
+ * Adds PersonService HTTP Basic credentials, but only to requests sent to a configured PersonService origin,
  * so they are never leaked to other downstream services that share the RestTemplate.
  */
 public class PersonServiceAuthInterceptor implements ClientHttpRequestInterceptor {
 
     static final int MIN_PASSWORD_LENGTH = 16;
 
-    private final URI personServiceOrigin;
+    private final List<URI> personServiceOrigins;
     private final String username;
     private final String password;
 
-    public PersonServiceAuthInterceptor(String personServiceUrl, String username, String password) {
+    public PersonServiceAuthInterceptor(List<String> personServiceUrls, String username, String password) {
         if (!StringUtils.hasText(username)) {
             throw new IllegalStateException("person-service.client.username must be set");
         }
@@ -30,7 +32,7 @@ public class PersonServiceAuthInterceptor implements ClientHttpRequestIntercepto
             throw new IllegalStateException("person-service.client.password must be set and at least "
                     + MIN_PASSWORD_LENGTH + " characters long");
         }
-        this.personServiceOrigin = URI.create(personServiceUrl);
+        this.personServiceOrigins = personServiceUrls.stream().map(URI::create).collect(Collectors.toList());
         this.username = username;
         this.password = password;
     }
@@ -44,9 +46,13 @@ public class PersonServiceAuthInterceptor implements ClientHttpRequestIntercepto
     }
 
     boolean isPersonService(URI uri) {
-        return personServiceOrigin.getScheme().equalsIgnoreCase(Objects.toString(uri.getScheme(), ""))
-                && personServiceOrigin.getHost().equalsIgnoreCase(Objects.toString(uri.getHost(), ""))
-                && port(personServiceOrigin) == port(uri);
+        return personServiceOrigins.stream().anyMatch(origin -> sameOrigin(origin, uri));
+    }
+
+    private static boolean sameOrigin(URI origin, URI uri) {
+        return origin.getScheme().equalsIgnoreCase(Objects.toString(uri.getScheme(), ""))
+                && origin.getHost().equalsIgnoreCase(Objects.toString(uri.getHost(), ""))
+                && port(origin) == port(uri);
     }
 
     private static int port(URI uri) {
