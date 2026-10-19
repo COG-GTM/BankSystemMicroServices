@@ -29,7 +29,6 @@ public class DataSourceSecurityGuard implements BeanPostProcessor, EnvironmentAw
     static final Set<String> SECURE_SSL_MODES = new HashSet<>(Arrays.asList("require", "verify-ca", "verify-full"));
     private static final Set<String> LOCAL_HOSTS = new HashSet<>(Arrays.asList("localhost", "127.0.0.1", "[::1]"));
     private static final String SUPERUSER_QUERY = "SELECT rolsuper FROM pg_roles WHERE rolname = current_user";
-    private static final String TLS_SESSION_QUERY = "SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()";
 
     private Environment environment;
 
@@ -42,9 +41,8 @@ public class DataSourceSecurityGuard implements BeanPostProcessor, EnvironmentAw
     public Object postProcessAfterInitialization(Object bean, String beanName) {
         if (bean instanceof DataSource) {
             requireCredentials(environment);
-            String url = environment.getProperty("spring.datasource.url");
-            requireSecureTransport(url);
-            requireSafeSession((DataSource) bean, requiresTls(url));
+            requireSecureTransport(environment.getProperty("spring.datasource.url"));
+            requireNonSuperuser((DataSource) bean);
         }
         return bean;
     }
@@ -66,12 +64,8 @@ public class DataSourceSecurityGuard implements BeanPostProcessor, EnvironmentAw
         }
     }
 
-    static boolean requiresTls(String url) {
-        return url != null && url.startsWith(POSTGRES_URL_PREFIX) && !isLocal(url);
-    }
-
     static void requireSecureTransport(String url) {
-        if (!requiresTls(url)) {
+        if (url == null || !url.startsWith(POSTGRES_URL_PREFIX) || isLocal(url)) {
             return;
         }
         String sslMode = queryParameter(url, "sslmode");
@@ -81,32 +75,20 @@ public class DataSourceSecurityGuard implements BeanPostProcessor, EnvironmentAw
         }
     }
 
-    /**
-     * Checks the session the driver actually opened, so TLS cannot be switched off by driver settings the
-     * URL check does not see.
-     */
-    static void requireSafeSession(DataSource dataSource, boolean requireTls) {
+    static void requireNonSuperuser(DataSource dataSource) {
         try (Connection connection = dataSource.getConnection()) {
             if (!"PostgreSQL".equals(connection.getMetaData().getDatabaseProductName())) {
                 return;
             }
-            if (requireTls && !queryFlag(connection, TLS_SESSION_QUERY)) {
-                throw new IllegalStateException("Refusing to use an unencrypted connection to a non-local database: "
-                        + "the session was opened without TLS");
-            }
-            if (queryFlag(connection, SUPERUSER_QUERY)) {
-                throw new IllegalStateException("Refusing to run as a PostgreSQL superuser: "
-                        + "set DB_USER to a least-privilege application role (see db/create-app-roles.sql)");
+            try (Statement statement = connection.createStatement();
+                 ResultSet resultSet = statement.executeQuery(SUPERUSER_QUERY)) {
+                if (resultSet.next() && resultSet.getBoolean(1)) {
+                    throw new IllegalStateException("Refusing to run as a PostgreSQL superuser: "
+                            + "set DB_USER to a least-privilege application role (see db/create-app-roles.sql)");
+                }
             }
         } catch (SQLException e) {
-            throw new IllegalStateException("Could not verify the security of the database session", e);
-        }
-    }
-
-    private static boolean queryFlag(Connection connection, String sql) throws SQLException {
-        try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(sql)) {
-            return resultSet.next() && resultSet.getBoolean(1);
+            throw new IllegalStateException("Could not verify the privileges of the database role", e);
         }
     }
 
