@@ -3,7 +3,11 @@ package ru.kondrashov.personservice.audit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import ru.kondrashov.personservice.exception.PersonNotFoundException;
@@ -18,6 +22,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PersonAuditServiceTest {
@@ -25,17 +31,21 @@ class PersonAuditServiceTest {
     private static final Instant NOW = Instant.parse("2026-10-19T10:00:00Z");
 
     private PersonAuditService auditService;
+    private PersonAuditRepository repository;
 
     @BeforeEach
     void setUp() {
-        PersonAuditRepository repository = mock(PersonAuditRepository.class);
+        repository = mock(PersonAuditRepository.class);
         when(repository.save(any(PersonAuditEvent.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        auditService = new PersonAuditService(repository, new AuditActorResolver(), Clock.fixed(NOW, ZoneOffset.UTC));
+        auditService = new PersonAuditService(repository, new AuditActorResolver(), mock(PlatformTransactionManager.class), Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @AfterEach
     void tearDown() {
         RequestContextHolder.resetRequestAttributes();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     private static void bindRequest(String actor, String remoteAddr) {
@@ -105,5 +115,40 @@ class PersonAuditServiceTest {
         bindRequest("   ", "10.0.0.10");
 
         assertThat(new AuditActorResolver().currentActor()).isEqualTo(AuditActorResolver.ANONYMOUS);
+    }
+
+    @Test
+    void rollbackAfterSuccessRecordsFailureWithSameActor() {
+        bindRequest("teller-7", "10.0.0.11");
+        UUID personId = UUID.randomUUID();
+        TransactionSynchronizationManager.initSynchronization();
+
+        auditService.recordSuccess(AuditOperation.CREATE, personId, Collections.singletonList("email"));
+        RequestContextHolder.resetRequestAttributes();
+        for (TransactionSynchronization sync : TransactionSynchronizationManager.getSynchronizations()) {
+            sync.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+        }
+
+        ArgumentCaptor<PersonAuditEvent> saved = ArgumentCaptor.forClass(PersonAuditEvent.class);
+        verify(repository, times(2)).save(saved.capture());
+        PersonAuditEvent failure = saved.getAllValues().get(1);
+        assertThat(failure.getOutcome()).isEqualTo(AuditOutcome.FAILURE);
+        assertThat(failure.getFailureReason()).isEqualTo(PersonAuditService.ROLLED_BACK_AFTER_SUCCESS);
+        assertThat(failure.getPersonId()).isEqualTo(personId);
+        assertThat(failure.getActor()).isEqualTo("teller-7");
+        assertThat(failure.getClientAddress()).isEqualTo("10.0.0.11");
+    }
+
+    @Test
+    void commitAfterSuccessRecordsNothingMore() {
+        TransactionSynchronizationManager.initSynchronization();
+
+        auditService.recordSuccess(AuditOperation.DELETE, UUID.randomUUID(), Collections.singletonList("email"));
+        for (TransactionSynchronization sync : TransactionSynchronizationManager.getSynchronizations()) {
+            sync.afterCommit();
+            sync.afterCompletion(TransactionSynchronization.STATUS_COMMITTED);
+        }
+
+        verify(repository, times(1)).save(any(PersonAuditEvent.class));
     }
 }

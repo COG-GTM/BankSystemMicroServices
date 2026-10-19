@@ -2,6 +2,7 @@ package ru.kondrashov.personservice.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.kondrashov.personservice.audit.AuditOperation;
 import ru.kondrashov.personservice.audit.PersonAuditService;
 import ru.kondrashov.personservice.entities.Person;
@@ -40,6 +41,7 @@ public class PeopleServiceImpl implements PeopleService{
                 orElseThrow( () -> new PersonNotFoundException("Person with id = "+id+" not found"));
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void save(Person person){
         List<String> providedFields = providedFields(person);
         Person saved;
@@ -52,6 +54,7 @@ public class PeopleServiceImpl implements PeopleService{
         auditService.recordSuccess(AuditOperation.CREATE, saved.getId(), providedFields);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void update(UUID id, Person changedPerson) {
         List<String> changedFields = Collections.emptyList();
         try {
@@ -71,6 +74,7 @@ public class PeopleServiceImpl implements PeopleService{
         auditService.recordSuccess(AuditOperation.UPDATE, id, changedFields);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void delete(UUID id){
         try {
             peopleRepository.delete(get(id));

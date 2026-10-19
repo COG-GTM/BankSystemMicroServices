@@ -9,20 +9,25 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.kondrashov.personservice.audit.AuditActorResolver;
 import ru.kondrashov.personservice.audit.AuditOperation;
 import ru.kondrashov.personservice.audit.AuditOutcome;
 import ru.kondrashov.personservice.audit.PersonAuditEvent;
 import ru.kondrashov.personservice.audit.PersonAuditRepository;
+import ru.kondrashov.personservice.audit.PersonAuditService;
 import ru.kondrashov.personservice.controllers.dto.PersonRequestDTO;
 import ru.kondrashov.personservice.entities.Person;
 import ru.kondrashov.personservice.repositories.PeopleRepository;
+import ru.kondrashov.personservice.services.PeopleService;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -45,6 +50,12 @@ public class PersonAuditIntegrationTest {
 
     @Autowired
     private PersonAuditRepository auditRepository;
+
+    @Autowired
+    private PeopleService peopleService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @Test
     void createUpdateDeleteLeaveAttributableAuditTrail() throws Exception {
@@ -105,5 +116,29 @@ public class PersonAuditIntegrationTest {
         assertThat(events.get(0).getActor()).isEqualTo("clerk-4");
         assertThat(events.get(0).getOutcome()).isEqualTo(AuditOutcome.FAILURE);
         assertThat(events.get(0).getFailureReason()).isEqualTo("PersonNotFoundException");
+    }
+
+    @Test
+    void rollbackAfterSuccessfulCreateReplacesSuccessWithFailure() {
+        Person person = new Person();
+        person.setFirstName("Grace");
+        person.setLastName("Hopper");
+        person.setBirthdate(LocalDate.of(1906, 12, 9));
+        person.setEmail("audit-" + UUID.randomUUID() + "@mail.com");
+        UUID[] id = new UUID[1];
+
+        assertThatThrownBy(() -> new TransactionTemplate(transactionManager).execute(tx -> {
+            peopleService.save(person);
+            id[0] = person.getId();
+            throw new IllegalStateException("commit-time failure");
+        })).isInstanceOf(IllegalStateException.class);
+
+        assertThat(peopleRepository.getPersonById(id[0])).isEmpty();
+        List<PersonAuditEvent> events = auditRepository.findByPersonIdOrderByOccurredAtAsc(id[0]);
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).getOperation()).isEqualTo(AuditOperation.CREATE);
+        assertThat(events.get(0).getOutcome()).isEqualTo(AuditOutcome.FAILURE);
+        assertThat(events.get(0).getFailureReason()).isEqualTo(PersonAuditService.ROLLED_BACK_AFTER_SUCCESS);
+        assertThat(events.get(0).getActor()).isEqualTo(AuditActorResolver.ANONYMOUS);
     }
 }
