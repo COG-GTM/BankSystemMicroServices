@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.Logger;
 import org.javamoney.moneta.spi.MoneyUtils;
 import org.springframework.stereotype.Service;
+import ru.kondrashov.accountservice.exceptions.InvalidAmountException;
 import ru.kondrashov.accountservice.services.interfaces.FinancialCurrencyExchange;
 
 import javax.money.CurrencyUnit;
@@ -24,6 +25,8 @@ public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange 
     @Override
     public BigDecimal exchange(Currency originalCurrency, Currency targetCurrency, BigDecimal amount) {
 
+        requireMinorUnitPrecision(amount, originalCurrency);
+
         BigDecimal converted = originalCurrency.equals(targetCurrency)
                 ? amount
                 : convert(originalCurrency, targetCurrency, amount);
@@ -42,6 +45,14 @@ public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange 
         CurrencyConversion toTargetCurrency = MonetaryConversions.getConversion(targetCurrencyUnit);
 
         return MoneyUtils.getBigDecimal(originalMonetaryAmount.with(toTargetCurrency).getNumber());
+    }
+
+    static void requireMinorUnitPrecision(BigDecimal amount, Currency currency) {
+        int fractionDigits = currency.getDefaultFractionDigits();
+        if (fractionDigits >= 0 && amount.stripTrailingZeros().scale() > fractionDigits) {
+            throw new InvalidAmountException("Amount " + amount.toPlainString() + " has more than " + fractionDigits
+                    + " fraction digits allowed for " + currency.getCurrencyCode());
+        }
     }
 
     static BigDecimal roundToMinorUnits(BigDecimal amount, Currency currency) {

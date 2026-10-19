@@ -2,12 +2,14 @@ package ru.kondrashov.accountservice.services;
 
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.Test;
+import ru.kondrashov.accountservice.exceptions.InvalidAmountException;
 
 import java.math.BigDecimal;
 import java.util.Currency;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class JavaMonetaApiCurrencyExchangeTest {
 
@@ -52,11 +54,21 @@ class JavaMonetaApiCurrencyExchangeTest {
     }
 
     @Test
-    void sameCurrencyRoundsSubMinorUnitsHalfEven() {
+    void amountFinerThanSourceMinorUnitsIsRejected() {
         StubRateExchange exchange = new StubRateExchange(BigDecimal.ONE);
 
-        assertEquals(new BigDecimal("10.00"), exchange.exchange(USD, USD, new BigDecimal("10.005")));
-        assertEquals(new BigDecimal("10.02"), exchange.exchange(USD, USD, new BigDecimal("10.015")));
+        assertThrows(InvalidAmountException.class, () -> exchange.exchange(USD, USD, new BigDecimal("0.004")));
+        assertThrows(InvalidAmountException.class, () -> exchange.exchange(USD, USD, new BigDecimal("10.005")));
+        assertThrows(InvalidAmountException.class, () -> exchange.exchange(JPY, USD, new BigDecimal("100.5")));
+        assertFalse(exchange.convertCalled);
+    }
+
+    @Test
+    void trailingZerosAndSourceMinorUnitsAreAccepted() {
+        StubRateExchange exchange = new StubRateExchange(BigDecimal.ONE);
+
+        assertEquals(new BigDecimal("10.01"), exchange.exchange(USD, USD, new BigDecimal("10.0100")));
+        assertEquals(new BigDecimal("0.001"), exchange.exchange(BHD, BHD, new BigDecimal("0.001")));
     }
 
     @Test

@@ -26,6 +26,7 @@ public class Bill {
     @NotNull
     private Currency currency;
 
+    @Column(precision = 19, scale = 4)
     private BigDecimal amount = BigDecimal.ZERO;
 
     @NotNull
