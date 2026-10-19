@@ -57,12 +57,26 @@ public class BillControllerIntegrationTest {
     private JavaMonetaApiCurrencyExchange currencyExchange;
 
     void init(Currency currency, BigDecimal amount, boolean over, Account account) throws Exception {
-        BillRequestDTO billRequestDTO = new BillRequestDTO(currency, amount , over, account);
+        BillRequestDTO billRequestDTO = new BillRequestDTO(currency, over);
 
         mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills",account.getPersonId(), account.getId())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(billRequestDTO)))
                 .andExpect(status().isCreated());
+
+        // Test fixture: seed the opening balance directly so the assertions below only see the transaction under test.
+        Bill created = billsRepository.getBillsByAccount_Id(account.getId())
+                .stream()
+                .filter(bill -> bill.getCurrency().equals(currency) && bill.getIsOverdraft().equals(over) && bill.getAmount().signum() == 0)
+                .findFirst().get();
+        created.setAmount(amount);
+        billsRepository.save(created);
+    }
+
+    Account initOtherAccount(){
+        Account account = new Account("other", LocalDate.now(), UUID.randomUUID());
+        accountsService.save(account);
+        return accountsService.getAccountsByPersonId(account.getPersonId()).stream().findFirst().get();
     }
 
     Account initAccount(){
@@ -94,22 +108,60 @@ public class BillControllerIntegrationTest {
     }
 
     @Test
+    void save_rejectsClientSuppliedBalance() throws Exception {
+        Account account = initAccount();
+        String request = "{\"currency\": \"USD\", \"isOverdraft\": false, \"amount\": 1000000}";
+
+        mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills", account.getPersonId(), account.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(request))
+                .andExpect(status().isBadRequest());
+
+        assertThat(billsRepository.getBillsByAccount_Id(account.getId())).isEmpty();
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void save_createsZeroBalanceBillOnPathAccount() throws Exception {
+        Account account = initAccount();
+
+        mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills", account.getPersonId(), account.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new BillRequestDTO(Currency.getInstance("USD"), false))))
+                .andExpect(status().isCreated());
+
+        Bill bill = billsRepository.getBillsByAccount_Id(account.getId()).stream().findFirst().get();
+        assertThat(bill.getAmount().signum()).isEqualTo(0);
+        assertThat(bill.getAccount().getId()).isEqualTo(account.getId());
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void save_rejectsAccountOfAnotherPerson() throws Exception {
+        Account account = initAccount();
+
+        mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills", UUID.randomUUID(), account.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new BillRequestDTO(Currency.getInstance("USD"), false))))
+                .andExpect(status().isNotFound());
+
+        assertThat(billsRepository.getBillsByAccount_Id(account.getId())).isEmpty();
+        accountsService.delete(account.getId());
+    }
+
+    @Test
     void update() throws Exception {
         Currency currency = Currency.getInstance("USD");
-        BigDecimal amount = new BigDecimal(10,new MathContext(256, RoundingMode.HALF_EVEN));
+        BigDecimal amount = BigDecimal.ZERO;
         boolean overdraft = true;
         Account account = initAccount();
         init(currency, amount, overdraft, account);
 
-        Bill bill = billsRepository.
-                getBillsByAccount_Id(account.getId())
-                .stream()
-                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
-                .findFirst().get();
+        Bill bill = billsRepository.getBillsByAccount_Id(account.getId()).stream().findFirst().get();
 
         Currency newCurrency = Currency.getInstance("RUB");
         boolean newOverdraft = false;
-        BillRequestDTO billRequestDTO = new BillRequestDTO(newCurrency, amount , newOverdraft, account);
+        BillRequestDTO billRequestDTO = new BillRequestDTO(newCurrency, newOverdraft);
 
         mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -117,11 +169,79 @@ public class BillControllerIntegrationTest {
                 .andExpect(status().isAccepted());
 
         Bill newBill = billsRepository.getBillById(bill.getId()).get();
-        BigDecimal newAmount = currencyExchange.exchange(currency,newCurrency,amount);
 
         assertThat(newBill.getIsOverdraft()).isEqualTo(newOverdraft);
         assertThat(newBill.getCurrency()).isEqualTo(newCurrency);
-        assertThat(newBill.getAmount().compareTo(newAmount)).isEqualTo(0);
+        assertThat(newBill.getAmount().signum()).isEqualTo(0);
+        assertThat(newBill.getAccount()).isEqualTo(account);
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void update_rejectsBalanceAccountAndCurrencyChangesOutsideLedger() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        BigDecimal amount = new BigDecimal(10,new MathContext(256, RoundingMode.HALF_EVEN));
+        Account account = initAccount();
+        Account otherAccount = initOtherAccount();
+        init(currency, amount, true, account);
+
+        Bill bill = billsRepository.getBillsByAccount_Id(account.getId()).stream().findFirst().get();
+        String url = "/v1/people/{personId}/accounts/{accountId}/bills/{id}";
+
+        mockMvc.perform(put(url, account.getPersonId(), account.getId(), bill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"currency\": \"USD\", \"isOverdraft\": true, \"amount\": 1000000}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(put(url, account.getPersonId(), account.getId(), bill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"currency\": \"USD\", \"isOverdraft\": true, \"account\": {\"id\": \"" + otherAccount.getId() + "\"}}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(put(url, otherAccount.getPersonId(), otherAccount.getId(), bill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new BillRequestDTO(currency, true))))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(put(url, account.getPersonId(), account.getId(), bill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new BillRequestDTO(Currency.getInstance("RUB"), true))))
+                .andExpect(status().isConflict());
+
+        Bill unchanged = billsRepository.getBillById(bill.getId()).get();
+        assertThat(unchanged.getAmount().compareTo(amount)).isEqualTo(0);
+        assertThat(unchanged.getCurrency()).isEqualTo(currency);
+        assertThat(unchanged.getAccount()).isEqualTo(account);
+
+        accountsService.delete(account.getId());
+        accountsService.delete(otherAccount.getId());
+    }
+
+    @Test
+    void commitAdjustment_ignoresClientSuppliedBillState() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        init(currency, BigDecimal.ZERO, false, account);
+
+        Bill bill = billsRepository.getBillsByAccount_Id(account.getId()).stream().findFirst().get();
+        Bill tampered = new Bill();
+        tampered.setId(bill.getId());
+        tampered.setCurrency(currency);
+        tampered.setIsOverdraft(true);
+        tampered.setAmount(new BigDecimal(1000000));
+        tampered.setAccount(account);
+
+        AdjustmentRequestDTO requestDTO = new AdjustmentRequestDTO(currency, BigDecimal.TEN, LocalDateTime.now(), "Opening balance", tampered);
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments", account.getPersonId(), account.getId(), bill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isAccepted());
+
+        Bill updated = billsRepository.getBillById(bill.getId()).get();
+        assertThat(updated.getAmount().compareTo(BigDecimal.TEN)).isEqualTo(0);
+        assertThat(updated.getIsOverdraft()).isFalse();
+        assertThat(billsService.getAdjustmentsByBillId(bill.getId())).hasSize(1);
         accountsService.delete(account.getId());
     }
 

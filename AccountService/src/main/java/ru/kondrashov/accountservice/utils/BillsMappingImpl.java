@@ -11,8 +11,10 @@ public class BillsMappingImpl implements BillsMapping {
 
     @Override
     public Bill mapToBill(BillRequestDTO billRequestDTO) {
-
-        return new Bill(billRequestDTO.getCurrency(),billRequestDTO.getAmount(),billRequestDTO.getIsOverdraft(),billRequestDTO.getAccount());
+        Bill bill = new Bill();
+        bill.setCurrency(billRequestDTO.getCurrency());
+        bill.setIsOverdraft(billRequestDTO.getIsOverdraft());
+        return bill;
     }
 
     @Override

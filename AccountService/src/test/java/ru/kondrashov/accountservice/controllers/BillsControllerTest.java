@@ -9,19 +9,24 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.kondrashov.accountservice.controllers.dto.BillRequestDTO;
-import ru.kondrashov.accountservice.entities.Account;
+import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.services.interfaces.BillsService;
 import ru.kondrashov.accountservice.utils.interfaces.AdjustmentMapping;
 import ru.kondrashov.accountservice.utils.interfaces.BillsMapping;
 import ru.kondrashov.accountservice.utils.interfaces.PaymentsMapping;
 import ru.kondrashov.accountservice.utils.interfaces.TransferMapping;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.Currency;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(SpringExtension.class)
@@ -52,7 +57,7 @@ class BillsControllerTest {
     @Test
     void whenValidUrlAndMethodAndContentType_thenReturns201() throws Exception {
 
-        BillRequestDTO bill = new BillRequestDTO(Currency.getInstance("USD"), BigDecimal.TEN, false, new Account("name", LocalDate.now(), UUID.randomUUID()));
+        BillRequestDTO bill = new BillRequestDTO(Currency.getInstance("USD"), false);
 
         mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills", UUID.randomUUID(), UUID.randomUUID() )
                 .content(objectMapper.writeValueAsString(bill))
@@ -63,7 +68,7 @@ class BillsControllerTest {
     @Test
     void whenNullValue_thenReturns400() throws Exception {
 
-        BillRequestDTO bill = new BillRequestDTO(null, BigDecimal.TEN, false, new Account("name", LocalDate.now(), UUID.randomUUID()));
+        BillRequestDTO bill = new BillRequestDTO(null, false);
 
         mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills", UUID.randomUUID(), UUID.randomUUID())
                 .contentType("application/json")
@@ -75,13 +80,6 @@ class BillsControllerTest {
     void whenIncorrectValue_thenReturns400() throws Exception {
 
         String request = "{\n" +
-                "  \"account\": {\n" +
-                "    \"creationDate\": \"2021-04-23\",\n" +
-                "    \"id\": \""+UUID.randomUUID()+"\",\n" +
-                "    \"name\": \"string\",\n" +
-                "    \"personId\": \""+UUID.randomUUID()+"\"\n" +
-                "  },\n" +
-                "  \"amount\": 0,\n" +
                 "  \"currency\": \"string\",\n" +
                 "  \"isOverdraft\": true\n" +
                 "}";
@@ -90,6 +88,81 @@ class BillsControllerTest {
                 .contentType("application/json")
                 .content(request))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void whenCreateRequestSetsAmount_thenReturns400AndNothingIsSaved() throws Exception {
+
+        String request = "{\"currency\": \"USD\", \"isOverdraft\": false, \"amount\": 1000000}";
+
+        mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills", UUID.randomUUID(), UUID.randomUUID())
+                .contentType("application/json")
+                .content(request))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(billsService);
+    }
+
+    @Test
+    void whenCreateRequestSetsAccount_thenReturns400AndNothingIsSaved() throws Exception {
+
+        String request = "{\"currency\": \"USD\", \"isOverdraft\": false, \"account\": {\"id\": \"" + UUID.randomUUID() + "\"}}";
+
+        mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills", UUID.randomUUID(), UUID.randomUUID())
+                .contentType("application/json")
+                .content(request))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(billsService);
+    }
+
+    @Test
+    void whenUpdateRequestSetsAmountOrAccount_thenReturns400AndNothingIsUpdated() throws Exception {
+
+        String withAmount = "{\"currency\": \"USD\", \"isOverdraft\": false, \"amount\": 1000000}";
+        String withAccount = "{\"currency\": \"USD\", \"isOverdraft\": false, \"account\": {\"id\": \"" + UUID.randomUUID() + "\"}}";
+
+        for (String request : new String[]{withAmount, withAccount}) {
+            mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{id}", UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())
+                    .contentType("application/json")
+                    .content(request))
+                    .andExpect(status().isBadRequest());
+        }
+
+        verifyNoInteractions(billsService);
+    }
+
+    @Test
+    void whenValidCreate_thenAccountAndBalanceComeFromPathAndLedger() throws Exception {
+
+        UUID personId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        Bill mapped = new Bill();
+        when(billsMapping.mapToBill(any(BillRequestDTO.class))).thenReturn(mapped);
+
+        mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills", personId, accountId)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(new BillRequestDTO(Currency.getInstance("USD"), true))))
+                .andExpect(status().isCreated());
+
+        verify(billsService).save(eq(personId), eq(accountId), same(mapped));
+    }
+
+    @Test
+    void whenValidUpdate_thenBillIsScopedToPathAccount() throws Exception {
+
+        UUID personId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        UUID billId = UUID.randomUUID();
+        Bill mapped = new Bill();
+        when(billsMapping.mapToBill(any(BillRequestDTO.class))).thenReturn(mapped);
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{id}", personId, accountId, billId)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(new BillRequestDTO(Currency.getInstance("EUR"), false))))
+                .andExpect(status().isAccepted());
+
+        verify(billsService).update(eq(personId), eq(accountId), eq(billId), same(mapped));
     }
 
 }
