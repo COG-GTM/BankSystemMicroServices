@@ -1,12 +1,18 @@
 package ru.kondrashov.commonservice.config;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.web.client.RestTemplateAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
+
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -69,5 +75,34 @@ class ApplicationConfigTest {
     void failsFastOnUnreadableTrustStore() {
         runner.withPropertyValues("downstream.auth-token=tok", "downstream.trust-store=file:/does/not/exist.p12")
                 .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
+    void loadsTrustStoreFromPlainFilesystemPath(@TempDir Path dir) throws Exception {
+        Path trustStore = dir.resolve("trust.p12");
+        try (InputStream in = new ClassPathResource("downstream-truststore.p12").getInputStream()) {
+            Files.copy(in, trustStore);
+        }
+        runner.withPropertyValues("downstream.auth-token=tok",
+                        "downstream.trust-store=" + trustStore.toAbsolutePath(),
+                        "downstream.trust-store-password=changeit")
+                .run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
+    void loadsTrustStoreFromPrefixedLocations(@TempDir Path dir) throws Exception {
+        runner.withPropertyValues("downstream.auth-token=tok",
+                        "downstream.trust-store=classpath:downstream-truststore.p12",
+                        "downstream.trust-store-password=changeit")
+                .run(context -> assertThat(context).hasNotFailed());
+
+        Path trustStore = dir.resolve("trust.p12");
+        try (InputStream in = new ClassPathResource("downstream-truststore.p12").getInputStream()) {
+            Files.copy(in, trustStore);
+        }
+        runner.withPropertyValues("downstream.auth-token=tok",
+                        "downstream.trust-store=" + trustStore.toUri(),
+                        "downstream.trust-store-password=changeit")
+                .run(context -> assertThat(context).hasNotFailed());
     }
 }

@@ -7,7 +7,10 @@ import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.util.ResourceUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
@@ -94,10 +97,14 @@ public class ApplicationConfig {
     private static KeyStore loadKeyStore(ResourceLoader resourceLoader, String location, String type, String password)
             throws GeneralSecurityException, IOException {
         KeyStore keyStore = KeyStore.getInstance(type);
-        try (InputStream in = resourceLoader.getResource(location).getInputStream()) {
+        try (InputStream in = resolveStore(resourceLoader, location).getInputStream()) {
             keyStore.load(in, toChars(password));
         }
         return keyStore;
+    }
+
+    static Resource resolveStore(ResourceLoader resourceLoader, String location) {
+        return ResourceUtils.isUrl(location) ? resourceLoader.getResource(location) : new FileSystemResource(location);
     }
 
     private static char[] toChars(String password) {
