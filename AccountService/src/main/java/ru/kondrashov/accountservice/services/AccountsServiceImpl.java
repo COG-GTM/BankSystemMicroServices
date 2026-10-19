@@ -3,7 +3,6 @@ package ru.kondrashov.accountservice.services;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.kondrashov.accountservice.entities.Account;
-import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.entities.RetentionAuditRecord;
 import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.repositories.AccountsRepository;
@@ -62,10 +61,9 @@ public class AccountsServiceImpl implements AccountsService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void close(UUID id) {
-        Account account = getAccount(id);
-        for (Bill bill : billsService.getBillsByAccountId(id)) {
-            billsService.close(bill.getId());
-        }
+        Account account = accountsRepository.findLockedByIdAndClosedFalse(id)
+                .orElseThrow(() -> new AccountNotFoundException("Account with id = " + id + " not found."));
+        billsService.closeAllByAccountId(id);
         account.setClosed(true);
         account.setClosedAt(LocalDateTime.now());
         accountsRepository.save(account);

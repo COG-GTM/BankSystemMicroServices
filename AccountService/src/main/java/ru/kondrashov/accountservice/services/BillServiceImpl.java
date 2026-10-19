@@ -61,14 +61,29 @@ public class BillServiceImpl implements BillsService {
 
     private Account getOpenAccount(Account account) {
         UUID accountId = account == null ? null : account.getId();
-        return (accountId == null ? java.util.Optional.<Account>empty() : accountsRepository.getAccountsByIdAndClosedFalse(accountId))
+        return (accountId == null ? java.util.Optional.<Account>empty() : accountsRepository.findLockedByIdAndClosedFalse(accountId))
                 .orElseThrow(() -> new AccountNotFoundException("Account with id = " + accountId + " not found."));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void close(UUID id) {
-        Bill bill = getBillForUpdate(id);
+        close(getBillForUpdate(id));
+    }
+
+    // Caller must hold the account lock (AccountsServiceImpl.close); bills are locked in UUID order like commitTransfer.
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void closeAllByAccountId(UUID accountId) {
+        billsRepository.getBillsByAccount_IdAndClosedFalse(accountId).stream()
+                .map(Bill::getId)
+                .sorted()
+                .forEach(billId -> billsRepository.findLockedByIdAndClosedFalse(billId)
+                        .filter(bill -> bill.getAccount().getId().equals(accountId))
+                        .ifPresent(this::close));
+    }
+
+    private void close(Bill bill) {
         bill.setClosed(true);
         bill.setClosedAt(LocalDateTime.now());
         billsRepository.save(bill);
@@ -79,11 +94,12 @@ public class BillServiceImpl implements BillsService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(UUID id, Bill newBill) {
+        Account account = getOpenAccount(newBill.getAccount());
         Bill oldBill = getBillForUpdate(id);
         oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
         oldBill.setCurrency(newBill.getCurrency());
         oldBill.setIsOverdraft(newBill.getIsOverdraft());
-        oldBill.setAccount(getOpenAccount(newBill.getAccount()));
+        oldBill.setAccount(account);
         billsRepository.save(oldBill);
     }
 
