@@ -62,12 +62,14 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitAdjustment(UUID billId, Adjustment adjustment) {
 
         Bill bill = getBill(billId);
 
-       increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
+        increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
 
+        adjustment.setBill(bill);
         adjustmentsService.save(adjustment);
     }
 
@@ -79,11 +81,13 @@ public class BillServiceImpl implements BillsService {
 
         decreaseBillsAmount(bill,currencyConversion.exchange(payment.getCurrency(),bill.getCurrency(),payment.getAmount()));
 
+        payment.setBill(bill);
         paymentsService.save(payment);
     }
 
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
 
         Bill sourceBill = getBill(sourceBillId);
@@ -92,6 +96,8 @@ public class BillServiceImpl implements BillsService {
         decreaseBillsAmount(sourceBill, currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount()));
         increaseBillsAmount(beneficiaryBill, currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount()));
 
+        transfer.setSourceBill(sourceBill);
+        transfer.setBeneficiaryBill(beneficiaryBill);
         transferService.save(transfer);
     }
 

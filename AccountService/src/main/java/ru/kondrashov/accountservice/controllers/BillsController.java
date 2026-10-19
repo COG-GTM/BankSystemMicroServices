@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import ru.kondrashov.accountservice.controllers.dto.*;
+import ru.kondrashov.accountservice.entities.Bill;
+import ru.kondrashov.accountservice.exceptions.BillMismatchException;
 import ru.kondrashov.accountservice.services.interfaces.BillsService;
 import ru.kondrashov.accountservice.utils.interfaces.AdjustmentMapping;
 import ru.kondrashov.accountservice.utils.interfaces.BillsMapping;
@@ -101,6 +103,7 @@ public class BillsController {
                               @ApiParam("Payment to commit. Cannot null or empty.") @RequestBody @Valid PaymentRequestDTO paymentRequestDTO,
                               @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
+        requireMatchingBill("bill", billId, paymentRequestDTO.getBill());
         billsService.commitPayment(billId,paymentsMapping.mapToPayment(paymentRequestDTO));
     }
 
@@ -113,6 +116,7 @@ public class BillsController {
                                  @ApiParam("Adjustment to commit. Cannot null or empty.") @RequestBody @Valid AdjustmentRequestDTO adjustmentRequestDTO,
                                  @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
+        requireMatchingBill("bill", billId, adjustmentRequestDTO.getBill());
         billsService.commitAdjustment(billId,adjustmentMapping.mapToAdjustment(adjustmentRequestDTO));
     }
 
@@ -126,6 +130,8 @@ public class BillsController {
                                @ApiParam("Transfer to commit. Cannot null or empty.") @RequestBody @Valid TransferRequestDTO transferRequestDTO,
                                @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
+        requireMatchingBill("sourceBill", sourceId, transferRequestDTO.getSourceBill());
+        requireMatchingBill("beneficiaryBill", beneficiaryBillId, transferRequestDTO.getBeneficiaryBill());
         billsService.commitTransfer(sourceId,beneficiaryBillId,transferMapping.mapToTransfer(transferRequestDTO));
     }
 
@@ -165,6 +171,12 @@ public class BillsController {
         financialTransactionResponseDTOS.addAll(setAmountNegative(billsService.getTransfersBySourceBillId(billId).stream().map(transferMapping::mapToFinancialTransactionResponseDTO).collect(Collectors.toList())));
 
         return financialTransactionResponseDTOS;
+    }
+
+    private void requireMatchingBill(String field, UUID pathBillId, Bill bodyBill){
+        if(bodyBill != null && bodyBill.getId() != null && !bodyBill.getId().equals(pathBillId)){
+            throw new BillMismatchException("Request body " + field + " id = " + bodyBill.getId() + " does not match path bill id = " + pathBillId + ".");
+        }
     }
 
     private Collection<FinancialTransactionResponseDTO> setAmountNegative(Collection<FinancialTransactionResponseDTO> financialTransactionResponseDTOS){

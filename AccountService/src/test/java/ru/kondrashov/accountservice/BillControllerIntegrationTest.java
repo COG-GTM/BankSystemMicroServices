@@ -24,6 +24,8 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Currency;
 import java.util.List;
 import java.util.UUID;
@@ -222,6 +224,63 @@ public class BillControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(requestDTO)))
                 .andExpect(status().isBadRequest());
 
+    }
+
+
+    @Test
+    void commitPayment_withMismatchedBodyBill_isRejectedAndNoBalanceChanges() throws Exception {
+
+        BigDecimal amount = new BigDecimal(10,new MathContext(256, RoundingMode.HALF_EVEN));
+        BigDecimal paymentAmount = new BigDecimal(5,new MathContext(256, RoundingMode.HALF_EVEN));
+        Account account = initAccount();
+        init(Currency.getInstance("USD"),amount,true,account);
+        init(Currency.getInstance("EUR"),amount,true,account);
+
+        Collection<Bill> bills = billsRepository.getBillsByAccount_Id(account.getId());
+        Bill debitedBill = bills.stream().filter(b -> b.getCurrency().equals(Currency.getInstance("USD"))).findFirst().get();
+        Bill otherBill = bills.stream().filter(b -> b.getCurrency().equals(Currency.getInstance("EUR"))).findFirst().get();
+
+        PaymentRequestDTO requestDTO = new PaymentRequestDTO(Currency.getInstance("USD"), paymentAmount, LocalDateTime.now(),"Payment", otherBill);
+
+        mockMvc.perform(
+                put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments",account.getPersonId(), account.getId(), debitedBill.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isBadRequest());
+
+        assertThat(billsRepository.getBillById(debitedBill.getId()).get().getAmount().compareTo(amount)).isEqualTo(0);
+        assertThat(billsRepository.getBillById(otherBill.getId()).get().getAmount().compareTo(amount)).isEqualTo(0);
+        assertThat(billsService.getPaymentsByBillId(debitedBill.getId())).isEmpty();
+        assertThat(billsService.getPaymentsByBillId(otherBill.getId())).isEmpty();
+
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void commitPayment_withoutBodyBill_isRecordedAgainstPathBill() throws Exception {
+
+        Currency currency = Currency.getInstance("USD");
+        BigDecimal amount = new BigDecimal(10,new MathContext(256, RoundingMode.HALF_EVEN));
+        BigDecimal paymentAmount = new BigDecimal(5,new MathContext(256, RoundingMode.HALF_EVEN));
+        Account account = initAccount();
+        init(currency,amount,true,account);
+
+        Bill bill = billsRepository.getBillsByAccount_Id(account.getId()).stream().findFirst().get();
+
+        PaymentRequestDTO requestDTO = new PaymentRequestDTO(currency, paymentAmount, LocalDateTime.now(),"Payment", null);
+
+        mockMvc.perform(
+                put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments",account.getPersonId(), account.getId(), bill.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isAccepted());
+
+        List<Payment> payments = new ArrayList<>(billsService.getPaymentsByBillId(bill.getId()));
+        assertThat(payments).hasSize(1);
+        assertThat(payments.get(0).getBill().getId()).isEqualTo(bill.getId());
+        assertThat(billsRepository.getBillById(bill.getId()).get().getAmount().compareTo(amount.subtract(paymentAmount))).isEqualTo(0);
+
+        accountsService.delete(account.getId());
     }
 
 
