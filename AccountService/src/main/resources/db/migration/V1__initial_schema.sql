@@ -1,6 +1,6 @@
 CREATE TABLE public.accounts (
     id            UUID         NOT NULL,
-    name          VARCHAR(255),
+    name          VARCHAR(255) NOT NULL,
     creation_date DATE         NOT NULL,
     person_id     UUID         NOT NULL,
     CONSTRAINT accounts_pkey PRIMARY KEY (id)
