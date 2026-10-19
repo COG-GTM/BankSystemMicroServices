@@ -2,8 +2,6 @@ package ru.kondrashov.accountservice.entities;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
@@ -33,7 +31,6 @@ public class Bill {
 
     @ManyToOne(cascade = CascadeType.MERGE, fetch = FetchType.EAGER)
     @JoinColumn(name = "account_id")
-    @OnDelete(action = OnDeleteAction.CASCADE)
     @NotNull
     private Account account;
 

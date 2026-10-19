@@ -22,4 +22,7 @@ public class AccountResponseDTO {
     private LocalDate creationDate;
 
     private UUID personId;
+
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    private LocalDate closedDate;
 }

@@ -14,6 +14,10 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import ru.kondrashov.accountservice.controllers.dto.*;
 import ru.kondrashov.accountservice.entities.*;
+import ru.kondrashov.accountservice.repositories.AccountsRepository;
+import ru.kondrashov.accountservice.repositories.AdjustmentsRepository;
+import ru.kondrashov.accountservice.repositories.PaymentsRepository;
+import ru.kondrashov.accountservice.repositories.TransferRepository;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.JavaMonetaApiCurrencyExchange;
 import ru.kondrashov.accountservice.services.interfaces.AccountsService;
@@ -48,6 +52,18 @@ public class BillControllerIntegrationTest {
     private BillsRepository billsRepository;
 
     @Autowired
+    private AccountsRepository accountsRepository;
+
+    @Autowired
+    private PaymentsRepository paymentsRepository;
+
+    @Autowired
+    private AdjustmentsRepository adjustmentsRepository;
+
+    @Autowired
+    private TransferRepository transferRepository;
+
+    @Autowired
     private AccountsService accountsService;
 
     @Autowired
@@ -63,6 +79,17 @@ public class BillControllerIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(billRequestDTO)))
                 .andExpect(status().isCreated());
+    }
+
+    void purge(Account account) {
+        for (Bill bill : billsRepository.getBillsByAccount_Id(account.getId())) {
+            transferRepository.deleteAll(transferRepository.getTransfersBySourceBill_Id(bill.getId()));
+            transferRepository.deleteAll(transferRepository.getTransfersByBeneficiaryBill_Id(bill.getId()));
+            paymentsRepository.deleteAll(paymentsRepository.getPaymentsByBill_Id(bill.getId()));
+            adjustmentsRepository.deleteAll(adjustmentsRepository.getAdjustmentsByBill_Id(bill.getId()));
+            billsRepository.delete(bill);
+        }
+        accountsRepository.deleteById(account.getId());
     }
 
     Account initAccount(){
@@ -90,7 +117,7 @@ public class BillControllerIntegrationTest {
 
         assertThat(bill).isNotNull();
 
-        accountsService.delete(account.getId());
+        purge(account);
     }
 
     @Test
@@ -122,28 +149,79 @@ public class BillControllerIntegrationTest {
         assertThat(newBill.getIsOverdraft()).isEqualTo(newOverdraft);
         assertThat(newBill.getCurrency()).isEqualTo(newCurrency);
         assertThat(newBill.getAmount().compareTo(newAmount)).isEqualTo(0);
-        accountsService.delete(account.getId());
+        purge(account);
     }
 
     @Test
     void delete() throws Exception {
         Currency currency = Currency.getInstance("USD");
-        BigDecimal amount = new BigDecimal(10,new MathContext(256, RoundingMode.HALF_EVEN));
+        BigDecimal amount = BigDecimal.ZERO;
         boolean overdraft = true;
         Account account = initAccount();
         init(currency,amount,overdraft,account);
 
-        Bill bill = billsRepository.
-                getBillsByAccount_Id(account.getId())
-                .stream()
-                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
-                .findFirst().get();
+        Bill bill = billsRepository.getBillsByAccount_Id(account.getId()).stream().findFirst().get();
 
         mockMvc.perform(MockMvcRequestBuilders
                 .delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId()))
                 .andExpect(status().isNoContent());
 
         assertThat(billsRepository.getBillById(bill.getId()).isPresent()).isFalse();
+        purge(account);
+    }
+
+    @Test
+    void deleteRejectsBillWithBalanceOrTransactions() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        init(currency, new BigDecimal(10), true, account);
+        Bill bill = billsRepository.getBillsByAccount_Id(account.getId()).stream().findFirst().get();
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId()))
+                .andExpect(status().isConflict());
+
+        billsService.commitPayment(bill.getId(), new Payment(currency, new BigDecimal(10), LocalDateTime.now(), "withdraw", bill));
+        assertThat(billsRepository.getBillById(bill.getId()).get().getAmount().signum()).isZero();
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId()))
+                .andExpect(status().isConflict());
+
+        assertThat(billsRepository.getBillById(bill.getId())).isPresent();
+        assertThat(paymentsRepository.getPaymentsByBill_Id(bill.getId())).hasSize(1);
+        purge(account);
+    }
+
+    @Test
+    void closeAccountRequiresZeroBalanceAndRetainsLedger() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        init(currency, new BigDecimal(10), true, account);
+        Bill bill = billsRepository.getBillsByAccount_Id(account.getId()).stream().findFirst().get();
+
+        mockMvc.perform(post("/v1/people/{personId}/accounts/{id}/closure", account.getPersonId(), account.getId()))
+                .andExpect(status().isConflict());
+        assertThat(accountsRepository.getAccountsById(account.getId()).get().isClosed()).isFalse();
+
+        billsService.commitPayment(bill.getId(), new Payment(currency, new BigDecimal(10), LocalDateTime.now(), "withdraw", bill));
+
+        mockMvc.perform(post("/v1/people/{personId}/accounts/{id}/closure", account.getPersonId(), account.getId()))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(post("/v1/people/{personId}/accounts/{id}/closure", account.getPersonId(), account.getId()))
+                .andExpect(status().isNoContent());
+
+        assertThat(accountsRepository.getAccountsById(account.getId()).get().isClosed()).isTrue();
+        assertThat(billsRepository.getBillById(bill.getId())).isPresent();
+        assertThat(paymentsRepository.getPaymentsByBill_Id(bill.getId())).hasSize(1);
+        assertThat(accountsService.getAccountsByPersonId(account.getPersonId())).isEmpty();
+
+        AdjustmentRequestDTO adjustmentOnClosedAccount = new AdjustmentRequestDTO(currency, new BigDecimal(5), LocalDateTime.now(), "Adjustment", bill);
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments", account.getPersonId(), account.getId(), bill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(adjustmentOnClosedAccount)))
+                .andExpect(status().isConflict());
+        purge(account);
     }
 
     @Test
@@ -194,7 +272,7 @@ public class BillControllerIntegrationTest {
         assertThat(financialTransaction.getAmount().compareTo(paymentAmount.negate())).isEqualTo(0);
         assertThat(financialTransaction.getMessage()).isEqualToIgnoringCase("Payment for order #1");
 
-        accountsService.delete(account.getId());
+        purge(account);
     }
 
     @Test
@@ -273,7 +351,7 @@ public class BillControllerIntegrationTest {
         assertThat(financialTransaction.getCurrency()).isEqualTo(currency);
         assertThat(financialTransaction.getAmount().compareTo(adjustmentAmount)).isEqualTo(0);
         assertThat(financialTransaction.getMessage()).isEqualToIgnoringCase("Adjustment");
-        accountsService.delete(account.getId());
+        purge(account);
     }
 
     @Test
@@ -366,6 +444,6 @@ public class BillControllerIntegrationTest {
         assertThat(targetTransfer.getSourceBill()).isEqualTo(newSourceBill);
         assertThat(targetTransfer.getBeneficiaryBill()).isEqualTo(newTargetBill);
 
-        accountsService.delete(account.getId());
+        purge(account);
     }
 }

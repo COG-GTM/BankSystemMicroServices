@@ -1,6 +1,7 @@
 package ru.kondrashov.personservice.services;
 
 import org.springframework.stereotype.Service;
+import ru.kondrashov.personservice.entities.ErasureAuditEvent;
 import ru.kondrashov.personservice.entities.Person;
 
 import java.util.List;
@@ -12,5 +13,9 @@ public interface PeopleService {
     Person get(UUID id);
     void save(Person person);
     void update(UUID id, Person person);
-    void delete(UUID id);
+    Person erase(UUID id, String actor);
+
+    ErasureAuditEvent recordErasureEvent(UUID personId, String actor, ErasureAuditEvent.Outcome outcome, String detail);
+
+    List<ErasureAuditEvent> getErasureEvents(UUID personId);
 }

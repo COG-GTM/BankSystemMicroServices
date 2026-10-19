@@ -11,6 +11,8 @@ public interface AccountsRepository extends JpaRepository<Account, UUID> {
 
     Collection<Account> getAccountsByPersonId(UUID personId);
 
+    Collection<Account> getAccountsByPersonIdAndClosedDateIsNull(UUID personId);
+
     Optional<Account> getAccountsById(UUID id);
 }
 

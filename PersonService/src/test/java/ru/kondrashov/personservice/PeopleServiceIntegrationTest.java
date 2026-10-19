@@ -76,7 +76,7 @@ public class PeopleServiceIntegrationTest {
         assertThat(person.getLastName()).isEqualToIgnoringCase(lastName);
         assertThat(person.getPhoneNumber()).isEqualToIgnoringCase(phoneNumber);
 
-        peopleService.delete(person.getId());
+        peopleRepository.delete(person);
     }
 
     @Test
@@ -110,7 +110,7 @@ public class PeopleServiceIntegrationTest {
         assertThat(person.getLastName()).isEqualToIgnoringCase(lastName);
         assertThat(person.getPhoneNumber()).isEqualToIgnoringCase(phoneNumber);
 
-        peopleService.delete(person.getId());
+        peopleRepository.delete(person);
     }
 
     @Test
@@ -122,5 +122,12 @@ public class PeopleServiceIntegrationTest {
                 MockMvcRequestBuilders.delete("/v1/people/{id}", person.getId())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNoContent());
+
+        Person erased = peopleRepository.getPersonById(person.getId()).get();
+        assertThat(erased.isErased()).isTrue();
+        assertThat(erased.getEmail()).doesNotContain("miketyson");
+        assertThat(peopleService.getAll()).extracting(Person::getId).doesNotContain(person.getId());
+
+        peopleRepository.delete(erased);
     }
 }

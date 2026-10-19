@@ -3,12 +3,19 @@ package ru.kondrashov.accountservice.services;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.kondrashov.accountservice.entities.Account;
 import ru.kondrashov.accountservice.entities.Adjustment;
 import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.entities.Payment;
 import ru.kondrashov.accountservice.entities.Transfer;
+import ru.kondrashov.accountservice.exceptions.AccountClosedException;
+import ru.kondrashov.accountservice.exceptions.BillNotDeletableException;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
+import ru.kondrashov.accountservice.repositories.AccountsRepository;
+import ru.kondrashov.accountservice.repositories.AdjustmentsRepository;
+import ru.kondrashov.accountservice.repositories.PaymentsRepository;
+import ru.kondrashov.accountservice.repositories.TransferRepository;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.interfaces.*;
 
@@ -21,6 +28,10 @@ import java.util.UUID;
 public class BillServiceImpl implements BillsService {
 
     private final BillsRepository billsRepository;
+    private final AccountsRepository accountsRepository;
+    private final PaymentsRepository paymentsRepository;
+    private final AdjustmentsRepository adjustmentsRepository;
+    private final TransferRepository transferRepository;
     private final PaymentsService paymentsService;
     private final AdjustmentsService adjustmentsService;
     private final TransferService transferService;
@@ -43,17 +54,31 @@ public class BillServiceImpl implements BillsService {
 
     @Override
     public void save(Bill bill) {
+        requireOpenAccount(bill);
         billsRepository.save(bill);
     }
 
     @Override
     public void delete(UUID id) {
-        billsRepository.delete(getBill(id));
+        Bill bill = getBill(id);
+        requireOpenAccount(bill);
+        if (bill.getAmount() != null && bill.getAmount().signum() != 0) {
+            throw new BillNotDeletableException("Bill with id = " + id + " has a non-zero balance.");
+        }
+        if (!paymentsRepository.getPaymentsByBill_Id(id).isEmpty()
+                || !adjustmentsRepository.getAdjustmentsByBill_Id(id).isEmpty()
+                || !transferRepository.getTransfersBySourceBill_Id(id).isEmpty()
+                || !transferRepository.getTransfersByBeneficiaryBill_Id(id).isEmpty()) {
+            throw new BillNotDeletableException("Bill with id = " + id + " has financial transactions that must be retained.");
+        }
+        billsRepository.delete(bill);
     }
 
     @Override
     public void update(UUID id, Bill newBill) {
         Bill oldBill = getBill(id);
+        requireOpenAccount(oldBill);
+        requireOpenAccount(newBill);
         oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
         oldBill.setCurrency(newBill.getCurrency());
         oldBill.setIsOverdraft(newBill.getIsOverdraft());
@@ -116,7 +141,19 @@ public class BillServiceImpl implements BillsService {
     }
 
 
+    private void requireOpenAccount(Bill bill){
+        if (bill.getAccount() == null || bill.getAccount().getId() == null) {
+            return;
+        }
+        UUID accountId = bill.getAccount().getId();
+        boolean closed = accountsRepository.getAccountsById(accountId).map(Account::isClosed).orElse(false);
+        if (closed) {
+            throw new AccountClosedException("Account with id = " + accountId + " is closed.");
+        }
+    }
+
     private void decreaseBillsAmount(Bill bill, BigDecimal amount){
+        requireOpenAccount(bill);
 
         bill.setAmount(bill.getAmount().subtract(amount));
 
@@ -128,6 +165,7 @@ public class BillServiceImpl implements BillsService {
     }
 
     private void increaseBillsAmount(Bill bill, BigDecimal amount){
+        requireOpenAccount(bill);
         bill.setAmount(bill.getAmount().add(amount));
         billsRepository.save(bill);
     }

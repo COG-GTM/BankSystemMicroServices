@@ -13,5 +13,5 @@ public interface AccountsService {
     Account getAccount(UUID id);
     void save(Account account);
     void update(UUID id, Account account);
-    void delete(UUID id);
+    void close(UUID personId, UUID id);
 }

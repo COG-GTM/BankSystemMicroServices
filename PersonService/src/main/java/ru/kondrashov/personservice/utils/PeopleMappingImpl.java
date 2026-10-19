@@ -28,6 +28,7 @@ public class PeopleMappingImpl implements PeopleMapping{
         personResponseDTO.setBirthdate(     person.getBirthdate());
         personResponseDTO.setPhoneNumber(   person.getPhoneNumber());
         personResponseDTO.setEmail(         person.getEmail());
+        personResponseDTO.setErased(        person.isErased());
         return personResponseDTO;
     }
 

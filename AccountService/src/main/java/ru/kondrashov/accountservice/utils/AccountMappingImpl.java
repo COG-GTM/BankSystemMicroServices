@@ -16,6 +16,7 @@ public class AccountMappingImpl implements AccountMapping {
         accountResponseDTO.setName(         account.getName());
         accountResponseDTO.setCreationDate( account.getCreationDate());
         accountResponseDTO.setPersonId(     account.getPersonId());
+        accountResponseDTO.setClosedDate(   account.getClosedDate());
         return accountResponseDTO;
     }
 
