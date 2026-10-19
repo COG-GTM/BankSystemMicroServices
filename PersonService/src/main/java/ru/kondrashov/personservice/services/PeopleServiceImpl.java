@@ -94,7 +94,11 @@ public class PeopleServiceImpl implements PeopleService{
         person.setEmail("erased-" + id + "@erased.invalid");
         person.setErased(true);
         person.setErasedAt(LocalDateTime.now(clock));
-        Person saved = peopleRepository.save(person);
+        Person saved = peopleRepository.saveAndFlush(person);
+        // Re-check after the row is anonymised (still uncommitted) to narrow the window for an account opened concurrently.
+        if (openAccountsVerifier.hasOpenAccounts(id)) {
+            throw new PersonHasOpenAccountsException("Person with id = " + id + " opened an account during erasure; retry");
+        }
         saveEvent(id, actor, ErasureAuditEvent.Outcome.COMPLETED, "Person PII anonymised; financial records retained", sourceAddress);
         return saved;
     }

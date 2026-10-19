@@ -24,7 +24,10 @@ public class HttpOpenAccountsVerifier implements OpenAccountsVerifier {
     public boolean hasOpenAccounts(UUID personId) {
         try {
             Object[] accounts = restTemplate.getForObject(String.format(accountsUrl, personId), Object[].class);
-            return accounts != null && accounts.length > 0;
+            if (accounts == null) {
+                throw new ErasurePreconditionUnavailableException("Could not verify accounts of person " + personId + ": empty response");
+            }
+            return accounts.length > 0;
         } catch (RestClientException e) {
             throw new ErasurePreconditionUnavailableException("Could not verify accounts of person " + personId + ": " + e.getMessage());
         }

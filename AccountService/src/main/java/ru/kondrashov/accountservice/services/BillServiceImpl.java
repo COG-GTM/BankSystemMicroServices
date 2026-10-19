@@ -88,8 +88,8 @@ public class BillServiceImpl implements BillsService {
     public void update(UUID personId, UUID accountId, UUID id, Bill newBill) {
         lockOpenAccount(personId, accountId);
         Bill oldBill = getBillOfAccount(accountId, id);
-        BigDecimal amount = newBill.getAmount() == null ? oldBill.getAmount() : newBill.getAmount();
-        oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),amount));
+        // The balance only changes through recorded postings; a currency change converts the stored balance.
+        oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),oldBill.getAmount()));
         oldBill.setCurrency(newBill.getCurrency());
         oldBill.setIsOverdraft(newBill.getIsOverdraft());
         billsRepository.save(oldBill);

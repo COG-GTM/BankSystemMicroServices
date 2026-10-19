@@ -43,7 +43,7 @@ class PeopleServiceImplErasureTest {
         service = new PeopleServiceImpl(peopleRepository, auditRepository, openAccountsVerifier, clock);
         person = new Person(id, "Mike", "Tyson", LocalDate.of(1966, 6, 30), "+1 555 0100", "mike@example.com");
         when(peopleRepository.getPersonById(id)).thenReturn(Optional.of(person));
-        when(peopleRepository.save(any(Person.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(peopleRepository.saveAndFlush(any(Person.class))).thenAnswer(inv -> inv.getArgument(0));
         when(auditRepository.save(any(ErasureAuditEvent.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
@@ -78,7 +78,16 @@ class PeopleServiceImplErasureTest {
                 .isInstanceOf(PersonHasOpenAccountsException.class);
         assertThat(person.isErased()).isFalse();
         assertThat(person.getFirstName()).isEqualTo("Mike");
-        verify(peopleRepository, never()).save(any(Person.class));
+        verify(peopleRepository, never()).saveAndFlush(any(Person.class));
+        verify(auditRepository, never()).save(any(ErasureAuditEvent.class));
+    }
+
+    @Test
+    void eraseRollsBackWhenAnAccountAppearsDuringErasure() {
+        when(openAccountsVerifier.hasOpenAccounts(id)).thenReturn(false, true);
+
+        assertThatThrownBy(() -> service.erase(id, "operator@bank", "10.0.0.1"))
+                .isInstanceOf(PersonHasOpenAccountsException.class);
         verify(auditRepository, never()).save(any(ErasureAuditEvent.class));
     }
 
@@ -97,7 +106,7 @@ class PeopleServiceImplErasureTest {
         service.erase(id, "operator@bank", "10.0.0.1");
         service.erase(id, "operator@bank", "10.0.0.1");
 
-        verify(peopleRepository, times(1)).save(any(Person.class));
+        verify(peopleRepository, times(1)).saveAndFlush(any(Person.class));
         verify(auditRepository, times(1)).save(any(ErasureAuditEvent.class));
     }
 

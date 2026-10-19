@@ -136,7 +136,7 @@ public class BillControllerIntegrationTest {
 
         Currency newCurrency = Currency.getInstance("RUB");
         boolean newOverdraft = false;
-        BillRequestDTO billRequestDTO = new BillRequestDTO(newCurrency, amount , newOverdraft, account);
+        BillRequestDTO billRequestDTO = new BillRequestDTO(newCurrency, new BigDecimal(999), newOverdraft, account);
 
         mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId())
                 .contentType(MediaType.APPLICATION_JSON)
