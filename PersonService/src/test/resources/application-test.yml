@@ -1,9 +1,12 @@
 spring:
   datasource:
     driverClassName: org.postgresql.Driver
-    url: jdbc:postgresql://localhost/person-service-db-test
-    username: postgres
-    password: 12345
+    url: ${PERSON_TEST_DB_URL:jdbc:postgresql://localhost/person-service-db-test}
+    username: ${PERSON_TEST_DB_USERNAME}
+    password: ${PERSON_TEST_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
 
 server:
   port: 8081

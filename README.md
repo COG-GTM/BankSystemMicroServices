@@ -28,6 +28,26 @@ To launch classes Application.java in servecies customerService, accountService 
 Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
 Postgre database initialized with some sample user.
 
+### Database credentials
+Database credentials are not stored in the repository. Each service reads them from the environment
+(or any Spring property source, e.g. a secret store) and fails to connect if they are missing.
+
+| Service | Variables | Default URL |
+| ------- | --------- | ----------- |
+| PersonService | `PERSON_DB_USERNAME`, `PERSON_DB_PASSWORD`, `PERSON_DB_URL` (optional), `PERSON_DB_DDL_AUTO` (optional, default `validate`) | `jdbc:postgresql://localhost/person-service-db` |
+| PersonService tests | `PERSON_TEST_DB_USERNAME`, `PERSON_TEST_DB_PASSWORD`, `PERSON_TEST_DB_URL` (optional) | `jdbc:postgresql://localhost/person-service-db-test` |
+| AccountService | `ACCOUNT_DB_USERNAME`, `ACCOUNT_DB_PASSWORD`, `ACCOUNT_DB_URL` (optional) | `jdbc:postgresql://localhost/account-service-db` |
+| AccountService tests | `ACCOUNT_TEST_DB_USERNAME`, `ACCOUNT_TEST_DB_PASSWORD`, `ACCOUNT_TEST_DB_URL` (optional) | `jdbc:postgresql://localhost/account-service-db-test` |
+
+PersonService connects as a non-superuser role that has only DML on `public.people`. Create the
+role and the table once, as a PostgreSQL administrator:
+```sh
+psql -d person-service-db -f PersonService/db/provision.sql   # reads PERSON_DB_PASSWORD from the environment
+export PERSON_DB_USERNAME=person_service_app
+```
+The test databases should use their own role and password, for example
+`CREATE ROLE person_service_test LOGIN PASSWORD '...'; CREATE DATABASE "person-service-db-test" OWNER person_service_test;`.
+
 ## Functional Services
 BankSystem was decomposed into three core microservices. All of them are independently deployable applications, organized around certain business domains.
 
