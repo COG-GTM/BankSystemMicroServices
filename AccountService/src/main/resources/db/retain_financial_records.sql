@@ -1,6 +1,7 @@
--- One-off migration for databases created while hbm2ddl.auto=create generated ON DELETE CASCADE
--- foreign keys. hbm2ddl.auto=update does not rewrite existing constraints, so replace them with
--- RESTRICT so payments, adjustments, transfers and bills can no longer be erased by a parent delete.
+-- Executed on every startup by FinancialRecordSchemaMigration (idempotent). Databases created while
+-- hbm2ddl.auto=create generated ON DELETE CASCADE foreign keys, and hbm2ddl.auto=update does not rewrite
+-- existing constraints, so replace them with RESTRICT so payments, adjustments, transfers and bills can
+-- no longer be erased by a parent delete.
 DO $$
 DECLARE
     fk RECORD;

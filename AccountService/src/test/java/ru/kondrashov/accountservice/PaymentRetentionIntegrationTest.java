@@ -8,9 +8,12 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import ru.kondrashov.accountservice.config.FinancialRecordSchemaMigration;
+import ru.kondrashov.accountservice.controllers.dto.BillRequestDTO;
 import ru.kondrashov.accountservice.controllers.dto.FinancialTransactionResponseDTO;
 import ru.kondrashov.accountservice.controllers.dto.PaymentRequestDTO;
 import ru.kondrashov.accountservice.entities.*;
@@ -45,6 +48,8 @@ public class PaymentRetentionIntegrationTest {
     @Autowired private TransferRepository transferRepository;
     @Autowired private RetentionAuditRepository auditRepository;
     @Autowired private FinancialRecordRetentionService retentionService;
+    @Autowired private FinancialRecordSchemaMigration schemaMigration;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     private Account account() {
         return accountsRepository.save(new Account("retention", LocalDate.now(), UUID.randomUUID()));
@@ -156,5 +161,34 @@ public class PaymentRetentionIntegrationTest {
         assertThat(transferRepository.findById(transfer.getId())).isPresent();
         assertThat(billsRepository.findById(closedBill.getId())).isPresent();
         assertThat(billsRepository.findById(openBill.getId())).isPresent();
+    }
+
+    @Test
+    void closedAccountRejectsNewBills() throws Exception {
+        Account account = account();
+        mockMvc.perform(delete("/v1/people/{personId}/accounts/{id}", account.getPersonId(), account.getId()))
+                .andExpect(status().isNoContent());
+
+        BillRequestDTO request = new BillRequestDTO(USD, new BigDecimal("10"), false, account);
+        mockMvc.perform(post(billUrl(account))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound());
+        assertThat(billsRepository.getBillsByAccount_Id(account.getId())).isEmpty();
+    }
+
+    @Test
+    void startupMigrationReplacesLegacyCascadeForeignKeys() throws Exception {
+        String fkName = jdbcTemplate.queryForObject(
+                "select conname from pg_constraint where contype = 'f' and conrelid = 'public.payments'::regclass", String.class);
+        jdbcTemplate.execute("alter table public.payments drop constraint " + fkName);
+        jdbcTemplate.execute("alter table public.payments add constraint " + fkName
+                + " foreign key (bill_id) references public.bills (id) on delete cascade");
+
+        schemaMigration.run(null);
+
+        String deleteRule = jdbcTemplate.queryForObject(
+                "select confdeltype::text from pg_constraint where conname = ?", String.class, fkName);
+        assertThat(deleteRule).isEqualTo("r");
     }
 }
