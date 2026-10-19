@@ -20,7 +20,13 @@ public class ApplicationConfig {
     public RestTemplate restTemplate(RestTemplateBuilder restTemplateBuilder,
                                      @Value("${account-service.URL}") String accountServiceUrl,
                                      @Value("${account-service.client.username}") String accountServiceUsername,
-                                     @Value("${account-service.client.password}") String accountServicePassword) {
+                                     @Value("${account-service.client.password}") String accountServicePassword,
+                                     @Value("${accounts.URL}") String accountsUrl,
+                                     @Value("${account.URL}") String accountUrl,
+                                     @Value("${bills.URL}") String billsUrl,
+                                     @Value("${bill.URL}") String billUrl,
+                                     @Value("${transactions.URL}") String transactionsUrl) {
+        requireUnderAccountService(accountServiceUrl, accountsUrl, accountUrl, billsUrl, billUrl, transactionsUrl);
         return restTemplateBuilder
                 .additionalInterceptors(accountServiceAuthentication(accountServiceUrl, accountServiceUsername, accountServicePassword))
                 .build();
@@ -45,11 +51,31 @@ public class ApplicationConfig {
                     && Objects.equals(uri.getHost(), accountService.getHost())
                     && uri.getPort() == accountService.getPort()
                     && (path.equals(basePath) || path.startsWith(basePath + "/"))
-                    && !path.contains("/../")) {
+                    && !hasDotSegment(path)) {
                 request.getHeaders().setBasicAuth(username, password);
             }
             return execution.execute(request, body);
         };
+    }
+
+    static void requireUnderAccountService(String accountServiceUrl, String... endpointUrls) {
+        String base = accountServiceUrl.replaceAll("/+$", "") + "/";
+        for (String endpointUrl : endpointUrls) {
+            if (!endpointUrl.startsWith(base)) {
+                throw new IllegalStateException("AccountService endpoint " + endpointUrl
+                        + " must be under account-service.URL (" + accountServiceUrl
+                        + "), otherwise requests to it are sent without credentials");
+            }
+        }
+    }
+
+    private static boolean hasDotSegment(String path) {
+        for (String segment : path.split("/", -1)) {
+            if (segment.equals(".") || segment.equals("..")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isLoopback(String host) {

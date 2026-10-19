@@ -32,6 +32,10 @@ class ApplicationConfigTest {
         assertThat(authorizationSentTo("http://localhost:8081/other-app/v1/people")).isNull();
         assertThat(authorizationSentTo("http://localhost:8081/v1/peoplex")).isNull();
         assertThat(authorizationSentTo("http://localhost:8081/v1/people/../admin")).isNull();
+        assertThat(authorizationSentTo("http://localhost:8081/v1/people/..")).isNull();
+        assertThat(authorizationSentTo("http://localhost:8081/v1/people/.")).isNull();
+        assertThat(authorizationSentTo("http://localhost:8081/v1/people/%2e%2e")).isNull();
+        assertThat(authorizationSentTo("http://localhost:8081/v1/people/..%2Fadmin")).isNull();
         assertThat(authorizationSentTo("http://localhost:8082/v1/people/1")).isNull();
         assertThat(authorizationSentTo("https://localhost:8081/v1/people/1")).isNull();
     }
@@ -45,6 +49,14 @@ class ApplicationConfigTest {
                 "https://account-service:8443/v1/people", "client", "secret")).isNotNull();
         assertThat(ApplicationConfig.accountServiceAuthentication(
                 "http://127.0.0.1:8081/v1/people", "client", "secret")).isNotNull();
+    }
+
+    @Test
+    void rejectsAccountServiceEndpointsOutsideBaseUrl() {
+        ApplicationConfig.requireUnderAccountService(BASE_URL, BASE_URL + "/%s/accounts");
+        assertThatThrownBy(() -> ApplicationConfig.requireUnderAccountService(
+                BASE_URL, "https://accounts.internal/v1/people/%s/accounts"))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     private String authorizationSentTo(String url) throws Exception {
