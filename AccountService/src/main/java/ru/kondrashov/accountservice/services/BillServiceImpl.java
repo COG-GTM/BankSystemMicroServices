@@ -13,6 +13,7 @@ import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.exceptions.BillClosedException;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
+import ru.kondrashov.accountservice.repositories.AccountsRepository;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.interfaces.*;
 
@@ -30,7 +31,7 @@ public class BillServiceImpl implements BillsService {
     private final AdjustmentsService adjustmentsService;
     private final TransferService transferService;
     private final FinancialCurrencyExchange currencyConversion;
-    private final AccountsService accountsService;
+    private final AccountsRepository accountsRepository;
 
     @Override
     public Collection<Bill> getBills() {
@@ -48,6 +49,7 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void save(Bill bill) {
         bill.setAccount(getOpenAccount(bill.getAccount()));
         bill.setClosed(false);
@@ -56,8 +58,9 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void close(UUID id) {
-        Bill bill = getBill(id);
+        Bill bill = billsRepository.findByIdForUpdate(id).orElseThrow(()->new BillNotFoundException("Bill with id = "+id+" not found."));
         if (bill.isClosed()) {
             return;
         }
@@ -67,6 +70,7 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(UUID id, Bill newBill) {
         Bill oldBill = getOpenBill(id);
         Account account = getOpenAccount(newBill.getAccount());
@@ -78,6 +82,7 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitAdjustment(UUID billId, Adjustment adjustment) {
 
         Bill bill = getOpenBill(billId);
@@ -102,10 +107,15 @@ public class BillServiceImpl implements BillsService {
 
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
 
-        Bill sourceBill = getOpenBill(sourceBillId);
-        Bill beneficiaryBill = getOpenBill(beneficiaryBillId);
+        // Lock both rows in a stable order so opposing transfers cannot deadlock.
+        boolean sourceFirst = sourceBillId.compareTo(beneficiaryBillId) <= 0;
+        Bill first = getOpenBill(sourceFirst ? sourceBillId : beneficiaryBillId);
+        Bill second = getOpenBill(sourceFirst ? beneficiaryBillId : sourceBillId);
+        Bill sourceBill = sourceFirst ? first : second;
+        Bill beneficiaryBill = sourceFirst ? second : first;
         transfer.setSourceBill(sourceBill);
         transfer.setBeneficiaryBill(beneficiaryBill);
 
@@ -137,7 +147,7 @@ public class BillServiceImpl implements BillsService {
 
 
     private Bill getOpenBill(UUID id) {
-        Bill bill = getBill(id);
+        Bill bill = billsRepository.findByIdForUpdate(id).orElseThrow(()->new BillNotFoundException("Bill with id = "+id+" not found."));
         if (bill.isClosed()) {
             throw new BillClosedException("Bill with id = "+id+" is closed.");
         }
@@ -148,7 +158,8 @@ public class BillServiceImpl implements BillsService {
         if (requested == null || requested.getId() == null) {
             throw new AccountNotFoundException("Bill must reference an existing account.");
         }
-        Account account = accountsService.getAccount(requested.getId());
+        Account account = accountsRepository.findByIdForUpdate(requested.getId())
+                .orElseThrow(()-> new AccountNotFoundException("Account with id = "+requested.getId()+" not found."));
         if (account.isClosed()) {
             throw new AccountClosedException("Account with id = "+account.getId()+" is closed.");
         }

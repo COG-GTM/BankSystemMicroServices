@@ -21,6 +21,9 @@ import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.repositories.PaymentsRepository;
 import ru.kondrashov.accountservice.repositories.TransferRepository;
 import ru.kondrashov.accountservice.services.interfaces.AccountsService;
+import ru.kondrashov.accountservice.services.interfaces.BillsService;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -28,6 +31,11 @@ import java.time.LocalDateTime;
 import java.util.Currency;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -69,6 +77,12 @@ public class LedgerRetentionIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private BillsService billsService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     private Account newAccount() {
         Account account = new Account("retention", LocalDate.now(), UUID.randomUUID());
@@ -204,6 +218,45 @@ public class LedgerRetentionIntegrationTest {
 
         assertThat(billsRepository.getBillById(bill.getId())).isPresent();
         assertThat(paymentsRepository.getPaymentsByBill_Id(bill.getId())).hasSize(1);
+
+        accountsService.close(account.getId());
+    }
+
+    @Test
+    void closeWaitsForInFlightMutationAndIsNotOverwritten() throws Exception {
+        Account account = newAccount();
+        Bill bill = newBill(account, BigDecimal.TEN);
+        CountDownLatch locked = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> inFlight = pool.submit(() -> new TransactionTemplate(transactionManager).execute(status -> {
+                Bill locking = billsRepository.findByIdForUpdate(bill.getId()).get();
+                locked.countDown();
+                try {
+                    release.await(10, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    throw new IllegalStateException(e);
+                }
+                locking.setAmount(locking.getAmount().add(BigDecimal.ONE));
+                return null;
+            }));
+            assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
+
+            Future<?> closing = pool.submit(() -> billsService.close(bill.getId()));
+            Thread.sleep(500);
+            assertThat(closing.isDone()).isFalse();
+
+            release.countDown();
+            inFlight.get(10, TimeUnit.SECONDS);
+            closing.get(10, TimeUnit.SECONDS);
+        } finally {
+            pool.shutdownNow();
+        }
+
+        Bill result = billsRepository.getBillById(bill.getId()).get();
+        assertThat(result.isClosed()).isTrue();
+        assertThat(result.getAmount()).isEqualByComparingTo(new BigDecimal(11));
 
         accountsService.close(account.getId());
     }
