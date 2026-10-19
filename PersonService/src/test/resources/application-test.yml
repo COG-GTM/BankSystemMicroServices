@@ -4,6 +4,8 @@ spring:
     url: jdbc:postgresql://localhost/person-service-db-test
     username: postgres
     password: 12345
+  flyway:
+    enabled: false
 
 server:
   port: 8081

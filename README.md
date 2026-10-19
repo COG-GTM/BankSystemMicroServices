@@ -28,6 +28,9 @@ To launch classes Application.java in servecies customerService, accountService 
 Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
 Postgre database initialized with some sample user.
 
+### Database schema
+PersonService and AccountService manage their schema with [Flyway](https://flywaydb.org/) migrations in `src/main/resources/db/migration`. Hibernate only validates the schema (`hibernate.hbm2ddl.auto = validate`) and never drops or recreates tables, so data survives restarts. Databases created by older versions (where Hibernate built the tables) are baselined at version 1 on first start. Schema changes go in a new `V<n>__<description>.sql` migration. Only the test resources use `create-drop`.
+
 ## Functional Services
 BankSystem was decomposed into three core microservices. All of them are independently deployable applications, organized around certain business domains.
 
