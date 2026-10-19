@@ -25,6 +25,7 @@
 
     <properties>
         <java.version>1.8</java.version>
+        <log4j2.version>2.19.0</log4j2.version>
     </properties>
     <dependencies>
         <dependency>
@@ -131,6 +132,28 @@
                         </exclude>
                     </excludes>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>ban-vulnerable-log4j</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>org.apache.logging.log4j:*:[,2.17.1)</exclude>
+                                    </excludes>
+                                    <message>Log4j older than 2.17.1 is vulnerable to CVE-2021-44228/45046/45105/44832.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
