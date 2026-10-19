@@ -34,6 +34,16 @@ BankSystem was decomposed into three core microservices. All of them are indepen
 ### People Service
 Contains the general logic of working and validating person.
 
+Personal data (first name, last name, birthdate, phone number, email) is encrypted at the field level with AES-256-GCM
+(`EncryptedStringConverter` / `EncryptedLocalDateConverter`) before it reaches PostgreSQL. The key is never committed:
+supply a base64-encoded 32-byte key through the `PERSON_PII_ENCRYPTION_KEY` environment variable, sourced from your
+KMS/Vault (for local runs: `export PERSON_PII_ENCRYPTION_KEY=$(openssl rand -base64 32)`). PersonService refuses to
+start without a valid key, and rows written with one key cannot be read with another. Databases holding rows written
+before encryption must be migrated once: deploy with `PERSON_PII_MIGRATE_PLAINTEXT=true`, which converts the PII columns
+to `text` in one short schema change and then encrypts every value not yet in the `v1:` format in committed batches
+(rows awaiting their batch fail closed on read), then unset it. Afterwards, run `VACUUM FULL people` and rotate or purge
+backups, WAL archives and replicas taken before or during the migration, since they still hold plaintext.
+
 | HTTP METHOD | PATH | USAGE |
 | -----------| ------ | ------ |
 | GET | /v1/people | get all people | 
