@@ -28,6 +28,13 @@ To launch classes Application.java in servecies customerService, accountService 
 Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
 Postgre database initialized with some sample user.
 
+### Swagger
+Swagger UI and `/v2/api-docs` are disabled by default in PersonService and AccountService. To enable them locally, start the service with the `dev` profile:
+```sh
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```
+then open `http://localhost:<port>/v1` (redirects to `swagger-ui.html`). Do not enable the `dev` profile in shared or production environments: the services have no authentication.
+
 ## Functional Services
 BankSystem was decomposed into three core microservices. All of them are independently deployable applications, organized around certain business domains.
 
