@@ -25,6 +25,27 @@ This is a prototype of a banking system, which demonstrates [Microservice Archit
 ```sh
 To launch classes Application.java in servecies customerService, accountService and commonService
 ```
+AccountService and PersonService read their database settings from the environment. No credentials are committed, and both services fail to start if they are missing:
+
+| Variable | Required | Default |
+| -------- | -------- | ------- |
+| `DB_USER` | yes | — |
+| `DB_PASSWORD` | yes | — |
+| `DB_URL` | no | `jdbc:postgresql://localhost:5432/account-service-db` / `.../person-service-db` |
+
+Source `DB_USER`/`DB_PASSWORD` from your secret store. The services refuse to start when:
+- `DB_URL` points at a non-local host without `sslmode=require` (or `verify-ca` / `verify-full`);
+- `DB_USER` is a PostgreSQL superuser such as `postgres`.
+
+Create the least-privilege roles (`account_service`, `person_service`) and their databases once per environment as a superuser:
+```sh
+psql -h localhost -U postgres -d postgres \
+     -v account_password="$ACCOUNT_DB_PASSWORD" -v person_password="$PERSON_DB_PASSWORD" \
+     -f db/create-app-roles.sql
+DB_USER=account_service DB_PASSWORD="$ACCOUNT_DB_PASSWORD" java -jar AccountService/target/*.jar
+```
+If a database was previously used with the `postgres` role, drop it before running the script so its tables are owned by the application role.
+
 Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
 Postgre database initialized with some sample user.
 
