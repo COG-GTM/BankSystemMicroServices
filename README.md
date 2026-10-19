@@ -41,7 +41,8 @@ KMS/Vault (for local runs: `export PERSON_PII_ENCRYPTION_KEY=$(openssl rand -bas
 start without a valid key, and rows written with one key cannot be read with another. Databases holding rows written
 before encryption must be migrated once: deploy with `PERSON_PII_MIGRATE_PLAINTEXT=true`, which converts the PII columns
 to `text` in one short schema change and then encrypts every value not yet in the `v1:` format in committed batches
-(rows awaiting their batch fail closed on read), then unset it.
+(rows awaiting their batch fail closed on read), then unset it. Afterwards, run `VACUUM FULL people` and rotate or purge
+backups, WAL archives and replicas taken before or during the migration, since they still hold plaintext.
 
 | HTTP METHOD | PATH | USAGE |
 | -----------| ------ | ------ |
