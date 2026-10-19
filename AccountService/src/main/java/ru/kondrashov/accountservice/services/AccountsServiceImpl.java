@@ -35,17 +35,22 @@ public class AccountsServiceImpl implements AccountsService {
     }
 
     @Override
+    public Account getAccount(UUID personId, UUID id) {
+        return accountsRepository.getAccountByIdAndPersonId(id, personId)
+                .orElseThrow(()-> new AccountNotFoundException("Account with id = "+id+" not found for person with id = "+personId+"."));
+    }
+
+    @Override
     public void save(Account account) {
         accountsRepository.save(account);
     }
 
     @Override
-    public void update(UUID id, Account account) {
-        Account updatedAccount = getAccount(id);
+    public void update(UUID personId, UUID id, Account account) {
+        Account updatedAccount = getAccount(personId, id);
 
         updatedAccount.setName(account.getName());
         updatedAccount.setCreationDate(account.getCreationDate());
-        updatedAccount.setPersonId(account.getPersonId());
 
         accountsRepository.save(updatedAccount);
     }
@@ -53,5 +58,10 @@ public class AccountsServiceImpl implements AccountsService {
     @Override
     public void delete(UUID id) {
         accountsRepository.delete(getAccount(id));
+    }
+
+    @Override
+    public void delete(UUID personId, UUID id) {
+        accountsRepository.delete(getAccount(personId, id));
     }
 }

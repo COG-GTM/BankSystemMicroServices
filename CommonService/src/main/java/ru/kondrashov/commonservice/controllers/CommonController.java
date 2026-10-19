@@ -204,6 +204,7 @@ public class CommonController {
             bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
             return "accounts/edit";
         }
+        accountResponseDTO.setPersonId(personId);
         commonService.updateAccount(personId, accountId, accountResponseDTO);
         return "redirect:/common/v1/info/people/"+personId;
 

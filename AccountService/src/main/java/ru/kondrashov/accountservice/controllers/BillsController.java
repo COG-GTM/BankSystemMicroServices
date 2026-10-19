@@ -10,6 +10,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import ru.kondrashov.accountservice.controllers.dto.*;
+import ru.kondrashov.accountservice.entities.Account;
+import ru.kondrashov.accountservice.entities.Bill;
+import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
+import ru.kondrashov.accountservice.services.interfaces.AccountsService;
 import ru.kondrashov.accountservice.services.interfaces.BillsService;
 import ru.kondrashov.accountservice.utils.interfaces.AdjustmentMapping;
 import ru.kondrashov.accountservice.utils.interfaces.BillsMapping;
@@ -30,6 +34,7 @@ import java.util.stream.Collectors;
 public class BillsController {
 
     private final BillsService billsService;
+    private final AccountsService accountsService;
     private final BillsMapping billsMapping;
     private final PaymentsMapping paymentsMapping;
     private final AdjustmentMapping adjustmentMapping;
@@ -44,6 +49,7 @@ public class BillsController {
             @ApiParam(value = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
             @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
+        requireAccount(personId, accountId);
         return billsService.getBillsByAccountId(accountId)
                 .stream()
                 .map(billsMapping::mapToBillResponseDTO)
@@ -61,7 +67,9 @@ public class BillsController {
             @RequestHeader HttpHeaders header){
 
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills\""+" received a POST request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.save(billsMapping.mapToBill(billRequestDTO));
+        Bill bill = billsMapping.mapToBill(billRequestDTO);
+        bill.setAccount(requireAccount(personId, accountId));
+        billsService.save(bill);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -76,7 +84,9 @@ public class BillsController {
             @RequestHeader HttpHeaders header){
 
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.update(id,billsMapping.mapToBill(bill));
+        Bill newBill = billsMapping.mapToBill(bill);
+        newBill.setAccount(requireBill(personId, accountId, id).getAccount());
+        billsService.update(id,newBill);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -88,6 +98,7 @@ public class BillsController {
                        @ApiParam(value = "Id of the bill to be delete. Cannot be empty.") @PathVariable("id") UUID id,
                        @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
+        requireBill(personId, accountId, id);
         billsService.delete(id);
     }
 
@@ -101,6 +112,7 @@ public class BillsController {
                               @ApiParam("Payment to commit. Cannot null or empty.") @RequestBody @Valid PaymentRequestDTO paymentRequestDTO,
                               @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
+        requireBill(personId, accountId, billId);
         billsService.commitPayment(billId,paymentsMapping.mapToPayment(paymentRequestDTO));
     }
 
@@ -113,6 +125,7 @@ public class BillsController {
                                  @ApiParam("Adjustment to commit. Cannot null or empty.") @RequestBody @Valid AdjustmentRequestDTO adjustmentRequestDTO,
                                  @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
+        requireBill(personId, accountId, billId);
         billsService.commitAdjustment(billId,adjustmentMapping.mapToAdjustment(adjustmentRequestDTO));
     }
 
@@ -126,6 +139,7 @@ public class BillsController {
                                @ApiParam("Transfer to commit. Cannot null or empty.") @RequestBody @Valid TransferRequestDTO transferRequestDTO,
                                @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
+        requireBill(personId, accountId, sourceId);
         billsService.commitTransfer(sourceId,beneficiaryBillId,transferMapping.mapToTransfer(transferRequestDTO));
     }
 
@@ -137,6 +151,7 @@ public class BillsController {
                                                                                         @ApiParam(value = "Id of the bill. Cannot be empty.") @PathVariable("id") UUID billId,
                                                                                         @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}/transactions\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
+        requireBill(personId, accountId, billId);
         Collection<FinancialTransactionResponseDTO> financialTransactionResponseDTOS = new ArrayList<>();
 
         financialTransactionResponseDTOS.addAll(billsService.
@@ -165,6 +180,19 @@ public class BillsController {
         financialTransactionResponseDTOS.addAll(setAmountNegative(billsService.getTransfersBySourceBillId(billId).stream().map(transferMapping::mapToFinancialTransactionResponseDTO).collect(Collectors.toList())));
 
         return financialTransactionResponseDTOS;
+    }
+
+    private Account requireAccount(UUID personId, UUID accountId) {
+        return accountsService.getAccount(personId, accountId);
+    }
+
+    private Bill requireBill(UUID personId, UUID accountId, UUID billId) {
+        requireAccount(personId, accountId);
+        Bill bill = billsService.getBill(billId);
+        if (bill.getAccount() == null || !accountId.equals(bill.getAccount().getId())) {
+            throw new BillNotFoundException("Bill with id = "+billId+" not found for account with id = "+accountId+".");
+        }
+        return bill;
     }
 
     private Collection<FinancialTransactionResponseDTO> setAmountNegative(Collection<FinancialTransactionResponseDTO> financialTransactionResponseDTOS){

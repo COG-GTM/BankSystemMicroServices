@@ -7,3 +7,8 @@ spring:
 
 server:
   port: 8081
+
+account-service:
+  security:
+    jwt:
+      hmac-secret: test-only-hmac-secret-0123456789abcdef

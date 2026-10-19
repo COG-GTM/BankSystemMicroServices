@@ -28,6 +28,21 @@ To launch classes Application.java in servecies customerService, accountService 
 Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
 Postgre database initialized with some sample user.
 
+## Security
+All AccountService endpoints under `/v1/**` require a bearer JWT (Spring Security OAuth2 resource server).
+Requests to `/v1/people/{personId}/**` are only allowed when the token either carries the `accounts:admin`
+scope (trusted services such as CommonService) or a `person_id` claim equal to `{personId}`.
+Account update/delete only act on accounts owned by `{personId}` (otherwise `404`), and the request body's
+`personId` must match the path (otherwise `400`), so accounts cannot be reassigned to another person.
+
+Configure the same shared HS256 secret (at least 32 bytes) for AccountService and CommonService:
+```sh
+export ACCOUNT_SERVICE_SECURITY_JWT_HMAC_SECRET=<random 32+ byte secret>
+```
+CommonService signs a 5-minute token (`aud=account-service`, `scope=accounts:admin`) for every call to AccountService.
+Both services refuse to start without the secret.
+Bill endpoints additionally require the account to belong to `{personId}` and the bill to belong to `{accountId}` (otherwise `404`).
+
 ## Functional Services
 BankSystem was decomposed into three core microservices. All of them are independently deployable applications, organized around certain business domains.
 
