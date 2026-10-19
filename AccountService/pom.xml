@@ -25,6 +25,8 @@
 
     <properties>
         <java.version>1.8</java.version>
+        <!-- Overrides the Log4j 2.13.x managed by Spring Boot 2.4.4 (CVE-2021-44228, CVE-2021-45046, CVE-2021-45105, CVE-2021-44832) -->
+        <log4j2.version>2.17.2</log4j2.version>
     </properties>
     <dependencies>
         <dependency>
