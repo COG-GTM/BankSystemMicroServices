@@ -70,11 +70,11 @@ public class AccountsController {
     @Transactional(rollbackFor = Exception.class)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @ApiOperation(value = "Delete a account", tags = { "ACCOUNTS" })
+    @ApiOperation(value = "Close an account and its bills; ledger history is retained", tags = { "ACCOUNTS" })
     public void delete(@ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID personId,
                        @ApiParam("Id of the account to be obtained. Cannot be empty.") @PathVariable("id") UUID id,
                        @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
-        accountsService.delete(id);
+        accountsService.close(id);
     }
 }

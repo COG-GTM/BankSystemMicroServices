@@ -18,6 +18,7 @@ import ru.kondrashov.personservice.services.PeopleService;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -68,7 +69,7 @@ public class PeopleServiceIntegrationTest {
 
         init();
 
-        Person person = peopleRepository.findAll().get(0);
+        Person person = peopleService.getAll().get(0);
 
         assertThat(person.getBirthdate().isEqual(birthdate)).isTrue();
         assertThat(person.getEmail()).isEqualToIgnoringCase(email);
@@ -84,7 +85,7 @@ public class PeopleServiceIntegrationTest {
 
         init();
 
-        Person person = peopleRepository.findAll().get(0);
+        Person person = peopleService.getAll().get(0);
 
         String name = "John";
         String lastName = "Jones";
@@ -116,11 +117,24 @@ public class PeopleServiceIntegrationTest {
     @Test
     void delete() throws Exception{
         init();
-        Person person = peopleRepository.findAll().get(0);
+        Person person = peopleService.getAll().get(0);
 
         mockMvc.perform(
                 MockMvcRequestBuilders.delete("/v1/people/{id}", person.getId())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNoContent());
+
+        Person erased = peopleRepository.getPersonById(person.getId()).get();
+        assertThat(erased.isErased()).isTrue();
+        assertThat(erased.getErasedAt()).isNotNull();
+        assertThat(erased.getFirstName()).isEqualTo("ERASED");
+        assertThat(erased.getLastName()).isEqualTo("ERASED");
+        assertThat(erased.getPhoneNumber()).isEqualTo("ERASED");
+        assertThat(erased.getEmail()).isEqualTo("erased-" + person.getId() + "@erased.invalid");
+        assertThat(erased.getBirthdate()).isEqualTo(LocalDate.of(1900, 1, 1));
+        assertThat(peopleService.getAll()).extracting(Person::getId).doesNotContain(person.getId());
+
+        mockMvc.perform(get("/v1/people/{id}", person.getId()))
+                .andExpect(status().isNotFound());
     }
 }

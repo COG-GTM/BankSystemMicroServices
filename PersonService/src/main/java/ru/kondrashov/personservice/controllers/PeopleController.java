@@ -72,7 +72,7 @@ public class PeopleController {
     @Transactional(rollbackFor = Exception.class)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @ApiOperation("Delete a person")
+    @ApiOperation("Erase a person (personal data is anonymised; ledger history is retained)")
     public void deletePerson(@ApiParam("ID of the person. Cannot to be null or empty") @PathVariable("id") UUID id, @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
         peopleService.delete(id);

@@ -4,7 +4,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import ru.kondrashov.accountservice.exceptions.AccountClosedException;
 import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
+import ru.kondrashov.accountservice.exceptions.BillClosedException;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
 
@@ -30,6 +32,28 @@ public class AccountServiceExceptionHandler {
                         404,
                         "BillNotFoundException"),
                 HttpStatus.NOT_FOUND);
+
+    }
+
+    @ExceptionHandler(AccountClosedException.class)
+    public ResponseEntity<AccountServiceExceptionTemplate> closedExceptions(AccountClosedException exp) {
+        return new ResponseEntity<>(
+                new AccountServiceExceptionTemplate(
+                        exp.getMessage(),
+                        409,
+                        "AccountClosedException"),
+                HttpStatus.CONFLICT);
+
+    }
+
+    @ExceptionHandler(BillClosedException.class)
+    public ResponseEntity<AccountServiceExceptionTemplate> closedExceptions(BillClosedException exp) {
+        return new ResponseEntity<>(
+                new AccountServiceExceptionTemplate(
+                        exp.getMessage(),
+                        409,
+                        "BillClosedException"),
+                HttpStatus.CONFLICT);
 
     }
 

@@ -81,14 +81,14 @@ public class BillsController {
 
     @Transactional(rollbackFor = Exception.class)
     @DeleteMapping("/{id}")
-    @ApiOperation(value = "Delete bill", tags = { "BILLS" })
+    @ApiOperation(value = "Close bill; transaction history is retained", tags = { "BILLS" })
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
                        @ApiParam(value = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
                        @ApiParam(value = "Id of the bill to be delete. Cannot be empty.") @PathVariable("id") UUID id,
                        @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.delete(id);
+        billsService.close(id);
     }
 
 
