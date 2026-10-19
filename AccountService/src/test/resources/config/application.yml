@@ -1,0 +1,7 @@
+server:
+  ssl:
+    enabled: false
+
+service:
+  auth:
+    token: test-service-token

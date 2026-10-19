@@ -28,6 +28,30 @@ To launch classes Application.java in servecies customerService, accountService 
 Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
 Postgre database initialized with some sample user.
 
+### Inter-service security
+CommonService calls AccountService and PersonService over HTTPS and authenticates every call with a shared
+service token sent as `Authorization: Bearer <token>`. AccountService and PersonService reject requests without
+it (`401`); only the Swagger docs are public. All services refuse to start if the token is not configured.
+
+| Variable | Service | Purpose |
+| -------- | ------- | ------- |
+| `SERVICE_AUTH_TOKEN` | all | shared service token (required, use a long random value) |
+| `SERVER_SSL_KEY_STORE`, `SERVER_SSL_KEY_STORE_PASSWORD` | account, person | server certificate (PKCS12); TLS is on by default |
+| `SERVER_SSL_CLIENT_AUTH=need`, `SERVER_SSL_TRUST_STORE`, `SERVER_SSL_TRUST_STORE_PASSWORD` | account, person | optional mutual TLS |
+| `PERSON_SERVICE_URL`, `ACCOUNT_SERVICE_URL` | common | downstream base URLs (default `https://localhost:8082` / `https://localhost:8081`) |
+| `DOWNSTREAM_TRUST_STORE`, `DOWNSTREAM_TRUST_STORE_PASSWORD` | common | CA used to verify downstream certificates (default: JDK trust store) |
+| `DOWNSTREAM_KEY_STORE`, `DOWNSTREAM_KEY_STORE_PASSWORD` | common | client certificate for mutual TLS |
+
+Downstream calls use a 2s connect / 10s read timeout (`downstream.connect-timeout`, `downstream.read-timeout`).
+CommonService refuses non-`https` downstream URLs unless `downstream.require-tls=false`.
+
+For single-host development only, run every service with the `local` profile, which switches to plain HTTP
+on localhost (the token is still required):
+```sh
+export SERVICE_AUTH_TOKEN=$(openssl rand -hex 32)
+mvn spring-boot:run -Dspring-boot.run.profiles=local
+```
+
 ## Functional Services
 BankSystem was decomposed into three core microservices. All of them are independently deployable applications, organized around certain business domains.
 
