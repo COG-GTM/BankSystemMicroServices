@@ -7,3 +7,9 @@ spring:
 
 server:
   port: 8081
+
+# Credentials of the service client (CommonService) allowed to call /v1/people/**.
+# The password must be supplied via the ACCOUNT_SERVICE_CLIENT_PASSWORD environment variable.
+account-service:
+  client:
+    username: ${ACCOUNT_SERVICE_CLIENT_USERNAME:common-service}

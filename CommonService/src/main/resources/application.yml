@@ -6,6 +6,12 @@ bills.URL:        http://localhost:8081/v1/people/%s/accounts/%s/bills
 bill.URL:         http://localhost:8081/v1/people/%s/accounts/%s/bills/%s
 transactions.URL: http://localhost:8081/v1/people/%s/accounts/%s/bills/%s/transactions
 
+# Credentials used to authenticate to AccountService.
+# The password must be supplied via the ACCOUNT_SERVICE_CLIENT_PASSWORD environment variable.
+account-service:
+  client:
+    username: ${ACCOUNT_SERVICE_CLIENT_USERNAME:common-service}
+
 spring:
   mvc:
     hiddenmethod:

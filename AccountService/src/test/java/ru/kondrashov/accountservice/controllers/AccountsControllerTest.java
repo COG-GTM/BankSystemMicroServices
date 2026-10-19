@@ -6,8 +6,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
+import ru.kondrashov.accountservice.config.SecurityConfig;
 import ru.kondrashov.accountservice.controllers.dto.AccountRequestDTO;
 import ru.kondrashov.accountservice.services.interfaces.AccountsService;
 import ru.kondrashov.accountservice.utils.interfaces.AccountMapping;
@@ -20,6 +23,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @ExtendWith(SpringExtension.class)
 @WebMvcTest(controllers = AccountsController.class)
+@ActiveProfiles("test")
+@WithMockUser(roles = SecurityConfig.CLIENT_ROLE)
 class AccountsControllerTest {
 
     @Autowired
