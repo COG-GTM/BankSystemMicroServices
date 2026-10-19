@@ -7,7 +7,11 @@ import org.springframework.context.ApplicationContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "person-service.client.password=service-password-0001",
+        "common-service.security.users[0].username=operator",
+        "common-service.security.users[0].password=operator-password-0001"
+})
 class CommonServiceApplicationTests {
 
     @Autowired

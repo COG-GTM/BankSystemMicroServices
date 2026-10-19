@@ -26,6 +26,15 @@ This is a prototype of a banking system, which demonstrates [Microservice Archit
 To launch classes Application.java in servecies customerService, accountService and commonService
 ```
 Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
+
+PersonService and the CommonService web UI require credentials and have no defaults; both refuse to start until these are set (passwords must be at least 16 characters):
+
+| Variable | Service | Purpose |
+| -------- | ------- | ------- |
+| `PERSON_SERVICE_CLIENT_USERNAME` (default `common-service`) / `PERSON_SERVICE_CLIENT_PASSWORD` | PersonService and CommonService | HTTP Basic API client CommonService uses to call `/v1/people` (role `PEOPLE_ADMIN`) |
+| `COMMON_SERVICE_OPERATOR_USERNAME` (default `operator`) / `COMMON_SERVICE_OPERATOR_PASSWORD` | CommonService | Operator who signs in to the web UI at `/login` |
+
+PersonService roles: `PEOPLE_READ` (GET `/v1/people/{id}`), `PEOPLE_WRITE` (also POST/PUT), `PEOPLE_ADMIN` (everything, including list and DELETE). Extra API clients can be added under `person-service.security.clients`.
 Postgre database initialized with some sample user.
 
 ## Functional Services
@@ -36,7 +45,7 @@ Contains the general logic of working and validating person.
 
 | HTTP METHOD | PATH | USAGE |
 | -----------| ------ | ------ |
-| GET | /v1/people | get all people | 
+| GET | /v1/people?page=0&size=50 | get a page of people (size 1..100, `PEOPLE_ADMIN` only) | 
 | GET | /v1/people/{id} | get person by id | 
 | POST | /v1/people| create new person | 
 | PUT | /v1/people/{id}| update person info | 

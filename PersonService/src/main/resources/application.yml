@@ -7,3 +7,11 @@ spring:
 
 server:
   port: 8082
+
+# API clients allowed to call /v1/people (HTTP Basic). No default password: startup fails until one is set.
+person-service:
+  security:
+    clients:
+      - username: ${PERSON_SERVICE_CLIENT_USERNAME:common-service}
+        password: ${PERSON_SERVICE_CLIENT_PASSWORD:}
+        roles: PEOPLE_ADMIN

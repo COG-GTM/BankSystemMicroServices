@@ -18,6 +18,7 @@ import ru.kondrashov.personservice.services.PeopleService;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,6 +28,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @TestPropertySource(locations = "/hibernate.properties")
 public class PeopleServiceIntegrationTest {
+
+    private static final String ADMIN = "test-admin";
+    private static final String ADMIN_PASSWORD = "test-admin-password-0001";
 
     @Autowired
     private MockMvc mockMvc;
@@ -53,7 +57,8 @@ public class PeopleServiceIntegrationTest {
         mockMvc.perform(
                 post("/v1/people")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(personRequestDTO)))
+                        .content(objectMapper.writeValueAsString(personRequestDTO))
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD)))
                 .andExpect(status().isCreated());
     }
 
@@ -101,7 +106,8 @@ public class PeopleServiceIntegrationTest {
         mockMvc.perform(
                 put("/v1/people/{id}", person.getId())
                         .content(objectMapper.writeValueAsString(person))
-                        .contentType(MediaType.APPLICATION_JSON))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD)))
                 .andExpect(status().isAccepted());
 
         assertThat(person.getBirthdate().isEqual(birthdate)).isTrue();
@@ -120,7 +126,8 @@ public class PeopleServiceIntegrationTest {
 
         mockMvc.perform(
                 MockMvcRequestBuilders.delete("/v1/people/{id}", person.getId())
-                        .contentType(MediaType.APPLICATION_JSON))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD)))
                 .andExpect(status().isNoContent());
     }
 }
