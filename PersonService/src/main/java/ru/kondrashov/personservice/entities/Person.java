@@ -21,7 +21,7 @@ import java.util.UUID;
 @ToString(of = "id")
 public class Person {
 
-    private static final int ENCRYPTED_COLUMN_LENGTH = 1024;
+    private static final String ENCRYPTED_COLUMN = "text";
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -30,30 +30,30 @@ public class Person {
     @NotEmpty(message = "First name should not be empty")
     @Size(min = 1, max = 30)
     @Convert(converter = EncryptedStringConverter.class)
-    @Column(length = ENCRYPTED_COLUMN_LENGTH)
+    @Column(columnDefinition = ENCRYPTED_COLUMN)
     private String firstName;
 
     @NotEmpty(message = "Last name should not be empty")
     @Size(min = 1, max = 30)
     @Convert(converter = EncryptedStringConverter.class)
-    @Column(length = ENCRYPTED_COLUMN_LENGTH)
+    @Column(columnDefinition = ENCRYPTED_COLUMN)
     private String lastName;
 
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     @NotNull(message = "Birthdate should not be empty")
     @Convert(converter = EncryptedLocalDateConverter.class)
-    @Column(length = ENCRYPTED_COLUMN_LENGTH)
+    @Column(columnDefinition = ENCRYPTED_COLUMN)
     private LocalDate birthdate;
 
     @NotEmpty(message = "Phone number should not be empty")
     @Convert(converter = EncryptedStringConverter.class)
-    @Column(length = ENCRYPTED_COLUMN_LENGTH)
+    @Column(columnDefinition = ENCRYPTED_COLUMN)
     private String phoneNumber;
 
     @NotEmpty(message = "Email should not be empty")
     @Email(message = "Email should be valid")
     @Convert(converter = EncryptedStringConverter.class)
-    @Column(length = ENCRYPTED_COLUMN_LENGTH)
+    @Column(columnDefinition = ENCRYPTED_COLUMN)
     private String email;
 
 }

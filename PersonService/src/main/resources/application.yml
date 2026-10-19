@@ -12,3 +12,5 @@ person:
   pii:
     # Base64-encoded 256-bit AES key, injected at runtime from KMS/Vault. No default: startup fails without it.
     encryption-key: ${PERSON_PII_ENCRYPTION_KEY:}
+    # Set to true for one deployment to encrypt rows written before field-level encryption (see PlaintextPiiMigration).
+    migrate-plaintext: ${PERSON_PII_MIGRATE_PLAINTEXT:false}

@@ -38,7 +38,9 @@ Personal data (first name, last name, birthdate, phone number, email) is encrypt
 (`EncryptedStringConverter` / `EncryptedLocalDateConverter`) before it reaches PostgreSQL. The key is never committed:
 supply a base64-encoded 32-byte key through the `PERSON_PII_ENCRYPTION_KEY` environment variable, sourced from your
 KMS/Vault (for local runs: `export PERSON_PII_ENCRYPTION_KEY=$(openssl rand -base64 32)`). PersonService refuses to
-start without a valid key, and rows written with one key cannot be read with another.
+start without a valid key, and rows written with one key cannot be read with another. Databases holding rows written
+before encryption must be migrated once: deploy with `PERSON_PII_MIGRATE_PLAINTEXT=true`, which converts the PII columns
+to `text` and encrypts every value not yet in the `v1:` format, then unset it.
 
 | HTTP METHOD | PATH | USAGE |
 | -----------| ------ | ------ |
