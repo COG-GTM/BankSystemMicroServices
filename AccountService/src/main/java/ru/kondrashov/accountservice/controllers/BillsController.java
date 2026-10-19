@@ -79,7 +79,10 @@ public class BillsController {
             Bill bill = billsMapping.mapToBill(billRequestDTO);
             billsService.save(bill);
             if (bill != null) {
-                event.billId(bill.getId()).balanceAfter(bill.getAmount());
+                event.billId(bill.getId())
+                        .balanceAfter(bill.getAmount())
+                        .balanceAfterCurrency(BillAuditRecorder.currencyCode(bill));
+                BillAuditRecorder.recordOwner(event, bill);
             }
             return null;
         });
@@ -194,7 +197,7 @@ public class BillsController {
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
         return auditService.getEventsByBillId(personId, accountId, billId)
                 .stream()
-                .map(AuditEventResponseDTO::from)
+                .map(event -> AuditEventResponseDTO.from(event, billId))
                 .collect(Collectors.toList());
     }
 

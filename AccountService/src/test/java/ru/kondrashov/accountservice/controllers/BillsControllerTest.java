@@ -34,6 +34,7 @@ import ru.kondrashov.accountservice.utils.interfaces.TransferMapping;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.Currency;
 import java.util.UUID;
 
@@ -44,8 +45,10 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(SpringExtension.class)
@@ -209,6 +212,43 @@ class BillsControllerTest {
         assertThat(event.getValue().getOutcome()).isEqualTo(AuditOutcome.FAILED);
         assertThat(event.getValue().getFailureReason()).isEqualTo("BillNotFoundException: gone");
         assertThat(event.getValue().getBalanceAfter()).isEqualByComparingTo("10");
+    }
+
+    @Test
+    void auditEvents_transferSeenFromBeneficiary_hidesSourceSide() throws Exception {
+        UUID personId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        UUID beneficiaryBillId = UUID.randomUUID();
+        AuditEvent incoming = AuditEvent.builder()
+                .operation(AuditOperation.TRANSFER)
+                .outcome(AuditOutcome.SUCCESS)
+                .actor("sender")
+                .personId(UUID.randomUUID())
+                .accountId(UUID.randomUUID())
+                .billId(UUID.randomUUID())
+                .counterpartyBillId(beneficiaryBillId)
+                .amount(new BigDecimal("5"))
+                .currency("USD")
+                .balanceBefore(new BigDecimal("100"))
+                .balanceAfter(new BigDecimal("95"))
+                .counterpartyBalanceBefore(new BigDecimal("1"))
+                .counterpartyBalanceAfter(new BigDecimal("6"))
+                .requestId("req-1")
+                .build();
+        when(auditService.getEventsByBillId(personId, accountId, beneficiaryBillId)).thenReturn(Collections.singletonList(incoming));
+
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", personId, accountId, beneficiaryBillId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].operation").value("TRANSFER"))
+                .andExpect(jsonPath("$[0].counterpartyBillId").value(beneficiaryBillId.toString()))
+                .andExpect(jsonPath("$[0].counterpartyBalanceAfter").value(6))
+                .andExpect(jsonPath("$[0].amount").value(5))
+                .andExpect(jsonPath("$[0].actor").doesNotExist())
+                .andExpect(jsonPath("$[0].billId").doesNotExist())
+                .andExpect(jsonPath("$[0].accountId").doesNotExist())
+                .andExpect(jsonPath("$[0].personId").doesNotExist())
+                .andExpect(jsonPath("$[0].balanceBefore").doesNotExist())
+                .andExpect(jsonPath("$[0].balanceAfter").doesNotExist());
     }
 
     @Test

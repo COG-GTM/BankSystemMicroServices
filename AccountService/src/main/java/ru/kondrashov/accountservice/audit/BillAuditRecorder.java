@@ -49,9 +49,10 @@ public class BillAuditRecorder {
         BigDecimal balanceBefore = bill == null ? null : bill.getAmount();
         BigDecimal counterpartyBalanceBefore = counterpartyBill == null ? null : counterpartyBill.getAmount();
         event.balanceBefore(balanceBefore)
-                .balanceCurrency(currencyCode(bill))
+                .balanceBeforeCurrency(currencyCode(bill))
                 .counterpartyBalanceBefore(counterpartyBalanceBefore)
                 .counterpartyBalanceCurrency(currencyCode(counterpartyBill));
+        recordOwner(event, bill);
 
         UUID transactionId;
         try {
@@ -59,6 +60,7 @@ public class BillAuditRecorder {
         } catch (RuntimeException e) {
             event.outcome(e instanceof AuditRejectedException ? AuditOutcome.REJECTED : AuditOutcome.FAILED)
                     .failureReason(reason(e))
+                    .balanceAfterCurrency(currencyCode(bill))
                     .balanceAfter(balanceBefore)
                     .counterpartyBalanceAfter(counterpartyBalanceBefore);
             auditService.recordFailure(event.build());
@@ -67,7 +69,9 @@ public class BillAuditRecorder {
 
         event.outcome(AuditOutcome.SUCCESS).transactionId(transactionId);
         if (billId != null) {
-            event.balanceAfter(balanceOf(billId));
+            Bill billAfter = findBill(billId);
+            event.balanceAfter(billAfter == null ? null : billAfter.getAmount())
+                    .balanceAfterCurrency(currencyCode(billAfter));
         }
         if (counterpartyBillId != null) {
             event.counterpartyBalanceAfter(balanceOf(counterpartyBillId));
@@ -96,7 +100,14 @@ public class BillAuditRecorder {
         }
     }
 
-    private static String currencyCode(Bill bill) {
+    /** Uses the bill's real owner instead of the (unverified) path ids. */
+    public static void recordOwner(AuditEvent.AuditEventBuilder event, Bill bill) {
+        if (bill != null && bill.getAccount() != null && bill.getAccount().getId() != null) {
+            event.accountId(bill.getAccount().getId()).personId(bill.getAccount().getPersonId());
+        }
+    }
+
+    public static String currencyCode(Bill bill) {
         return bill == null || bill.getCurrency() == null ? null : bill.getCurrency().getCurrencyCode();
     }
 

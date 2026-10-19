@@ -1,6 +1,8 @@
 package ru.kondrashov.accountservice.repositories;
 
 import org.springframework.data.repository.Repository;
+import ru.kondrashov.accountservice.audit.AuditOperation;
+import ru.kondrashov.accountservice.audit.AuditOutcome;
 import ru.kondrashov.accountservice.entities.AuditEvent;
 
 import java.util.List;
@@ -15,5 +17,6 @@ public interface AuditEventRepository extends Repository<AuditEvent, UUID> {
 
     List<AuditEvent> findByBillIdOrCounterpartyBillIdOrderByOccurredAtAsc(UUID billId, UUID counterpartyBillId);
 
-    boolean existsByBillIdAndPersonIdAndAccountId(UUID billId, UUID personId, UUID accountId);
+    boolean existsByBillIdAndPersonIdAndAccountIdAndOperationAndOutcome(UUID billId, UUID personId, UUID accountId,
+                                                                         AuditOperation operation, AuditOutcome outcome);
 }

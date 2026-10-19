@@ -30,8 +30,9 @@ public class AuditEventResponseDTO {
     private UUID transactionId;
     private BigDecimal amount;
     private String currency;
-    private String balanceCurrency;
+    private String balanceBeforeCurrency;
     private BigDecimal balanceBefore;
+    private String balanceAfterCurrency;
     private BigDecimal balanceAfter;
     private String counterpartyBalanceCurrency;
     private BigDecimal counterpartyBalanceBefore;
@@ -54,13 +55,36 @@ public class AuditEventResponseDTO {
                 event.getTransactionId(),
                 event.getAmount(),
                 event.getCurrency(),
-                event.getBalanceCurrency(),
+                event.getBalanceBeforeCurrency(),
                 event.getBalanceBefore(),
+                event.getBalanceAfterCurrency(),
                 event.getBalanceAfter(),
                 event.getCounterpartyBalanceCurrency(),
                 event.getCounterpartyBalanceBefore(),
                 event.getCounterpartyBalanceAfter(),
                 event.getRequestId()
         );
+    }
+
+    /**
+     * View of an event as seen from {@code viewedBillId}. When that bill is only the counterparty (e.g. the
+     * beneficiary of a transfer), the initiating side's identifiers, balances, actor and reason are withheld.
+     */
+    public static AuditEventResponseDTO from(AuditEvent event, UUID viewedBillId) {
+        AuditEventResponseDTO dto = from(event);
+        if (viewedBillId != null && viewedBillId.equals(event.getCounterpartyBillId()) && !viewedBillId.equals(event.getBillId())) {
+            dto.setPersonId(null);
+            dto.setAccountId(null);
+            dto.setBillId(null);
+            dto.setActor(null);
+            dto.setApprovedBy(null);
+            dto.setFailureReason(null);
+            dto.setBalanceBeforeCurrency(null);
+            dto.setBalanceBefore(null);
+            dto.setBalanceAfterCurrency(null);
+            dto.setBalanceAfter(null);
+            dto.setRequestId(null);
+        }
+        return dto;
     }
 }

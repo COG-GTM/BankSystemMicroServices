@@ -614,11 +614,25 @@ public class BillControllerIntegrationTest {
         assertThat(event.getOutcome()).isEqualTo(AuditOutcome.SUCCESS);
         assertThat(event.getActor()).isEqualTo(MAKER);
         assertThat(event.getBalanceBefore()).isEqualByComparingTo("10");
-        assertThat(event.getBalanceCurrency()).isEqualTo("USD");
+        assertThat(event.getBalanceBeforeCurrency()).isEqualTo("USD");
         assertThat(event.getBalanceAfter()).isNull();
-        assertThat(lastAuditEvent(account, bill.getId(), AuditOperation.BILL_CREATED).getOutcome()).isEqualTo(AuditOutcome.SUCCESS);
+        AuditEventResponseDTO created = lastAuditEvent(account, bill.getId(), AuditOperation.BILL_CREATED);
+        assertThat(created.getOutcome()).isEqualTo(AuditOutcome.SUCCESS);
+        assertThat(created.getBalanceAfterCurrency()).isEqualTo("USD");
 
         mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", account.getPersonId(), UUID.randomUUID(), bill.getId()))
+                .andExpect(status().isNotFound());
+
+        // a rejected request with forged path ids must not grant access to the deleted bill's trail
+        UUID forgedPerson = UUID.randomUUID();
+        UUID forgedAccount = UUID.randomUUID();
+        PaymentRequestDTO payment = new PaymentRequestDTO(currency, new BigDecimal("1"), LocalDateTime.now(), "forged", bill);
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments", forgedPerson, forgedAccount, bill.getId())
+                .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(payment)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", forgedPerson, forgedAccount, bill.getId()))
                 .andExpect(status().isNotFound());
 
         accountsService.delete(account.getId());

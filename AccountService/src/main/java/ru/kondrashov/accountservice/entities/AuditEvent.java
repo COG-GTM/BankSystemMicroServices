@@ -27,6 +27,8 @@ import java.util.UUID;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class AuditEvent {
 
+    // personId/accountId are taken from the bill's owning account when the bill exists, otherwise from the request path.
+
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
@@ -72,12 +74,15 @@ public class AuditEvent {
     @Column(updatable = false, length = 3)
     private String currency;
 
-    /** Currency of the bill whose balances are recorded; may differ from the operation currency. */
+    /** Bill currency of balanceBefore/balanceAfter; may differ from the operation currency and change on update. */
     @Column(updatable = false, length = 3)
-    private String balanceCurrency;
+    private String balanceBeforeCurrency;
 
     @Column(updatable = false)
     private BigDecimal balanceBefore;
+
+    @Column(updatable = false, length = 3)
+    private String balanceAfterCurrency;
 
     @Column(updatable = false)
     private BigDecimal balanceAfter;
