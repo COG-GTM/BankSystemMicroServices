@@ -16,9 +16,24 @@
                 <TimeBasedTriggeringPolicy />
             </Policies>
         </RollingFile>
+        <RollingFile name="PersonAuditFile"
+                     fileName="./logs/personAudit.log"
+                     filePattern="./logs/personAudit-%d{yyyy-MM-dd}-%i.log">
+            <PatternLayout>
+                <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ} %msg%n</pattern>
+            </PatternLayout>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+                <TimeBasedTriggeringPolicy />
+            </Policies>
+            <DefaultRolloverStrategy max="365" />
+        </RollingFile>
     </Appenders>
 
     <Loggers>
+        <Logger name="ru.kondrashov.personservice.AUDIT" level="info" additivity="false">
+            <AppenderRef ref="PersonAuditFile" />
+        </Logger>
         <!-- LOG everything at INFO level -->
         <Root level="info">
             <AppenderRef ref="RollingFile" />
