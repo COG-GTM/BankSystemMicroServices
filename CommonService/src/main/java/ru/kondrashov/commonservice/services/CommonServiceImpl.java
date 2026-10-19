@@ -12,7 +12,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import ru.kondrashov.commonservice.config.DownstreamServicesProperties;
+import ru.kondrashov.commonservice.config.ServiceUrlPolicy;
 import ru.kondrashov.commonservice.controllers.dto.*;
+
+import javax.annotation.PostConstruct;
 
 import java.util.*;
 
@@ -22,6 +26,7 @@ public class CommonServiceImpl implements CommonService{
 
     private final RestTemplate restTemplate;
     private final Logger logger;
+    private final DownstreamServicesProperties downstreamServices;
 
     @Value("${people.URL}")
     private String peopleUrl;
@@ -37,6 +42,18 @@ public class CommonServiceImpl implements CommonService{
     private String billUrl;
     @Value("${transactions.URL}")
     private String transactionsUrl;
+
+    @PostConstruct
+    void validateServiceUrls() {
+        DownstreamServicesProperties.Transport transport = downstreamServices.getTransport();
+        ServiceUrlPolicy.check("people.URL", peopleUrl, transport);
+        ServiceUrlPolicy.check("person.URL", personUrl, transport);
+        ServiceUrlPolicy.check("accounts.URL", accountsUrl, transport);
+        ServiceUrlPolicy.check("account.URL", accountUrl, transport);
+        ServiceUrlPolicy.check("bills.URL", billsUrl, transport);
+        ServiceUrlPolicy.check("bill.URL", billUrl, transport);
+        ServiceUrlPolicy.check("transactions.URL", transactionsUrl, transport);
+    }
 
     @Override
     public PersonRequestDTO getPersonById(UUID uuid){
