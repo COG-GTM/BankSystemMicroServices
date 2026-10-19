@@ -1,6 +1,7 @@
 package ru.kondrashov.accountservice.controllers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,12 +10,17 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.kondrashov.accountservice.controllers.dto.AccountRequestDTO;
+import ru.kondrashov.accountservice.exceptions.AccountHasNonZeroBalanceException;
 import ru.kondrashov.accountservice.services.interfaces.AccountsService;
 import ru.kondrashov.accountservice.utils.interfaces.AccountMapping;
 
 import java.time.LocalDate;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -32,6 +38,8 @@ class AccountsControllerTest {
     private AccountsService accountsService;
     @MockBean
     private AccountMapping accountMapping;
+    @MockBean
+    private Logger logger;
 
     @Test
     void whenValidUrlAndMethodAndContentType_thenReturns201() throws Exception {
@@ -70,6 +78,26 @@ class AccountsControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void deleteClosesAccountAndRecordsActor() throws Exception {
+        UUID personId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
 
+        mockMvc.perform(delete("/v1/people/{personId}/accounts/{id}", personId, accountId)
+                .header("X-Actor", "teller-7"))
+                .andExpect(status().isNoContent());
 
+        verify(accountsService).close(eq(personId), eq(accountId), eq("teller-7 (remote=127.0.0.1)"));
+    }
+
+    @Test
+    void deleteWithNonZeroBalance_thenReturns409() throws Exception {
+        UUID personId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        doThrow(new AccountHasNonZeroBalanceException("non-zero"))
+                .when(accountsService).close(eq(personId), eq(accountId), eq("remote=127.0.0.1"));
+
+        mockMvc.perform(delete("/v1/people/{personId}/accounts/{id}", personId, accountId))
+                .andExpect(status().isConflict());
+    }
 }

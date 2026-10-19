@@ -1,26 +1,39 @@
 package ru.kondrashov.accountservice.services;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.kondrashov.accountservice.entities.Account;
+import ru.kondrashov.accountservice.entities.AccountStatus;
 import ru.kondrashov.accountservice.entities.Adjustment;
 import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.entities.Payment;
 import ru.kondrashov.accountservice.entities.Transfer;
+import ru.kondrashov.accountservice.exceptions.AccountClosedException;
+import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
+import ru.kondrashov.accountservice.repositories.AccountsRepository;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.interfaces.*;
 
 import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class BillServiceImpl implements BillsService {
 
+    private static final int MAX_LOCK_ATTEMPTS = 3;
+
     private final BillsRepository billsRepository;
+    private final AccountsRepository accountsRepository;
     private final PaymentsService paymentsService;
     private final AdjustmentsService adjustmentsService;
     private final TransferService transferService;
@@ -42,29 +55,43 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void save(Bill bill) {
+        if (bill.getAccount() == null || bill.getAccount().getId() == null) {
+            throw new AccountNotFoundException("Bill must reference an existing account.");
+        }
+        bill.setAccount(lockOpenAccount(bill.getAccount().getId()));
         billsRepository.save(bill);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(UUID id) {
+        lockOpenBillOwners(Collections.emptySet(), id);
         billsRepository.delete(getBill(id));
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(UUID id, Bill newBill) {
+        if (newBill.getAccount() == null || newBill.getAccount().getId() == null) {
+            throw new AccountNotFoundException("Bill must reference an existing account.");
+        }
+        lockOpenBillOwners(Collections.singleton(newBill.getAccount().getId()), id);
         Bill oldBill = getBill(id);
         oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
         oldBill.setCurrency(newBill.getCurrency());
         oldBill.setIsOverdraft(newBill.getIsOverdraft());
-        oldBill.setAccount(newBill.getAccount());
+        oldBill.setAccount(accountsRepository.getOne(newBill.getAccount().getId()));
         billsRepository.save(oldBill);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitAdjustment(UUID billId, Adjustment adjustment) {
 
-        Bill bill = getBill(billId);
+        Bill bill = getOpenBill(billId);
+        adjustment.setBill(bill);
 
        increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
 
@@ -75,7 +102,8 @@ public class BillServiceImpl implements BillsService {
     @Transactional(rollbackFor = Exception.class)
     public void commitPayment(UUID billId, Payment payment) {
 
-        Bill bill = getBill(billId);
+        Bill bill = getOpenBill(billId);
+        payment.setBill(bill);
 
         decreaseBillsAmount(bill,currencyConversion.exchange(payment.getCurrency(),bill.getCurrency(),payment.getAmount()));
 
@@ -84,10 +112,14 @@ public class BillServiceImpl implements BillsService {
 
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
 
+        lockOpenBillOwners(Collections.emptySet(), sourceBillId, beneficiaryBillId);
         Bill sourceBill = getBill(sourceBillId);
         Bill beneficiaryBill = getBill(beneficiaryBillId);
+        transfer.setSourceBill(sourceBill);
+        transfer.setBeneficiaryBill(beneficiaryBill);
 
         decreaseBillsAmount(sourceBill, currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount()));
         increaseBillsAmount(beneficiaryBill, currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount()));
@@ -115,6 +147,50 @@ public class BillServiceImpl implements BillsService {
         return transferService.getTransfersByBeneficiaryBill_Id(billId);
     }
 
+
+    private Bill getOpenBill(UUID id) {
+        lockOpenBillOwners(Collections.emptySet(), id);
+        return getBill(id);
+    }
+
+    private UUID accountIdOfBill(UUID billId) {
+        return billsRepository.findAccountIdByBillId(billId)
+                .orElseThrow(() -> new BillNotFoundException("Bill with id = "+billId+" not found."));
+    }
+
+    // Takes the same account row lock as AccountsServiceImpl.close before any bill is loaded, so a close
+    // cannot interleave with a bill mutation. Moving a bill requires its current owner's lock, so once the
+    // re-read owners are all locked they cannot change; retry if a bill moved before its owner was locked.
+    private void lockOpenBillOwners(Set<UUID> extraAccountIds, UUID... billIds) {
+        Set<UUID> locked = new HashSet<>();
+        for (int attempt = 0; ; attempt++) {
+            Set<UUID> owners = new TreeSet<>(extraAccountIds);
+            for (UUID billId : billIds) {
+                owners.add(accountIdOfBill(billId));
+            }
+            if (locked.containsAll(owners)) {
+                return;
+            }
+            if (attempt == MAX_LOCK_ATTEMPTS) {
+                break;
+            }
+            for (UUID accountId : owners) {
+                if (locked.add(accountId)) {
+                    lockOpenAccount(accountId);
+                }
+            }
+        }
+        throw new ConcurrencyFailureException("Bill ownership changed concurrently; retry the request.");
+    }
+
+    private Account lockOpenAccount(UUID accountId) {
+        Account account = accountsRepository.findByIdForUpdate(accountId)
+                .orElseThrow(() -> new AccountNotFoundException("Account with id = "+accountId+" not found."));
+        if (account.getStatus() == AccountStatus.CLOSED) {
+            throw new AccountClosedException("Account with id = "+accountId+" is closed.");
+        }
+        return account;
+    }
 
     private void decreaseBillsAmount(Bill bill, BigDecimal amount){
 

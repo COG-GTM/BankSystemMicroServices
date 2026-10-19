@@ -1,9 +1,12 @@
 package ru.kondrashov.accountservice.exceptions.handler;
 
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import ru.kondrashov.accountservice.exceptions.AccountClosedException;
+import ru.kondrashov.accountservice.exceptions.AccountHasNonZeroBalanceException;
 import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
@@ -41,6 +44,39 @@ public class AccountServiceExceptionHandler {
                         400,
                         "NotEnoughMoneyException"),
                 HttpStatus.BAD_REQUEST);
+
+    }
+
+    @ExceptionHandler(AccountHasNonZeroBalanceException.class)
+    public ResponseEntity<AccountServiceExceptionTemplate> nonZeroBalanceExceptions(AccountHasNonZeroBalanceException exp) {
+        return new ResponseEntity<>(
+                new AccountServiceExceptionTemplate(
+                        exp.getMessage(),
+                        409,
+                        "AccountHasNonZeroBalanceException"),
+                HttpStatus.CONFLICT);
+
+    }
+
+    @ExceptionHandler(AccountClosedException.class)
+    public ResponseEntity<AccountServiceExceptionTemplate> accountClosedExceptions(AccountClosedException exp) {
+        return new ResponseEntity<>(
+                new AccountServiceExceptionTemplate(
+                        exp.getMessage(),
+                        409,
+                        "AccountClosedException"),
+                HttpStatus.CONFLICT);
+
+    }
+
+    @ExceptionHandler(ConcurrencyFailureException.class)
+    public ResponseEntity<AccountServiceExceptionTemplate> concurrencyFailureExceptions(ConcurrencyFailureException exp) {
+        return new ResponseEntity<>(
+                new AccountServiceExceptionTemplate(
+                        exp.getMessage(),
+                        409,
+                        "ConcurrencyFailureException"),
+                HttpStatus.CONFLICT);
 
     }
 }

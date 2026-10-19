@@ -15,6 +15,7 @@ import ru.kondrashov.accountservice.controllers.dto.AccountResponseDTO;
 import ru.kondrashov.accountservice.services.interfaces.AccountsService;
 import ru.kondrashov.accountservice.utils.interfaces.AccountMapping;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.util.Collection;
 import java.util.UUID;
@@ -25,6 +26,8 @@ import java.util.stream.Collectors;
 @Api(description = "Controller which provides methods for operations with accounts", tags = {"ACCOUNTS"})
 @RequiredArgsConstructor
 public class AccountsController {
+
+    static final String ACTOR_HEADER = "X-Actor";
 
     private final AccountsService accountsService;
     private final AccountMapping accountMapping;
@@ -62,19 +65,31 @@ public class AccountsController {
     public void update(@ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID personId,
                        @ApiParam("Id of the account to be obtained. Cannot be empty.") @PathVariable("id") UUID id,
                        @ApiParam("Account to update. Cannot null or empty.") @RequestBody @Valid AccountRequestDTO account,
-                       @RequestHeader HttpHeaders header){
+                       @ApiParam("Identity of the caller, recorded in the account audit log.") @RequestHeader(value = ACTOR_HEADER, required = false) String actor,
+                       @RequestHeader HttpHeaders header,
+                       HttpServletRequest request){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{id}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
-        accountsService.update(id,accountMapping.mapToAccount(account));
+        accountsService.update(personId, id, accountMapping.mapToAccount(account), resolveActor(actor, request));
     }
 
     @Transactional(rollbackFor = Exception.class)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @ApiOperation(value = "Delete a account", tags = { "ACCOUNTS" })
+    @ApiOperation(value = "Close an account (soft delete). Refused with 409 while any bill has a non-zero balance; bills and transactions are retained.", tags = { "ACCOUNTS" })
     public void delete(@ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID personId,
                        @ApiParam("Id of the account to be obtained. Cannot be empty.") @PathVariable("id") UUID id,
-                       @RequestHeader HttpHeaders header){
+                       @ApiParam("Identity of the caller, recorded in the account audit log.") @RequestHeader(value = ACTOR_HEADER, required = false) String actor,
+                       @RequestHeader HttpHeaders header,
+                       HttpServletRequest request){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
-        accountsService.delete(id);
+        accountsService.close(personId, id, resolveActor(actor, request));
+    }
+
+    private static String resolveActor(String actor, HttpServletRequest request) {
+        String remote = "remote=" + request.getRemoteAddr();
+        if (actor == null || actor.trim().isEmpty()) {
+            return remote;
+        }
+        return actor.trim().replaceAll("[\\r\\n\\t]", "_") + " (" + remote + ")";
     }
 }
