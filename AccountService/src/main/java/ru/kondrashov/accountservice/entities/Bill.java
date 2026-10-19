@@ -2,14 +2,13 @@ package ru.kondrashov.accountservice.entities;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.Currency;
 import java.util.UUID;
 
@@ -33,9 +32,14 @@ public class Bill {
 
     @ManyToOne(cascade = CascadeType.MERGE, fetch = FetchType.EAGER)
     @JoinColumn(name = "account_id")
-    @OnDelete(action = OnDeleteAction.CASCADE)
     @NotNull
     private Account account;
+
+    @Enumerated(EnumType.STRING)
+    @NotNull
+    private RecordStatus status = RecordStatus.OPEN;
+
+    private LocalDateTime closedAt;
 
     public Bill(@NotNull Currency currency, BigDecimal amount, @NotNull boolean isOverdraft, @NotNull Account account) {
         this.currency = currency;

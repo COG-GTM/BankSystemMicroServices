@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -143,7 +145,111 @@ public class BillControllerIntegrationTest {
                 .delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId()))
                 .andExpect(status().isNoContent());
 
-        assertThat(billsRepository.getBillById(bill.getId()).isPresent()).isFalse();
+        Bill closed = billsRepository.getBillById(bill.getId()).get();
+        assertThat(closed.getStatus()).isEqualTo(RecordStatus.CLOSED);
+        assertThat(closed.getClosedAt()).isNotNull();
+        assertThat(billsService.getBillsByAccountId(account.getId())).isEmpty();
+    }
+
+    @Test
+    void closingBillKeepsTransactionHistoryOfBothSides() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        BigDecimal amount = new BigDecimal(10,new MathContext(256, RoundingMode.HALF_EVEN));
+        Account account = initAccount();
+        init(currency, amount, false, account);
+        init(currency, BigDecimal.ZERO, true, account);
+        Bill source = findBill(account, false);
+        Bill beneficiary = findBill(account, true);
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments", account.getPersonId(), account.getId(), source.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new PaymentRequestDTO(currency, BigDecimal.ONE, LocalDateTime.now(), "Payment", source))))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{id}/adjustments", account.getPersonId(), account.getId(), source.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new AdjustmentRequestDTO(currency, BigDecimal.ONE, LocalDateTime.now(), "Adjustment", source))))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}", account.getPersonId(), account.getId(), source.getId(), beneficiary.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new TransferRequestDTO(currency, BigDecimal.ONE, LocalDateTime.now(), "Transfer", source, beneficiary))))
+                .andExpect(status().isAccepted());
+
+        mockMvc.perform(MockMvcRequestBuilders.delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}", account.getPersonId(), account.getId(), source.getId()))
+                .andExpect(status().isNoContent());
+
+        assertThat(billsService.getPaymentsByBillId(source.getId())).hasSize(1);
+        assertThat(billsService.getAdjustmentsByBillId(source.getId())).hasSize(1);
+        assertThat(billsService.getTransfersBySourceBillId(source.getId())).hasSize(1);
+        assertThat(billsService.getTransfersByBeneficiaryBillId(beneficiary.getId())).hasSize(1);
+        assertThat(transactionsOf(account, source)).hasSize(3);
+        assertThat(transactionsOf(account, beneficiary)).hasSize(1);
+
+        accountsService.delete(account.getId());
+
+        assertThat(billsRepository.getBillById(beneficiary.getId()).get().getStatus()).isEqualTo(RecordStatus.CLOSED);
+        assertThat(transactionsOf(account, source)).hasSize(3);
+        assertThat(transactionsOf(account, beneficiary)).hasSize(1);
+    }
+
+    @Test
+    void closedBillRejectsNewTransactions() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        BigDecimal amount = new BigDecimal(10,new MathContext(256, RoundingMode.HALF_EVEN));
+        Account account = initAccount();
+        init(currency, amount, true, account);
+        Bill bill = findBill(account, true);
+
+        billsService.delete(bill.getId());
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments", account.getPersonId(), account.getId(), bill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new PaymentRequestDTO(currency, BigDecimal.ONE, LocalDateTime.now(), "Payment", bill))))
+                .andExpect(status().isConflict());
+        assertThat(billsService.getPaymentsByBillId(bill.getId())).isEmpty();
+        assertThat(billsRepository.getBillById(bill.getId()).get().getAmount().compareTo(amount)).isEqualTo(0);
+
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void closedAccountRejectsNewBills() throws Exception {
+        Account account = initAccount();
+        accountsService.delete(account.getId());
+
+        mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills", account.getPersonId(), account.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new BillRequestDTO(Currency.getInstance("USD"), BigDecimal.ZERO, true, account))))
+                .andExpect(status().isConflict());
+        assertThat(billsRepository.getBillsByAccount_Id(account.getId())).isEmpty();
+    }
+
+    @Test
+    void hardDeleteOfBillWithTransactionsIsRejectedByDatabase() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        init(currency, BigDecimal.TEN, true, account);
+        Bill bill = findBill(account, true);
+        billsService.commitPayment(bill.getId(), new Payment(currency, BigDecimal.ONE, LocalDateTime.now(), "Payment", bill));
+
+        assertThatThrownBy(() -> billsRepository.delete(billsRepository.getBillById(bill.getId()).get()))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(billsService.getPaymentsByBillId(bill.getId())).hasSize(1);
+
+        accountsService.delete(account.getId());
+    }
+
+    private Bill findBill(Account account, boolean overdraft) {
+        return billsRepository.getBillsByAccount_Id(account.getId())
+                .stream()
+                .filter(b -> b.getIsOverdraft().equals(overdraft))
+                .findFirst().get();
+    }
+
+    private List<FinancialTransactionResponseDTO> transactionsOf(Account account, Bill bill) throws Exception {
+        MvcResult result = mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/transactions", account.getPersonId(), account.getId(), bill.getId())
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk()).andReturn();
+        return objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<List<FinancialTransactionResponseDTO>>() {});
     }
 
     @Test
