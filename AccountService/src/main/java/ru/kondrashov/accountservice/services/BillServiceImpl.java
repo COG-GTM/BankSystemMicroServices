@@ -43,6 +43,9 @@ public class BillServiceImpl implements BillsService {
 
     @Override
     public void save(Bill bill) {
+        if (bill.getAmount() != null && bill.getCurrency() != null) {
+            bill.setAmount(currencyConversion.exchange(bill.getCurrency(), bill.getCurrency(), bill.getAmount()));
+        }
         billsRepository.save(bill);
     }
 
