@@ -107,7 +107,7 @@ public class AccountsServiceImpl implements AccountsService {
         List<Bill> bills = billsRepository.getBillsByAccount_Id(id).stream().collect(Collectors.toList());
 
         List<UUID> nonZeroBills = bills.stream()
-                .filter(bill -> bill.getAmount() != null && bill.getAmount().compareTo(BigDecimal.ZERO) != 0)
+                .filter(bill -> bill.getAmount() == null || bill.getAmount().compareTo(BigDecimal.ZERO) != 0)
                 .map(Bill::getId)
                 .collect(Collectors.toList());
         if (!nonZeroBills.isEmpty()) {
@@ -123,12 +123,12 @@ public class AccountsServiceImpl implements AccountsService {
         audit(account.getId(), AccountAuditAction.CLOSED, actor, before, snapshot(account, bills));
     }
 
+    // Row lock shared with BillServiceImpl so balance checks and bill mutations are serialised per account.
     private Account getAccountOfPerson(UUID personId, UUID id) {
-        Account account = getAccount(id);
-        if (!Objects.equals(account.getPersonId(), personId)) {
-            throw new AccountNotFoundException("Account with id = "+id+" not found.");
-        }
-        return account;
+        return accountsRepository.findByIdForUpdate(id)
+                .filter(account -> account.getStatus() == AccountStatus.OPEN)
+                .filter(account -> Objects.equals(account.getPersonId(), personId))
+                .orElseThrow(() -> new AccountNotFoundException("Account with id = "+id+" not found."));
     }
 
     private void audit(UUID accountId, AccountAuditAction action, String actor, String before, String after) {

@@ -57,7 +57,7 @@ class AccountsServiceImplTest {
         personId = UUID.randomUUID();
         account = new Account("Salary", LocalDate.of(2021, 4, 20), personId);
         account.setId(UUID.randomUUID());
-        when(accountsRepository.getAccountsByIdAndStatus(account.getId(), AccountStatus.OPEN)).thenReturn(Optional.of(account));
+        when(accountsRepository.findByIdForUpdate(account.getId())).thenReturn(Optional.of(account));
     }
 
     private Bill bill(String amount) {
@@ -118,6 +118,26 @@ class AccountsServiceImplTest {
 
         assertThatThrownBy(() -> service.close(personId, account.getId(), "teller-7"))
                 .isInstanceOf(AccountHasNonZeroBalanceException.class);
+    }
+
+    @Test
+    void closeRefusesBillWithUnknownAmount() {
+        Bill unknown = bill("0");
+        unknown.setAmount(null);
+        when(billsRepository.getBillsByAccount_Id(account.getId())).thenReturn(Collections.singletonList(unknown));
+
+        assertThatThrownBy(() -> service.close(personId, account.getId(), "teller-7"))
+                .isInstanceOf(AccountHasNonZeroBalanceException.class);
+        assertThat(account.getStatus()).isEqualTo(AccountStatus.OPEN);
+    }
+
+    @Test
+    void closeRejectsAlreadyClosedAccount() {
+        account.setStatus(AccountStatus.CLOSED);
+
+        assertThatThrownBy(() -> service.close(personId, account.getId(), "teller-7"))
+                .isInstanceOf(AccountNotFoundException.class);
+        verifyNoInteractions(auditRepository);
     }
 
     @Test

@@ -19,7 +19,9 @@ import ru.kondrashov.accountservice.services.interfaces.*;
 
 import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -48,27 +50,39 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void save(Bill bill) {
-        bill.setAccount(requireOpenAccount(bill.getAccount()));
+        if (bill.getAccount() == null || bill.getAccount().getId() == null) {
+            throw new AccountNotFoundException("Bill must reference an existing account.");
+        }
+        bill.setAccount(lockOpenAccount(bill.getAccount().getId()));
         billsRepository.save(bill);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(UUID id) {
+        lockOpenAccounts(accountIdOfBill(id));
         billsRepository.delete(getBill(id));
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(UUID id, Bill newBill) {
+        if (newBill.getAccount() == null || newBill.getAccount().getId() == null) {
+            throw new AccountNotFoundException("Bill must reference an existing account.");
+        }
+        lockOpenAccounts(accountIdOfBill(id), newBill.getAccount().getId());
         Bill oldBill = getBill(id);
         oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
         oldBill.setCurrency(newBill.getCurrency());
         oldBill.setIsOverdraft(newBill.getIsOverdraft());
-        oldBill.setAccount(requireOpenAccount(newBill.getAccount()));
+        oldBill.setAccount(accountsRepository.getOne(newBill.getAccount().getId()));
         billsRepository.save(oldBill);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitAdjustment(UUID billId, Adjustment adjustment) {
 
         Bill bill = getOpenBill(billId);
@@ -93,10 +107,12 @@ public class BillServiceImpl implements BillsService {
 
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
 
-        Bill sourceBill = getOpenBill(sourceBillId);
-        Bill beneficiaryBill = getOpenBill(beneficiaryBillId);
+        lockOpenAccounts(accountIdOfBill(sourceBillId), accountIdOfBill(beneficiaryBillId));
+        Bill sourceBill = getBill(sourceBillId);
+        Bill beneficiaryBill = getBill(beneficiaryBillId);
         transfer.setSourceBill(sourceBill);
         transfer.setBeneficiaryBill(beneficiaryBill);
 
@@ -128,21 +144,26 @@ public class BillServiceImpl implements BillsService {
 
 
     private Bill getOpenBill(UUID id) {
-        Bill bill = getBill(id);
-        if (bill.getAccount() != null && bill.getAccount().getStatus() == AccountStatus.CLOSED) {
-            throw new AccountClosedException("Account with id = "+bill.getAccount().getId()+" is closed.");
-        }
-        return bill;
+        lockOpenAccounts(accountIdOfBill(id));
+        return getBill(id);
     }
 
-    private Account requireOpenAccount(Account reference) {
-        if (reference == null || reference.getId() == null) {
-            throw new AccountNotFoundException("Bill must reference an existing account.");
-        }
-        Account account = accountsRepository.getAccountsById(reference.getId())
-                .orElseThrow(() -> new AccountNotFoundException("Account with id = "+reference.getId()+" not found."));
+    private UUID accountIdOfBill(UUID billId) {
+        return billsRepository.findAccountIdByBillId(billId)
+                .orElseThrow(() -> new BillNotFoundException("Bill with id = "+billId+" not found."));
+    }
+
+    // Takes the same account row lock as AccountsServiceImpl.close, before any bill is read,
+    // so a close cannot interleave with a bill mutation. Sorted to avoid lock-order deadlocks.
+    private void lockOpenAccounts(UUID... accountIds) {
+        Stream.of(accountIds).filter(Objects::nonNull).distinct().sorted().forEach(this::lockOpenAccount);
+    }
+
+    private Account lockOpenAccount(UUID accountId) {
+        Account account = accountsRepository.findByIdForUpdate(accountId)
+                .orElseThrow(() -> new AccountNotFoundException("Account with id = "+accountId+" not found."));
         if (account.getStatus() == AccountStatus.CLOSED) {
-            throw new AccountClosedException("Account with id = "+account.getId()+" is closed.");
+            throw new AccountClosedException("Account with id = "+accountId+" is closed.");
         }
         return account;
     }

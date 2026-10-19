@@ -10,23 +10,33 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.kondrashov.accountservice.controllers.dto.AccountRequestDTO;
 import ru.kondrashov.accountservice.entities.Account;
 import ru.kondrashov.accountservice.entities.AccountAuditAction;
 import ru.kondrashov.accountservice.entities.AccountAuditRecord;
 import ru.kondrashov.accountservice.entities.AccountStatus;
 import ru.kondrashov.accountservice.entities.Bill;
+import ru.kondrashov.accountservice.exceptions.AccountHasNonZeroBalanceException;
 import ru.kondrashov.accountservice.repositories.AccountAuditRepository;
 import ru.kondrashov.accountservice.repositories.AccountsRepository;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
+import ru.kondrashov.accountservice.services.interfaces.AccountsService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Currency;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -53,6 +63,12 @@ public class AccountsIntegrationTest {
 
     @Autowired
     private AccountAuditRepository accountAuditRepository;
+
+    @Autowired
+    private AccountsService accountsService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     Account init(String name, LocalDate localDate, UUID personId) throws Exception {
         AccountRequestDTO accountRequestDTO = new AccountRequestDTO(name, localDate, personId);
@@ -140,6 +156,39 @@ public class AccountsIntegrationTest {
         assertThat(accountsRepository.getAccountsById(account.getId()).get().getStatus()).isEqualTo(AccountStatus.OPEN);
         assertThat(billsRepository.getBillById(funded.getId())).isPresent();
         assertThat(accountAuditRepository.findByAccountIdOrderByOccurredAtAsc(account.getId())).isEmpty();
+    }
+
+    @Test
+    void closeWaitsForInFlightBillMutationAndSeesItsBalance() throws Exception {
+        UUID personId = UUID.randomUUID();
+        Account account = init("Salary", LocalDate.now(), personId);
+        Bill bill = billsRepository.save(new Bill(Currency.getInstance("USD"), BigDecimal.ZERO, true, account));
+
+        CountDownLatch lockHeld = new CountDownLatch(1);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<?> mutation = executor.submit(() -> new TransactionTemplate(transactionManager).execute(status -> {
+                accountsRepository.findByIdForUpdate(account.getId());
+                lockHeld.countDown();
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                Bill inFlight = billsRepository.getBillById(bill.getId()).get();
+                inFlight.setAmount(new BigDecimal("-5"));
+                return billsRepository.save(inFlight);
+            }));
+            assertThat(lockHeld.await(5, TimeUnit.SECONDS)).isTrue();
+
+            assertThatThrownBy(() -> accountsService.close(personId, account.getId(), "teller-7"))
+                    .isInstanceOf(AccountHasNonZeroBalanceException.class);
+            mutation.get(5, TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertThat(accountsRepository.getAccountsById(account.getId()).get().getStatus()).isEqualTo(AccountStatus.OPEN);
     }
 
     @Test
