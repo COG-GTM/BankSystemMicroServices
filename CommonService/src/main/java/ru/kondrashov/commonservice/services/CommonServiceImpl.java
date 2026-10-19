@@ -107,8 +107,8 @@ public class CommonServiceImpl implements CommonService{
         ResponseEntity<PersonResponseDTO> responseEntity =
                 restTemplate.postForEntity(peopleUrl, person,PersonResponseDTO.class);
         if(responseEntity.getStatusCode() != HttpStatus.CREATED){
-            logger.error(responseEntity.toString());
-            throw new Exception(responseEntity.toString());
+            logger.error("Unexpected response status " + responseEntity.getStatusCode());
+            throw new Exception("Unexpected response status " + responseEntity.getStatusCode());
         }
         logger.info("Got response with status code "+ responseEntity.getStatusCode());
     }
@@ -119,8 +119,8 @@ public class CommonServiceImpl implements CommonService{
         ResponseEntity<AccountResponseDTO> responseEntity =
                 restTemplate.postForEntity(String.format(accountsUrl, personId), account, AccountResponseDTO.class);
         if(responseEntity.getStatusCode() != HttpStatus.CREATED){
-            logger.error(responseEntity.toString());
-            throw new Exception(responseEntity.toString());
+            logger.error("Unexpected response status " + responseEntity.getStatusCode());
+            throw new Exception("Unexpected response status " + responseEntity.getStatusCode());
         }
         logger.info("Got response with status code "+ responseEntity.getStatusCode());
     }
@@ -131,8 +131,8 @@ public class CommonServiceImpl implements CommonService{
         ResponseEntity<BillResponseDTO> responseEntity =
                 restTemplate.postForEntity(String.format(billsUrl, personId, accountId), bill, BillResponseDTO.class);
         if(responseEntity.getStatusCode() != HttpStatus.CREATED){
-            logger.error(responseEntity.toString());
-            throw new Exception(responseEntity.toString());
+            logger.error("Unexpected response status " + responseEntity.getStatusCode());
+            throw new Exception("Unexpected response status " + responseEntity.getStatusCode());
         }
         logger.info("Got response with status code "+ responseEntity.getStatusCode());
     }
