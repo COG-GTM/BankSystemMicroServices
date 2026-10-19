@@ -16,6 +16,8 @@
     <description>Demo project for Spring Boot</description>
     <properties>
         <java.version>1.8</java.version>
+        <!-- Spring Boot 2.4.4 manages Log4j 2.13.3 (CVE-2021-44228/45046/45105/44832) -->
+        <log4j2.version>2.17.2</log4j2.version>
     </properties>
 
     <url>https://github.com/mihailkondrashov/BankSystemMicroServices/tree/master</url>

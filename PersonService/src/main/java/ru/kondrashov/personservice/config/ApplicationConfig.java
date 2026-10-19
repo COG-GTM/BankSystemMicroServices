@@ -1,42 +1,36 @@
 package ru.kondrashov.personservice.config;
 
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Contact;
+import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.info.License;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springdoc.core.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import springfox.documentation.builders.RequestHandlerSelectors;
-import springfox.documentation.service.ApiInfo;
-import springfox.documentation.spi.DocumentationType;
-import springfox.documentation.spring.web.plugins.Docket;
-import springfox.documentation.swagger2.annotations.EnableSwagger2;
-
-import static springfox.documentation.builders.PathSelectors.regex;
 
 @Configuration
-@EnableSwagger2
 public class ApplicationConfig {
     @Bean
-    public Docket api()
+    public GroupedOpenApi api()
     {
-        return new Docket(DocumentationType.SWAGGER_2)
-                .select()
-                .apis(RequestHandlerSelectors.any())
-                .paths(regex("/v1.*"))
-                .build().apiInfo(apiInfo());
+        return GroupedOpenApi.builder()
+                .group("person-service")
+                .pathsToMatch("/v1/**")
+                .build();
     }
 
-    private ApiInfo apiInfo()
+    @Bean
+    public OpenAPI apiInfo()
     {
-        ApiInfo apiInfo = new ApiInfo(
-                "Person service",
-                "",
-                "version-1",
-                "API TOS",
-                "mikhail.a.kondrashov@gmail.com",
-                "API License",
-                "API License URL"
-        );
-        return apiInfo;
+        return new OpenAPI().info(new Info()
+                .title("Person service")
+                .description("")
+                .version("version-1")
+                .termsOfService("API TOS")
+                .contact(new Contact().email("mikhail.a.kondrashov@gmail.com"))
+                .license(new License().name("API License").url("API License URL")));
     }
 
     @Bean
