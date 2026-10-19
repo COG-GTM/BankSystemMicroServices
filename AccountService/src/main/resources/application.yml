@@ -7,3 +7,10 @@ spring:
 
 server:
   port: 8081
+
+retention:
+  financial-records:
+    # Closed bills/accounts and their payments, adjustments and transfers are kept at least this long.
+    years: 5
+    purge-enabled: true
+    purge-cron: "0 0 3 * * *"

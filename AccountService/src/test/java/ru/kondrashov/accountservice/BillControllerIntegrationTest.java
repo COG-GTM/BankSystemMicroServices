@@ -90,7 +90,7 @@ public class BillControllerIntegrationTest {
 
         assertThat(bill).isNotNull();
 
-        accountsService.delete(account.getId());
+        accountsService.close(account.getId());
     }
 
     @Test
@@ -122,7 +122,7 @@ public class BillControllerIntegrationTest {
         assertThat(newBill.getIsOverdraft()).isEqualTo(newOverdraft);
         assertThat(newBill.getCurrency()).isEqualTo(newCurrency);
         assertThat(newBill.getAmount().compareTo(newAmount)).isEqualTo(0);
-        accountsService.delete(account.getId());
+        accountsService.close(account.getId());
     }
 
     @Test
@@ -143,7 +143,10 @@ public class BillControllerIntegrationTest {
                 .delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId()))
                 .andExpect(status().isNoContent());
 
-        assertThat(billsRepository.getBillById(bill.getId()).isPresent()).isFalse();
+        Bill closedBill = billsRepository.getBillById(bill.getId()).get();
+        assertThat(closedBill.getClosed()).isTrue();
+        assertThat(closedBill.getClosedAt()).isNotNull();
+        assertThat(billsService.getBillsByAccountId(account.getId())).extracting(Bill::getId).doesNotContain(bill.getId());
     }
 
     @Test
@@ -194,7 +197,7 @@ public class BillControllerIntegrationTest {
         assertThat(financialTransaction.getAmount().compareTo(paymentAmount.negate())).isEqualTo(0);
         assertThat(financialTransaction.getMessage()).isEqualToIgnoringCase("Payment for order #1");
 
-        accountsService.delete(account.getId());
+        accountsService.close(account.getId());
     }
 
     @Test
@@ -273,7 +276,7 @@ public class BillControllerIntegrationTest {
         assertThat(financialTransaction.getCurrency()).isEqualTo(currency);
         assertThat(financialTransaction.getAmount().compareTo(adjustmentAmount)).isEqualTo(0);
         assertThat(financialTransaction.getMessage()).isEqualToIgnoringCase("Adjustment");
-        accountsService.delete(account.getId());
+        accountsService.close(account.getId());
     }
 
     @Test
@@ -366,6 +369,6 @@ public class BillControllerIntegrationTest {
         assertThat(targetTransfer.getSourceBill()).isEqualTo(newSourceBill);
         assertThat(targetTransfer.getBeneficiaryBill()).isEqualTo(newTargetBill);
 
-        accountsService.delete(account.getId());
+        accountsService.close(account.getId());
     }
 }
