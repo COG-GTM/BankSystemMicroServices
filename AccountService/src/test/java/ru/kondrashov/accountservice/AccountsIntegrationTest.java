@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static ru.kondrashov.accountservice.support.TestJwts.serviceToken;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -41,6 +42,7 @@ public class AccountsIntegrationTest {
         AccountRequestDTO accountRequestDTO = new AccountRequestDTO(name, localDate, personId);
 
         mockMvc.perform(post("/v1/people/{personId}/accounts", personId)
+                .with(serviceToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(accountRequestDTO)))
                 .andExpect(status().isCreated());
@@ -72,6 +74,7 @@ public class AccountsIntegrationTest {
         AccountRequestDTO newAccountRequestDTO = new AccountRequestDTO(newName, localDate, personId);
 
         mockMvc.perform(put("/v1/people/{personId}/accounts/{id}", personId,oldAccount.getId())
+                .with(serviceToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(newAccountRequestDTO)))
                 .andExpect(status().isAccepted());
@@ -88,9 +91,42 @@ public class AccountsIntegrationTest {
         Account account = init(name, localDate, personId);
 
         mockMvc.perform(MockMvcRequestBuilders.delete("/v1/people/{personId}/accounts/{id}", personId,account.getId())
+                .with(serviceToken())
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNoContent());
 
         assertThat(accountsRepository.getAccountsByPersonId(personId).stream().findFirst().isPresent()).isFalse();
+    }
+
+    @Test
+    void updateAndDeleteThroughAnotherPersonPathReturn404AndLeaveAccountUntouched() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        UUID otherPersonId = UUID.randomUUID();
+        Account account = init("Salary", LocalDate.now(), ownerId);
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{id}", otherPersonId, account.getId())
+                .with(serviceToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new AccountRequestDTO("Hijacked", LocalDate.now(), otherPersonId))))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(MockMvcRequestBuilders.delete("/v1/people/{personId}/accounts/{id}", otherPersonId, account.getId())
+                .with(serviceToken()))
+                .andExpect(status().isNotFound());
+
+        Account stored = accountsRepository.findById(account.getId()).get();
+        assertThat(stored.getPersonId()).isEqualTo(ownerId);
+        assertThat(stored.getName()).isEqualTo("Salary");
+    }
+
+    @Test
+    void unauthenticatedRequestsAreRejected() throws Exception {
+        UUID personId = UUID.randomUUID();
+        mockMvc.perform(MockMvcRequestBuilders.get("/v1/people/{personId}/accounts", personId))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/v1/people/{personId}/accounts", personId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new AccountRequestDTO("Salary", LocalDate.now(), personId))))
+                .andExpect(status().isUnauthorized());
+        assertThat(accountsRepository.getAccountsByPersonId(personId)).isEmpty();
     }
 }

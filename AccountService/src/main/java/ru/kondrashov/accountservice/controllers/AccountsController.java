@@ -8,10 +8,12 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import ru.kondrashov.accountservice.controllers.dto.AccountRequestDTO;
 import ru.kondrashov.accountservice.controllers.dto.AccountResponseDTO;
+import ru.kondrashov.accountservice.exceptions.PersonMismatchException;
 import ru.kondrashov.accountservice.services.interfaces.AccountsService;
 import ru.kondrashov.accountservice.utils.interfaces.AccountMapping;
 
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 @RequestMapping( value = "/v1/people/{personId}/accounts", produces = MediaType.APPLICATION_JSON_VALUE)
 @Api(description = "Controller which provides methods for operations with accounts", tags = {"ACCOUNTS"})
 @RequiredArgsConstructor
+@PreAuthorize("@personAccess.canAccess(authentication, #personId)")
 public class AccountsController {
 
     private final AccountsService accountsService;
@@ -34,11 +37,11 @@ public class AccountsController {
     @ResponseStatus(HttpStatus.OK)
     @ApiOperation(value = "Find accounts by person ID", tags = { "ACCOUNTS" })
     public Collection<AccountResponseDTO> getAccountsByPersonId(
-            @ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID id,
+            @ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID personId,
             @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
         return accountsService
-                .getAccountsByPersonId(id)
+                .getAccountsByPersonId(personId)
                 .stream()
                 .map(account -> accountMapping.mapToAccountResponseDTO(account))
                 .collect(Collectors.toList());
@@ -48,10 +51,11 @@ public class AccountsController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @ApiOperation(value = "Add a new account", tags = { "ACCOUNTS" })
-    public void save(@ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID id,
+    public void save(@ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID personId,
                      @ApiParam("Account to add. Cannot null or empty.") @RequestBody @Valid AccountRequestDTO account,
                      @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts\""+" received a POST request from the server "+header.getHost()+" with content type "+header.getContentType());
+        requireSamePerson(personId, account);
         accountsService.save(accountMapping.mapToAccount(account));
     }
 
@@ -64,7 +68,8 @@ public class AccountsController {
                        @ApiParam("Account to update. Cannot null or empty.") @RequestBody @Valid AccountRequestDTO account,
                        @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{id}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
-        accountsService.update(id,accountMapping.mapToAccount(account));
+        requireSamePerson(personId, account);
+        accountsService.update(personId, id, accountMapping.mapToAccount(account));
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -75,6 +80,12 @@ public class AccountsController {
                        @ApiParam("Id of the account to be obtained. Cannot be empty.") @PathVariable("id") UUID id,
                        @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
-        accountsService.delete(id);
+        accountsService.delete(personId, id);
+    }
+
+    private static void requireSamePerson(UUID personId, AccountRequestDTO account) {
+        if (!personId.equals(account.getPersonId())) {
+            throw new PersonMismatchException("Account personId must match the personId in the path.");
+        }
     }
 }

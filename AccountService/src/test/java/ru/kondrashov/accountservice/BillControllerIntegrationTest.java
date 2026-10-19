@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static ru.kondrashov.accountservice.support.TestJwts.serviceToken;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -60,6 +61,7 @@ public class BillControllerIntegrationTest {
         BillRequestDTO billRequestDTO = new BillRequestDTO(currency, amount , over, account);
 
         mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills",account.getPersonId(), account.getId())
+                .with(serviceToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(billRequestDTO)))
                 .andExpect(status().isCreated());
@@ -112,6 +114,7 @@ public class BillControllerIntegrationTest {
         BillRequestDTO billRequestDTO = new BillRequestDTO(newCurrency, amount , newOverdraft, account);
 
         mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId())
+                .with(serviceToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(billRequestDTO)))
                 .andExpect(status().isAccepted());
@@ -140,7 +143,8 @@ public class BillControllerIntegrationTest {
                 .findFirst().get();
 
         mockMvc.perform(MockMvcRequestBuilders
-                .delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId()))
+                .delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId())
+                .with(serviceToken()))
                 .andExpect(status().isNoContent());
 
         assertThat(billsRepository.getBillById(bill.getId()).isPresent()).isFalse();
@@ -167,10 +171,12 @@ public class BillControllerIntegrationTest {
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments",account.getPersonId(), account.getId(), bill.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .with(serviceToken())
+                .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestDTO)))
                 .andExpect(status().isAccepted());
         MvcResult mvcResult = mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/transactions", account.getPersonId(), account.getId(), bill.getId())
+                .with(serviceToken())
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk()).andReturn();
 
@@ -218,7 +224,8 @@ public class BillControllerIntegrationTest {
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments",account.getPersonId(), account.getId(), bill.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .with(serviceToken())
+                .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestDTO)))
                 .andExpect(status().isBadRequest());
 
@@ -246,11 +253,13 @@ public class BillControllerIntegrationTest {
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments",account.getPersonId(), account.getId(), bill.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .with(serviceToken())
+                .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestDTO)))
                 .andExpect(status().isAccepted());
 
         MvcResult mvcResult = mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/transactions", account.getPersonId(), account.getId(), bill.getId())
+                .with(serviceToken())
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk()).andReturn();
 
@@ -309,15 +318,18 @@ public class BillControllerIntegrationTest {
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}", account.getPersonId(), account.getId(), sourceBill.getId(), targetBill.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .with(serviceToken())
+                .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(transferRequestDTO)))
                 .andExpect(status().isAccepted());
 
         MvcResult mvcResultSource = mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/transactions", account.getPersonId(), account.getId(), sourceBill.getId())
+                .with(serviceToken())
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk()).andReturn();
 
         MvcResult mvcResultTarget = mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/transactions", account.getPersonId(), account.getId(), targetBill.getId())
+                .with(serviceToken())
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk()).andReturn();
 

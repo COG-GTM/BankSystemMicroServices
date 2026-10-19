@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
+import ru.kondrashov.accountservice.exceptions.PersonMismatchException;
 
 @ControllerAdvice
 public class AccountServiceExceptionHandler {
@@ -40,6 +41,17 @@ public class AccountServiceExceptionHandler {
                         exp.getMessage(),
                         400,
                         "NotEnoughMoneyException"),
+                HttpStatus.BAD_REQUEST);
+
+    }
+
+    @ExceptionHandler(PersonMismatchException.class)
+    public ResponseEntity<AccountServiceExceptionTemplate> personMismatchExceptions(PersonMismatchException exp) {
+        return new ResponseEntity<>(
+                new AccountServiceExceptionTemplate(
+                        exp.getMessage(),
+                        400,
+                        "PersonMismatchException"),
                 HttpStatus.BAD_REQUEST);
 
     }

@@ -6,6 +6,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import ru.kondrashov.accountservice.config.ApplicationSpringConfig;
+import ru.kondrashov.accountservice.config.SecurityConfig;
+import ru.kondrashov.accountservice.security.PersonAccess;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.kondrashov.accountservice.controllers.dto.BillRequestDTO;
@@ -23,9 +28,11 @@ import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static ru.kondrashov.accountservice.support.TestJwts.serviceToken;
 
 @ExtendWith(SpringExtension.class)
 @WebMvcTest(controllers = BillsController.class)
+@Import({SecurityConfig.class, PersonAccess.class, ApplicationSpringConfig.class})
 class BillsControllerTest {
 
     @Autowired
@@ -49,12 +56,16 @@ class BillsControllerTest {
     @MockBean
     private TransferMapping transferMapping;
 
+    @MockBean
+    private JwtDecoder jwtDecoder;
+
     @Test
     void whenValidUrlAndMethodAndContentType_thenReturns201() throws Exception {
 
         BillRequestDTO bill = new BillRequestDTO(Currency.getInstance("USD"), BigDecimal.TEN, false, new Account("name", LocalDate.now(), UUID.randomUUID()));
 
         mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills", UUID.randomUUID(), UUID.randomUUID() )
+                .with(serviceToken())
                 .content(objectMapper.writeValueAsString(bill))
                 .contentType("application/json"))
                 .andExpect(status().isCreated());
@@ -66,6 +77,7 @@ class BillsControllerTest {
         BillRequestDTO bill = new BillRequestDTO(null, BigDecimal.TEN, false, new Account("name", LocalDate.now(), UUID.randomUUID()));
 
         mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills", UUID.randomUUID(), UUID.randomUUID())
+                .with(serviceToken())
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(bill)))
                 .andExpect(status().isBadRequest());
@@ -87,6 +99,7 @@ class BillsControllerTest {
                 "}";
 
         mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills", UUID.randomUUID(), UUID.randomUUID())
+                .with(serviceToken())
                 .contentType("application/json")
                 .content(request))
                 .andExpect(status().isBadRequest());
