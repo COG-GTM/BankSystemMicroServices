@@ -14,6 +14,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -81,6 +82,17 @@ class DataSourceSecurityGuardTest {
     })
     void rejectsNonLocalUrlsWithoutTls(String url) {
         assertThrows(IllegalStateException.class, () -> DataSourceSecurityGuard.requireSecureTransport(url));
+    }
+
+    @Test
+    void urlSslModeOverridesDriverProperties() {
+        Properties driverProperties = new Properties();
+        driverProperties.setProperty("sslmode", "disable");
+        driverProperties.setProperty("ssl", "false");
+
+        Properties effective = org.postgresql.Driver.parseURL(
+                "jdbc:postgresql://db.internal.example:5432/db?sslmode=require", driverProperties);
+        assertEquals("require", effective.getProperty("sslmode"));
     }
 
     @Test
