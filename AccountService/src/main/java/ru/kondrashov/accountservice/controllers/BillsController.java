@@ -81,7 +81,7 @@ public class BillsController {
 
     @Transactional(rollbackFor = Exception.class)
     @DeleteMapping("/{id}")
-    @ApiOperation(value = "Delete bill", tags = { "BILLS" })
+    @ApiOperation(value = "Close bill (soft delete; transaction history is retained)", tags = { "BILLS" })
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
                        @ApiParam(value = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,

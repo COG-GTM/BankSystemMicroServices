@@ -70,7 +70,7 @@ public class AccountsController {
     @Transactional(rollbackFor = Exception.class)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @ApiOperation(value = "Delete a account", tags = { "ACCOUNTS" })
+    @ApiOperation(value = "Close an account and its bills (soft delete; transaction history is retained)", tags = { "ACCOUNTS" })
     public void delete(@ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID personId,
                        @ApiParam("Id of the account to be obtained. Cannot be empty.") @PathVariable("id") UUID id,
                        @RequestHeader HttpHeaders header){

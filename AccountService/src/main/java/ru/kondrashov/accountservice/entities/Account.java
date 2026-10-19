@@ -10,6 +10,7 @@ import javax.persistence.*;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.UUID;
 
@@ -38,6 +39,12 @@ public class Account {
     @Column(name="person_id")
     @NotNull(message = "Person Id shouldn't be null")
     private UUID personId;
+
+    @Enumerated(EnumType.STRING)
+    @NotNull
+    private RecordStatus status = RecordStatus.OPEN;
+
+    private LocalDateTime closedAt;
 
     public Account(String name, LocalDate creationDate, UUID personId) {
         this.name = name;
