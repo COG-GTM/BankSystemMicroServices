@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import ru.kondrashov.accountservice.audit.AuditOperation;
 import ru.kondrashov.accountservice.audit.AuditOutcome;
 import ru.kondrashov.accountservice.entities.AuditEvent;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
@@ -51,9 +50,9 @@ public class AuditServiceImpl implements AuditService {
                 .map(bill -> bill.getAccount() != null
                         && accountId.equals(bill.getAccount().getId())
                         && personId.equals(bill.getAccount().getPersonId()))
-                                // a successful deletion recorded the owner from the bill entity itself, unlike path-supplied ids
-                .orElseGet(() -> auditEventRepository.existsByBillIdAndPersonIdAndAccountIdAndOperationAndOutcome(
-                        billId, personId, accountId, AuditOperation.BILL_DELETED, AuditOutcome.SUCCESS));
+                                // successful operations ran on an existing bill, so their owner ids came from the bill entity, not the path
+                .orElseGet(() -> auditEventRepository.existsByBillIdAndPersonIdAndAccountIdAndOutcome(
+                        billId, personId, accountId, AuditOutcome.SUCCESS));
         if (!owned) {
             throw new BillNotFoundException("Bill with id = " + billId + " not found.");
         }

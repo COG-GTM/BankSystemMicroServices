@@ -639,6 +639,25 @@ public class BillControllerIntegrationTest {
     }
 
     @Test
+    void auditEvents_remainReadableAfterAccountDeletion() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        Bill bill = initBill(currency, new BigDecimal("10"), true, account);
+        PaymentRequestDTO payment = new PaymentRequestDTO(currency, new BigDecimal("1"), LocalDateTime.now(), "before account deletion", bill);
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments", account.getPersonId(), account.getId(), bill.getId())
+                .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(payment)))
+                .andExpect(status().isAccepted());
+
+        accountsService.delete(account.getId());
+
+        assertThat(lastAuditEvent(account, bill.getId(), AuditOperation.PAYMENT).getOutcome()).isEqualTo(AuditOutcome.SUCCESS);
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", account.getPersonId(), UUID.randomUUID(), bill.getId()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void auditEvents_areNotReadableThroughAnotherPersonOrAccount() throws Exception {
         Currency currency = Currency.getInstance("USD");
         Account account = initAccount();
