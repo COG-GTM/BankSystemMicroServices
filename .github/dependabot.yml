@@ -1,0 +1,14 @@
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /PersonService
+    schedule:
+      interval: weekly
+  - package-ecosystem: maven
+    directory: /AccountService
+    schedule:
+      interval: weekly
+  - package-ecosystem: maven
+    directory: /CommonService
+    schedule:
+      interval: weekly
