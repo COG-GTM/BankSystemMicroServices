@@ -42,7 +42,7 @@ Database credentials are not stored in the repository. Each service reads them f
 PersonService connects as a non-superuser role that has only DML on `public.people`. Create the
 role and the table once, as a PostgreSQL administrator:
 ```sh
-psql -d person-service-db -v app_password="$PERSON_DB_PASSWORD" -f PersonService/db/provision.sql
+psql -d person-service-db -f PersonService/db/provision.sql   # reads PERSON_DB_PASSWORD from the environment
 export PERSON_DB_USERNAME=person_service_app
 ```
 The test databases should use their own role and password, for example
