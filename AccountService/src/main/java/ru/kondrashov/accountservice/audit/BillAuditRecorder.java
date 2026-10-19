@@ -72,6 +72,7 @@ public class BillAuditRecorder {
             Bill billAfter = findBill(billId);
             event.balanceAfter(billAfter == null ? null : billAfter.getAmount())
                     .balanceAfterCurrency(currencyCode(billAfter));
+            recordOwner(event, billAfter);
         }
         if (counterpartyBillId != null) {
             event.counterpartyBalanceAfter(balanceOf(counterpartyBillId));

@@ -5,6 +5,7 @@ import ru.kondrashov.accountservice.audit.AuditOutcome;
 import ru.kondrashov.accountservice.entities.AuditEvent;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -16,5 +17,5 @@ public interface AuditEventRepository extends Repository<AuditEvent, UUID> {
 
     List<AuditEvent> findByBillIdOrCounterpartyBillIdOrderByOccurredAtAsc(UUID billId, UUID counterpartyBillId);
 
-    boolean existsByBillIdAndPersonIdAndAccountIdAndOutcome(UUID billId, UUID personId, UUID accountId, AuditOutcome outcome);
+    Optional<AuditEvent> findFirstByBillIdAndOutcomeOrderByOccurredAtDesc(UUID billId, AuditOutcome outcome);
 }

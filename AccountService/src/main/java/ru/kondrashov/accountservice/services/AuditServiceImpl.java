@@ -50,9 +50,10 @@ public class AuditServiceImpl implements AuditService {
                 .map(bill -> bill.getAccount() != null
                         && accountId.equals(bill.getAccount().getId())
                         && personId.equals(bill.getAccount().getPersonId()))
-                                // successful operations ran on an existing bill, so their owner ids came from the bill entity, not the path
-                .orElseGet(() -> auditEventRepository.existsByBillIdAndPersonIdAndAccountIdAndOutcome(
-                        billId, personId, accountId, AuditOutcome.SUCCESS));
+                                // the last successful operation recorded the bill's final owner from the entity, not from the path
+                .orElseGet(() -> auditEventRepository.findFirstByBillIdAndOutcomeOrderByOccurredAtDesc(billId, AuditOutcome.SUCCESS)
+                        .map(last -> personId.equals(last.getPersonId()) && accountId.equals(last.getAccountId()))
+                        .orElse(false));
         if (!owned) {
             throw new BillNotFoundException("Bill with id = " + billId + " not found.");
         }

@@ -639,6 +639,32 @@ public class BillControllerIntegrationTest {
     }
 
     @Test
+    void auditEvents_ofDeletedBill_areReadableOnlyByItsFinalOwner() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account formerOwner = initAccount();
+        UUID newPersonId = UUID.randomUUID();
+        accountsService.save(new Account("new owner", LocalDate.now(), newPersonId));
+        Account newOwner = accountsService.getAccounts().stream()
+                .filter(a -> newPersonId.equals(a.getPersonId())).findFirst().get();
+        Bill bill = initBill(currency, new BigDecimal("10"), true, formerOwner);
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{id}", formerOwner.getPersonId(), formerOwner.getId(), bill.getId())
+                .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new BillRequestDTO(currency, new BigDecimal("10"), true, newOwner))))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(MockMvcRequestBuilders.delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}", newOwner.getPersonId(), newOwner.getId(), bill.getId())
+                .header(AuditContextResolver.ACTOR_HEADER, MAKER))
+                .andExpect(status().isNoContent());
+
+        assertThat(lastAuditEvent(newOwner, bill.getId(), AuditOperation.BILL_UPDATED).getAccountId()).isEqualTo(newOwner.getId());
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", formerOwner.getPersonId(), formerOwner.getId(), bill.getId()))
+                .andExpect(status().isNotFound());
+        accountsService.delete(formerOwner.getId());
+        accountsService.delete(newOwner.getId());
+    }
+
+    @Test
     void auditEvents_remainReadableAfterAccountDeletion() throws Exception {
         Currency currency = Currency.getInstance("USD");
         Account account = initAccount();
