@@ -6,10 +6,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import ru.kondrashov.accountservice.config.SecurityConfig;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import ru.kondrashov.accountservice.controllers.dto.*;
@@ -36,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @TestPropertySource(locations = "/hibernate.properties")
+@WithMockUser(roles = SecurityConfig.CLIENT_ROLE)
 public class BillControllerIntegrationTest {
 
     @Autowired
@@ -367,5 +371,81 @@ public class BillControllerIntegrationTest {
         assertThat(targetTransfer.getBeneficiaryBill()).isEqualTo(newTargetBill);
 
         accountsService.delete(account.getId());
+    }
+
+    @Test
+    @WithAnonymousUser
+    void commitAdjustment_withoutAuthentication_thenReturns401() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        BigDecimal amount = new BigDecimal(10,new MathContext(256, RoundingMode.HALF_EVEN));
+        Account account = initAccount();
+        Bill bill = new Bill(currency, amount, true, account);
+        billsRepository.save(bill);
+
+        AdjustmentRequestDTO requestDTO = new AdjustmentRequestDTO(currency, BigDecimal.TEN, LocalDateTime.now(),"Adjustment", bill);
+
+        mockMvc.perform(
+                put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments",account.getPersonId(), account.getId(), bill.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isUnauthorized());
+
+        assertThat(billsRepository.getBillById(bill.getId()).get().getAmount().compareTo(amount)).isEqualTo(0);
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void commitAdjustment_whenBillBelongsToAnotherPerson_thenReturns404() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        BigDecimal amount = new BigDecimal(10,new MathContext(256, RoundingMode.HALF_EVEN));
+        Account account = initAccount();
+        Bill bill = new Bill(currency, amount, true, account);
+        billsRepository.save(bill);
+
+        AdjustmentRequestDTO requestDTO = new AdjustmentRequestDTO(currency, BigDecimal.TEN, LocalDateTime.now(),"Adjustment", bill);
+
+        mockMvc.perform(
+                put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments", UUID.randomUUID(), account.getId(), bill.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(
+                put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments", account.getPersonId(), UUID.randomUUID(), bill.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isNotFound());
+
+        assertThat(billsRepository.getBillById(bill.getId()).get().getAmount().compareTo(amount)).isEqualTo(0);
+        assertThat(billsService.getAdjustmentsByBillId(bill.getId())).isEmpty();
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void commitTransfer_whenSourceBillBelongsToAnotherPerson_thenReturns404() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        BigDecimal amount = new BigDecimal(10,new MathContext(256, RoundingMode.HALF_EVEN));
+
+        Account victimAccount = initAccount();
+        Bill victimBill = new Bill(currency, amount, false, victimAccount);
+        billsRepository.save(victimBill);
+
+        Account attackerAccount = new Account("attacker", LocalDate.now(), UUID.randomUUID());
+        accountsService.save(attackerAccount);
+        Bill attackerBill = new Bill(currency, BigDecimal.ZERO, false, attackerAccount);
+        billsRepository.save(attackerBill);
+
+        TransferRequestDTO transferRequestDTO = new TransferRequestDTO(currency, amount, LocalDateTime.now(), "Transfer", victimBill, attackerBill);
+
+        mockMvc.perform(
+                put("/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}", attackerAccount.getPersonId(), attackerAccount.getId(), victimBill.getId(), attackerBill.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(transferRequestDTO)))
+                .andExpect(status().isNotFound());
+
+        assertThat(billsRepository.getBillById(victimBill.getId()).get().getAmount().compareTo(amount)).isEqualTo(0);
+        assertThat(billsRepository.getBillById(attackerBill.getId()).get().getAmount().compareTo(BigDecimal.ZERO)).isEqualTo(0);
+        accountsService.delete(victimAccount.getId());
+        accountsService.delete(attackerAccount.getId());
     }
 }

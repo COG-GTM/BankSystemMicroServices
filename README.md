@@ -26,6 +26,17 @@ This is a prototype of a banking system, which demonstrates [Microservice Archit
 To launch classes Application.java in servecies customerService, accountService and commonService
 ```
 Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
+
+Account Service requires HTTP Basic authentication for all `/v1/people/**` endpoints. Set the same client credentials
+for accountService and commonService before starting them:
+```sh
+export ACCOUNT_SERVICE_CLIENT_USERNAME=common-service   # optional, defaults to common-service
+export ACCOUNT_SERVICE_CLIENT_PASSWORD=<strong secret>  # required
+```
+commonService sends these credentials only to requests under `account-service.URL`, which must use `https` unless it
+points to a loopback host.
+Bill operations are scoped to the `personId`/`accountId` in the path: a bill that does not belong to that account and
+person is reported as not found. Transfers may only debit a bill owned by the caller's `personId`/`accountId`.
 Postgre database initialized with some sample user.
 
 ## Functional Services

@@ -1,10 +1,18 @@
 people.URL:       http://localhost:8082/v1/people
 person.URL:       http://localhost:8082/v1/people/%s
-accounts.URL:     http://localhost:8081/v1/people/%s/accounts
-account.URL:      http://localhost:8081/v1/people/%s/accounts/%s
-bills.URL:        http://localhost:8081/v1/people/%s/accounts/%s/bills
-bill.URL:         http://localhost:8081/v1/people/%s/accounts/%s/bills/%s
-transactions.URL: http://localhost:8081/v1/people/%s/accounts/%s/bills/%s/transactions
+accounts.URL:     ${account-service.URL}/%s/accounts
+account.URL:      ${account-service.URL}/%s/accounts/%s
+bills.URL:        ${account-service.URL}/%s/accounts/%s/bills
+bill.URL:         ${account-service.URL}/%s/accounts/%s/bills/%s
+transactions.URL: ${account-service.URL}/%s/accounts/%s/bills/%s/transactions
+
+# Credentials used to authenticate to AccountService. They are only sent to requests under account-service.URL,
+# which must use https unless it points to a loopback host. All AccountService endpoint URLs above must be under it.
+# The password must be supplied via the ACCOUNT_SERVICE_CLIENT_PASSWORD environment variable.
+account-service:
+  URL: http://localhost:8081/v1/people
+  client:
+    username: ${ACCOUNT_SERVICE_CLIENT_USERNAME:common-service}
 
 spring:
   mvc:

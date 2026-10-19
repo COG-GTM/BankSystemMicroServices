@@ -35,6 +35,15 @@ public class AccountsServiceImpl implements AccountsService {
     }
 
     @Override
+    public Account getAccount(UUID personId, UUID accountId) {
+        Account account = getAccount(accountId);
+        if (!personId.equals(account.getPersonId())) {
+            throw new AccountNotFoundException("Account with id = "+accountId+" not found for person with id = "+personId+".");
+        }
+        return account;
+    }
+
+    @Override
     public void save(Account account) {
         accountsRepository.save(account);
     }
