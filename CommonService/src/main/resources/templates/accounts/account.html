@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th ="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <title>Account</title>
@@ -55,7 +55,7 @@
                 <form th:method="GET" th:action="@{/common/v1/update/people/{personId}/accounts/{accountId}/bills/{billId}/edit(personId=${personId}, accountId=${accountId}, billId=${bill.getId()})}">
                     <input type="submit" value="Update"></form>
                 </form>
-                <form th:method="DELETE" th:action="@{/common/v1/delete/people/{personId}/accounts/{accountId}/bills/{billId}(personId=${personId}, accountId=${accountId}, billId=${bill.getId()})}">
+                <form sec:authorize="hasRole('ADMIN')" th:method="DELETE" th:action="@{/common/v1/delete/people/{personId}/accounts/{accountId}/bills/{billId}(personId=${personId}, accountId=${accountId}, billId=${bill.getId()})}">
                     <input type="submit" value="Delete"></form>
                 </form>
             </td>
