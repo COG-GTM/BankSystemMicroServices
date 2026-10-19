@@ -3,11 +3,14 @@ package ru.kondrashov.accountservice.services;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.kondrashov.accountservice.entities.Account;
 import ru.kondrashov.accountservice.entities.Adjustment;
 import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.entities.Payment;
 import ru.kondrashov.accountservice.entities.Transfer;
+import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
+import ru.kondrashov.accountservice.exceptions.BillUpdateRejectedException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.interfaces.*;
@@ -21,6 +24,7 @@ import java.util.UUID;
 public class BillServiceImpl implements BillsService {
 
     private final BillsRepository billsRepository;
+    private final AccountsService accountsService;
     private final PaymentsService paymentsService;
     private final AdjustmentsService adjustmentsService;
     private final TransferService transferService;
@@ -37,61 +41,92 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    public Bill getBill(UUID personId, UUID accountId, UUID billId) {
+        Account account = getOwnedAccount(personId, accountId);
+        Bill bill = getBill(billId);
+        if (bill.getAccount() == null || !account.getId().equals(bill.getAccount().getId())) {
+            throw new BillNotFoundException("Bill with id = "+billId+" not found in account with id = "+accountId+".");
+        }
+        return bill;
+    }
+
+    @Override
     public Collection<Bill> getBillsByAccountId(UUID accountID) {
         return billsRepository.getBillsByAccount_Id(accountID);
     }
 
     @Override
-    public void save(Bill bill) {
+    @Transactional(rollbackFor = Exception.class)
+    public void save(UUID personId, UUID accountId, Bill bill) {
+        bill.setId(null);
+        bill.setAmount(BigDecimal.ZERO);
+        bill.setAccount(getOwnedAccount(personId, accountId));
         billsRepository.save(bill);
     }
 
     @Override
-    public void delete(UUID id) {
-        billsRepository.delete(getBill(id));
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(UUID personId, UUID accountId, UUID id) {
+        billsRepository.delete(getBill(personId, accountId, id));
     }
 
     @Override
-    public void update(UUID id, Bill newBill) {
-        Bill oldBill = getBill(id);
-        oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
+    @Transactional(rollbackFor = Exception.class)
+    public void update(UUID personId, UUID accountId, UUID id, Bill newBill) {
+        Bill oldBill = getBill(personId, accountId, id);
+        boolean hasBalance = oldBill.getAmount().signum() != 0;
+
+        if (hasBalance && !oldBill.getCurrency().equals(newBill.getCurrency())) {
+            throw new BillUpdateRejectedException("Currency of bill with id = " + id
+                    + " cannot be changed while its balance is non-zero.");
+        }
+        if (!newBill.getIsOverdraft() && oldBill.getAmount().signum() < 0) {
+            throw new BillUpdateRejectedException("Overdraft cannot be disabled for bill with id = " + id
+                    + " while its balance is negative.");
+        }
+
         oldBill.setCurrency(newBill.getCurrency());
         oldBill.setIsOverdraft(newBill.getIsOverdraft());
-        oldBill.setAccount(newBill.getAccount());
         billsRepository.save(oldBill);
     }
 
     @Override
-    public void commitAdjustment(UUID billId, Adjustment adjustment) {
+    @Transactional(rollbackFor = Exception.class)
+    public void commitAdjustment(UUID personId, UUID accountId, UUID billId, Adjustment adjustment) {
 
-        Bill bill = getBill(billId);
+        Bill bill = getBill(personId, accountId, billId);
 
-       increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
+        increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
 
+        adjustment.setBill(bill);
         adjustmentsService.save(adjustment);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void commitPayment(UUID billId, Payment payment) {
+    public void commitPayment(UUID personId, UUID accountId, UUID billId, Payment payment) {
 
-        Bill bill = getBill(billId);
+        Bill bill = getBill(personId, accountId, billId);
 
         decreaseBillsAmount(bill,currencyConversion.exchange(payment.getCurrency(),bill.getCurrency(),payment.getAmount()));
 
+        payment.setBill(bill);
         paymentsService.save(payment);
     }
 
 
     @Override
-    public void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
+    @Transactional(rollbackFor = Exception.class)
+    public void commitTransfer(UUID personId, UUID accountId, UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
 
-        Bill sourceBill = getBill(sourceBillId);
+        Bill sourceBill = getBill(personId, accountId, sourceBillId);
         Bill beneficiaryBill = getBill(beneficiaryBillId);
 
         decreaseBillsAmount(sourceBill, currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount()));
         increaseBillsAmount(beneficiaryBill, currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount()));
 
+        transfer.setSourceBill(sourceBill);
+        transfer.setBeneficiaryBill(beneficiaryBill);
         transferService.save(transfer);
     }
 
@@ -115,6 +150,14 @@ public class BillServiceImpl implements BillsService {
         return transferService.getTransfersByBeneficiaryBill_Id(billId);
     }
 
+
+    private Account getOwnedAccount(UUID personId, UUID accountId) {
+        Account account = accountsService.getAccount(accountId);
+        if (!account.getPersonId().equals(personId)) {
+            throw new AccountNotFoundException("Account with id = "+accountId+" not found for person with id = "+personId+".");
+        }
+        return account;
+    }
 
     private void decreaseBillsAmount(Bill bill, BigDecimal amount){
 

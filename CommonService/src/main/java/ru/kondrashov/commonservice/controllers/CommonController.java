@@ -146,14 +146,12 @@ public class CommonController {
             bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
             return "/bills/new";
         }
-        AccountRequestDTO accountRequestDTO = commonService.getAccountsByPerson(personId).stream().filter(account -> account.getId().equals(accountId)).findFirst().get();
-        bill.setAccount(accountRequestDTO);
         try {
             commonService.createBill(personId,accountId,bill);
         } catch (Exception e) {
             return "/bills/new";
         }
-        return String.format("redirect:/common/v1/info/people/%s/accounts/%s",accountRequestDTO.getPersonId(),accountRequestDTO.getId());
+        return String.format("redirect:/common/v1/info/people/%s/accounts/%s",personId,accountId);
     }
 
     @GetMapping("/update/people/{id}/edit")
@@ -217,7 +215,6 @@ public class CommonController {
             return "bills/edit";
         }
 
-        billResponseDTO.setAccount(commonService.getAccountsByPerson(personId).stream().filter(ac->ac.getId().equals(accountId)).findFirst().get());
         commonService.updateBill(personId, accountId, billId, billResponseDTO);
         return String.format("redirect:/common/v1/info/people/%s/accounts/%s", personId,accountId);
 
