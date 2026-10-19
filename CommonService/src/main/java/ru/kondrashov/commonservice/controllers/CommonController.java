@@ -8,6 +8,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.HttpClientErrorException;
 import ru.kondrashov.commonservice.controllers.dto.*;
 import ru.kondrashov.commonservice.services.CommonService;
 
@@ -174,8 +175,10 @@ public class CommonController {
     @GetMapping("/update/people/{personId}/accounts/{accountId}/bills/{billId}/edit")
     @ResponseStatus(HttpStatus.OK)
     public String editBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId, Model model){
-        model.addAttribute("bill", commonService.getBillsByAccountId(personId,accountId).stream().filter(bill->bill.getId().equals(billId)).findFirst().get());
+        BillRequestDTO bill = commonService.getBillsByAccountId(personId,accountId).stream().filter(b->b.getId().equals(billId)).findFirst().get();
+        model.addAttribute("bill", bill);
         model.addAttribute("currencies", Currency.getAvailableCurrencies());
+        model.addAttribute("currencyLocked", bill.getAmount() != null && bill.getAmount().signum() != 0);
         model.addAttribute("accountId",accountId);
         model.addAttribute("personId",personId);
         return "bills/edit";
@@ -209,13 +212,21 @@ public class CommonController {
 
     @PutMapping("/update/people/{personId}/accounts/{accountId}/bills/{billId}")
     @ResponseStatus(HttpStatus.FOUND)
-    public String updateBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId, @ModelAttribute("bill") @Valid BillResponseDTO billResponseDTO, BindingResult bindingResult) {
+    public String updateBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId, @ModelAttribute("bill") @Valid BillResponseDTO billResponseDTO, BindingResult bindingResult, Model model) {
+        model.addAttribute("currencies", Currency.getAvailableCurrencies());
         if(bindingResult.hasErrors()){
             bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
             return "bills/edit";
         }
 
-        commonService.updateBill(personId, accountId, billId, billResponseDTO);
+        try {
+            commonService.updateBill(personId, accountId, billId, billResponseDTO);
+        } catch (HttpClientErrorException.Conflict e) {
+            logger.error("Bill update rejected: " + e.getResponseBodyAsString());
+            bindingResult.reject("bill.update.rejected", "Currency cannot be changed while the bill has a non-zero balance, and overdraft cannot be disabled while the balance is negative.");
+            model.addAttribute("currencyLocked", true);
+            return "bills/edit";
+        }
         return String.format("redirect:/common/v1/info/people/%s/accounts/%s", personId,accountId);
 
     }

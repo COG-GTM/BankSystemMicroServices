@@ -12,7 +12,6 @@ public interface BillsService {
 
     Collection<Bill> getBills();
     Bill getBill(UUID id);
-    Bill getBill(UUID personId, UUID accountId, UUID billId);
     Collection<Bill> getBillsByAccountId(UUID accountID);
     void save(UUID personId, UUID accountId, Bill bill);
     void delete(UUID personId, UUID accountId, UUID id);
