@@ -16,23 +16,29 @@ import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 
 /**
- * Request factory that presents a client certificate and trusts a dedicated CA for downstream calls (mutual TLS).
- * Hostname verification is left at the JDK default.
+ * Request factory for downstream calls. Never follows redirects, so a downstream response cannot steer a request
+ * to a URL that bypassed {@link ServiceUrlPolicy}. When given an {@link SSLContext} it also presents a client
+ * certificate and trusts a dedicated CA (mutual TLS). Hostname verification is left at the JDK default.
  */
 public class TlsClientHttpRequestFactory extends SimpleClientHttpRequestFactory {
 
     private final SSLSocketFactory socketFactory;
 
+    public TlsClientHttpRequestFactory() {
+        this(null);
+    }
+
     public TlsClientHttpRequestFactory(SSLContext sslContext) {
-        this.socketFactory = sslContext.getSocketFactory();
+        this.socketFactory = sslContext == null ? null : sslContext.getSocketFactory();
     }
 
     @Override
     protected void prepareConnection(HttpURLConnection connection, String httpMethod) throws IOException {
-        if (connection instanceof HttpsURLConnection) {
+        if (socketFactory != null && connection instanceof HttpsURLConnection) {
             ((HttpsURLConnection) connection).setSSLSocketFactory(socketFactory);
         }
         super.prepareConnection(connection, httpMethod);
+        connection.setInstanceFollowRedirects(false);
     }
 
     public static SSLContext buildSslContext(DownstreamServicesProperties.Tls tls) {

@@ -1,7 +1,9 @@
 package ru.kondrashov.commonservice.config;
 
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -36,6 +38,10 @@ public final class ServiceUrlPolicy {
     }
 
     static boolean isLoopback(String host) {
+        return isLoopback(host, InetAddress::getAllByName);
+    }
+
+    static boolean isLoopback(String host, Resolver resolver) {
         if (host == null) {
             return false;
         }
@@ -43,13 +49,41 @@ public final class ServiceUrlPolicy {
         if (h.startsWith("[") && h.endsWith("]")) {
             h = h.substring(1, h.length() - 1);
         }
-        return "localhost".equals(h) || "::1".equals(h) || "0:0:0:0:0:0:0:1".equals(h)
-                || IPV4_LOOPBACK.matcher(h).matches();
+        if ("localhost".equals(h)) {
+            return resolvesOnlyToLoopback(h, resolver);
+        }
+        return "::1".equals(h) || "0:0:0:0:0:0:0:1".equals(h) || IPV4_LOOPBACK.matcher(h).matches();
+    }
+
+    private static boolean resolvesOnlyToLoopback(String host, Resolver resolver) {
+        try {
+            InetAddress[] addresses = resolver.resolve(host);
+            if (addresses == null || addresses.length == 0) {
+                return false;
+            }
+            for (InetAddress address : addresses) {
+                if (!address.isLoopbackAddress()) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (UnknownHostException e) {
+            return false;
+        }
+    }
+
+    @FunctionalInterface
+    interface Resolver {
+        InetAddress[] resolve(String host) throws UnknownHostException;
     }
 
     private static URI parse(String name, String urlTemplate) {
         if (urlTemplate == null || urlTemplate.trim().isEmpty()) {
             throw new IllegalStateException(name + " is not configured");
+        }
+        if (urlTemplate.replace("%s", "").indexOf('%') >= 0) {
+            throw new IllegalStateException(name + " may only contain %s placeholders; percent-encoded characters in"
+                    + " the base URL are not supported (got '" + urlTemplate + "')");
         }
         try {
             URI uri = new URI(urlTemplate.replace("%s", "x"));

@@ -15,11 +15,10 @@ import javax.net.ssl.SSLContext;
 public class ApplicationConfig {
     @Bean
     public RestTemplate restTemplate(RestTemplateBuilder restTemplateBuilder, DownstreamServicesProperties properties) {
-        if (properties.getTls().isConfigured()) {
-            SSLContext sslContext = TlsClientHttpRequestFactory.buildSslContext(properties.getTls());
-            restTemplateBuilder = restTemplateBuilder.requestFactory(() -> new TlsClientHttpRequestFactory(sslContext));
-        }
-        return restTemplateBuilder.build();
+        SSLContext sslContext = properties.getTls().isConfigured()
+                ? TlsClientHttpRequestFactory.buildSslContext(properties.getTls())
+                : null;
+        return restTemplateBuilder.requestFactory(() -> new TlsClientHttpRequestFactory(sslContext)).build();
     }
 
     @Bean

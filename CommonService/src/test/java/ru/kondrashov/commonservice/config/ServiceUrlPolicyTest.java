@@ -4,6 +4,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -73,5 +76,30 @@ class ServiceUrlPolicyTest {
         assertThat(ServiceUrlPolicy.isLoopback("127.0.0.1.nip.io")).isFalse();
         assertThat(ServiceUrlPolicy.isLoopback("localhost.example.com")).isFalse();
         assertThat(ServiceUrlPolicy.isLoopback(null)).isFalse();
+    }
+
+    @Test
+    void localhostCountsAsLoopbackOnlyWhenEveryResolvedAddressIsLoopback() throws Exception {
+        InetAddress loopback = InetAddress.getByAddress("localhost", new byte[]{127, 0, 0, 1});
+        InetAddress remote = InetAddress.getByAddress("localhost", new byte[]{10, 0, 0, 7});
+
+        assertThat(ServiceUrlPolicy.isLoopback("localhost", h -> new InetAddress[]{loopback})).isTrue();
+        assertThat(ServiceUrlPolicy.isLoopback("localhost", h -> new InetAddress[]{remote})).isFalse();
+        assertThat(ServiceUrlPolicy.isLoopback("localhost", h -> new InetAddress[]{loopback, remote})).isFalse();
+        assertThat(ServiceUrlPolicy.isLoopback("localhost", h -> {
+            throw new UnknownHostException(h);
+        })).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "https://gateway.example/team%20a/v1/people/%s",
+            "https://gateway.example/a%2Fb/v1/people",
+            "http://localhost:8082/v1/people/%d"
+    })
+    void rejectsPercentSequencesOtherThanPlaceholders(String url) {
+        assertThatThrownBy(() -> ServiceUrlPolicy.check("person.URL", url, transport))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("%s placeholders");
     }
 }

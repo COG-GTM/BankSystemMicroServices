@@ -1,5 +1,6 @@
 package ru.kondrashov.commonservice.config;
 
+import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
 import com.sun.net.httpserver.HttpsServer;
@@ -7,6 +8,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
@@ -21,6 +24,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -106,6 +110,33 @@ class TlsClientHttpRequestFactoryTest {
         assertThatThrownBy(() -> TlsClientHttpRequestFactory.buildSslContext(tls))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("downstream services");
+    }
+
+    @Test
+    void doesNotFollowRedirects() throws Exception {
+        AtomicInteger redirectTargetHits = new AtomicInteger();
+        HttpServer plain = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        plain.createContext("/v1/people", exchange -> {
+            exchange.getResponseHeaders().add("Location", "/elsewhere");
+            exchange.sendResponseHeaders(302, -1);
+            exchange.close();
+        });
+        plain.createContext("/elsewhere", exchange -> {
+            redirectTargetHits.incrementAndGet();
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+        plain.start();
+        try {
+            RestTemplate restTemplate = new RestTemplate(new TlsClientHttpRequestFactory());
+            ResponseEntity<String> response = restTemplate.getForEntity(
+                    "http://127.0.0.1:" + plain.getAddress().getPort() + "/v1/people", String.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FOUND);
+            assertThat(redirectTargetHits.get()).isZero();
+        } finally {
+            plain.stop(0);
+        }
     }
 
     private static RestTemplate restTemplate(DownstreamServicesProperties.Tls tls) {
