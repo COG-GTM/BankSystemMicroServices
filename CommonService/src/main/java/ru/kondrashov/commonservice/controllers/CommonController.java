@@ -224,7 +224,9 @@ public class CommonController {
         } catch (HttpClientErrorException.Conflict e) {
             logger.error("Bill update rejected: " + e.getResponseBodyAsString());
             bindingResult.reject("bill.update.rejected", "Currency cannot be changed while the bill has a non-zero balance, and overdraft cannot be disabled while the balance is negative.");
-            model.addAttribute("currencyLocked", true);
+            BillRequestDTO current = commonService.getBillsByAccountId(personId,accountId).stream().filter(b->b.getId().equals(billId)).findFirst().get();
+            billResponseDTO.setCurrency(current.getCurrency());
+            model.addAttribute("currencyLocked", current.getAmount() != null && current.getAmount().signum() != 0);
             return "bills/edit";
         }
         return String.format("redirect:/common/v1/info/people/%s/accounts/%s", personId,accountId);
