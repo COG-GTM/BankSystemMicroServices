@@ -16,6 +16,8 @@
     <description>Demo project for Spring Boot</description>
     <properties>
         <java.version>1.8</java.version>
+        <!-- Overrides the Log4j 2.13.x managed by Spring Boot 2.4.4 (CVE-2021-44228, CVE-2021-45046, CVE-2021-45105, CVE-2021-44832) -->
+        <log4j2.version>2.17.2</log4j2.version>
     </properties>
 
     <url>https://github.com/mihailkondrashov/BankSystemMicroServices/tree/master</url>
@@ -111,6 +113,28 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>ban-vulnerable-log4j</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>org.apache.logging.log4j:log4j-core:(,2.17.1)</exclude>
+                                    </excludes>
+                                    <message>log4j-core older than 2.17.1 is affected by Log4Shell-class CVEs; keep log4j2.version at 2.17.2 or later.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
