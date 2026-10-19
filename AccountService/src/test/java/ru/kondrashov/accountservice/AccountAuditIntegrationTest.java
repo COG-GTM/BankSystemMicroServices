@@ -10,8 +10,11 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.kondrashov.accountservice.audit.AccountAuditEvent;
 import ru.kondrashov.accountservice.audit.AccountAuditRepository;
+import ru.kondrashov.accountservice.audit.AccountAuditService;
 import ru.kondrashov.accountservice.audit.ActorSource;
 import ru.kondrashov.accountservice.audit.AuditAction;
 import ru.kondrashov.accountservice.audit.AuditActorResolver;
@@ -19,6 +22,7 @@ import ru.kondrashov.accountservice.audit.AuditOutcome;
 import ru.kondrashov.accountservice.controllers.dto.AccountRequestDTO;
 import ru.kondrashov.accountservice.entities.Account;
 import ru.kondrashov.accountservice.repositories.AccountsRepository;
+import ru.kondrashov.accountservice.services.interfaces.AccountsService;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -47,6 +51,12 @@ class AccountAuditIntegrationTest {
 
     @Autowired
     private AccountAuditRepository auditRepository;
+
+    @Autowired
+    private AccountsService accountsService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @Test
     void createUpdateDelete_writeAttributedAuditTrail() throws Exception {
@@ -115,5 +125,24 @@ class AccountAuditIntegrationTest {
         assertThat(failure.getOutcome()).isEqualTo(AuditOutcome.FAILURE);
         assertThat(failure.getActor()).isEqualTo("teller-9");
         assertThat(failure.getFailureReason()).startsWith("AccountNotFoundException");
+    }
+
+    @Test
+    void enclosingRollbackAfterSuccessfulCreate_isRecordedAsFailure() {
+        Account account = new Account("Salary", LocalDate.now(), UUID.randomUUID());
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            accountsService.save(account);
+            status.setRollbackOnly();
+        });
+
+        assertThat(account.getId()).isNotNull();
+        assertThat(accountsRepository.getAccountsById(account.getId())).isEmpty();
+        List<AccountAuditEvent> trail = auditRepository.findByAccountIdOrderByOccurredAtAsc(account.getId());
+        assertThat(trail).hasSize(1);
+        assertThat(trail.get(0).getAction()).isEqualTo(AuditAction.CREATE);
+        assertThat(trail.get(0).getOutcome()).isEqualTo(AuditOutcome.FAILURE);
+        assertThat(trail.get(0).getFailureReason()).isEqualTo(AccountAuditService.ROLLED_BACK_REASON);
+        assertThat(trail.get(0).getAfterState()).contains(account.getId().toString());
     }
 }

@@ -17,6 +17,7 @@
             </Policies>
         </RollingFile>
         <RollingFile name="AuditFile"
+                     filePermissions="rw-------"
                      fileName="./logs/accountService-audit.log"
                      filePattern="./logs/accountService-audit-%d{yyyy-MM-dd}-%i.log">
             <PatternLayout>

@@ -41,7 +41,7 @@ class AccountsServiceAuditTest {
         actorResolver = mock(AuditActorResolver.class);
         when(actorResolver.resolve()).thenReturn(new AuditActor("teller-7", ActorSource.HEADER, "10.0.0.1", "req-42"));
         AccountAuditService auditService = new AccountAuditService(auditRepository, actorResolver,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                Clock.fixed(NOW, ZoneOffset.UTC), null);
         service = new AccountsServiceImpl(accountsRepository, auditService);
     }
 
@@ -176,5 +176,26 @@ class AccountsServiceAuditTest {
         when(auditRepository.save(any())).thenThrow(new IllegalStateException("audit store down"));
 
         assertThatThrownBy(() -> service.delete(id)).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void failedCreateWithOversizedName_keepsAttemptedStateValidJson() throws Exception {
+        UUID personId = UUID.randomUUID();
+        StringBuilder name = new StringBuilder();
+        for (int i = 0; i < 2100; i++) {
+            name.append(i % 2 == 0 ? '"' : 'x');
+        }
+        when(accountsRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("value too long"));
+
+        assertThatThrownBy(() -> service.save(account(null, name.toString(), personId)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        AccountAuditEvent event = onlyEvent();
+        assertThat(event.getOutcome()).isEqualTo(AuditOutcome.FAILURE);
+        JsonNode attempted = json.readTree(event.getAfterState());
+        assertThat(attempted.get("personId").asText()).isEqualTo(personId.toString());
+        assertThat(attempted.get("name").asText())
+                .hasSize(AccountAuditService.MAX_NAME_IN_SNAPSHOT + "...[truncated]".length())
+                .endsWith("...[truncated]");
     }
 }

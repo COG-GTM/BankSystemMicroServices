@@ -26,7 +26,6 @@ import java.util.UUID;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class AccountAuditEvent {
 
-    static final int STATE_LENGTH = 2000;
     static final int REASON_LENGTH = 500;
 
     @Id
@@ -64,10 +63,10 @@ public class AccountAuditEvent {
     @Column(name = "person_id", updatable = false)
     private UUID personId;
 
-    @Column(name = "before_state", updatable = false, length = STATE_LENGTH)
+    @Column(name = "before_state", updatable = false, columnDefinition = "text")
     private String beforeState;
 
-    @Column(name = "after_state", updatable = false, length = STATE_LENGTH)
+    @Column(name = "after_state", updatable = false, columnDefinition = "text")
     private String afterState;
 
     @Column(name = "failure_reason", updatable = false, length = REASON_LENGTH)
