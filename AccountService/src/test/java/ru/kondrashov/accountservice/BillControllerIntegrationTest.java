@@ -126,6 +126,60 @@ public class BillControllerIntegrationTest {
     }
 
     @Test
+    void updateWithChangedAmount_isRejected_andBalanceUnchanged() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        BigDecimal amount = new BigDecimal(10,new MathContext(256, RoundingMode.HALF_EVEN));
+        boolean overdraft = true;
+        Account account = initAccount();
+        init(currency, amount, overdraft, account);
+
+        Bill bill = billsRepository.
+                getBillsByAccount_Id(account.getId())
+                .stream()
+                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
+                .findFirst().get();
+
+        BillRequestDTO billRequestDTO = new BillRequestDTO(currency, new BigDecimal(1000000), overdraft, account);
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(billRequestDTO)))
+                .andExpect(status().isBadRequest());
+
+        Bill unchanged = billsRepository.getBillById(bill.getId()).get();
+        assertThat(unchanged.getAmount().compareTo(amount)).isEqualTo(0);
+        assertThat(billsService.getAdjustmentsByBillId(bill.getId())).isEmpty();
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void updateMovingBillToAnotherAccount_isRejected() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        BigDecimal amount = new BigDecimal(10,new MathContext(256, RoundingMode.HALF_EVEN));
+        boolean overdraft = true;
+        Account account = initAccount();
+        init(currency, amount, overdraft, account);
+        Account otherAccount = new Account("other", LocalDate.now(), UUID.randomUUID());
+        accountsService.save(otherAccount);
+
+        Bill bill = billsRepository.
+                getBillsByAccount_Id(account.getId())
+                .stream()
+                .findFirst().get();
+
+        BillRequestDTO billRequestDTO = new BillRequestDTO(currency, amount, overdraft, otherAccount);
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(billRequestDTO)))
+                .andExpect(status().isBadRequest());
+
+        assertThat(billsRepository.getBillById(bill.getId()).get().getAccount().getId()).isEqualTo(account.getId());
+        accountsService.delete(otherAccount.getId());
+        accountsService.delete(account.getId());
+    }
+
+    @Test
     void delete() throws Exception {
         Currency currency = Currency.getInstance("USD");
         BigDecimal amount = new BigDecimal(10,new MathContext(256, RoundingMode.HALF_EVEN));
