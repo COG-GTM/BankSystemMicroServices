@@ -1,6 +1,5 @@
 package ru.kondrashov.personservice.controllers.dto;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -13,7 +12,6 @@ import java.util.Date;
 import java.util.UUID;
 
 @NoArgsConstructor
-@AllArgsConstructor
 @Getter
 @Setter
 public class PersonResponseDTO {
@@ -39,5 +37,6 @@ public class PersonResponseDTO {
     @Email(message = "Email should be valid")
     private String email;
 
+    private boolean erased;
 
 }

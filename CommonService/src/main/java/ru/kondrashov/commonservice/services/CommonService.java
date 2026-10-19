@@ -34,7 +34,7 @@ public interface CommonService {
 
     void deleteAccount(UUID personId, UUID accountId);
 
-    void deletePerson(UUID id);
+    void deletePerson(UUID id, String actor);
 
     void deleteBill(UUID personId, UUID accountId, UUID billId);
 

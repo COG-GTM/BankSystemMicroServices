@@ -5,12 +5,14 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import ru.kondrashov.commonservice.controllers.dto.*;
 
@@ -37,6 +39,12 @@ public class CommonServiceImpl implements CommonService{
     private String billUrl;
     @Value("${transactions.URL}")
     private String transactionsUrl;
+    @Value("${account-closure.URL}")
+    private String accountClosureUrl;
+    @Value("${erasure-audit.URL}")
+    private String erasureAuditUrl;
+
+    static final String ACTOR_HEADER = "X-Actor";
 
     @Override
     public PersonRequestDTO getPersonById(UUID uuid){
@@ -170,17 +178,70 @@ public class CommonServiceImpl implements CommonService{
     }
 
 
+    /**
+     * Customer erasure workflow. Cross-service atomicity is not possible, so every step is idempotent and the
+     * workflow can be re-run until it completes:
+     * 1. record a STARTED audit event (nothing destructive happens if the audit store is unavailable);
+     * 2. verify every bill of every open account has a zero balance, otherwise record REJECTED and stop
+     *    before changing anything;
+     * 3. soft-close each open account (bills and transactions are retained; already closed accounts are skipped);
+     * 4. anonymise the person in PersonService, which writes the COMPLETED audit event in the same transaction.
+     * Any downstream failure records a FAILED audit event and leaves the workflow safe to retry.
+     */
     @Override
-    public void deletePerson(UUID id) {
-        logger.info("Send DELETE request to "+String.format(personUrl,id));
-        for (AccountRequestDTO account:getAccountsByPerson(id)) {
-            deleteAccount(id,account.getId());
-        }
+    public void deletePerson(UUID id, String actor) {
+        logger.info("Erasure of person "+id+" requested by "+actor);
+        recordErasureEvent(id, actor, "STARTED", null);
+        try {
+            Collection<AccountRequestDTO> accounts = getAccountsByPerson(id);
 
-        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.put("id", Collections.singletonList(id.toString()));
-        ResponseEntity<Object> responseEntity = restTemplate.exchange(String.format(personUrl,id), HttpMethod.DELETE, null, Object.class);
+            List<String> unsettled = new ArrayList<>();
+            for (AccountRequestDTO account : accounts) {
+                for (BillRequestDTO bill : getBillsByAccountId(id, account.getId())) {
+                    if (bill.getAmount() == null || bill.getAmount().signum() != 0) {
+                        unsettled.add("bill " + bill.getId() + " of account " + account.getId());
+                    }
+                }
+            }
+            if (!unsettled.isEmpty()) {
+                String detail = "Non-zero balance on " + String.join(", ", unsettled);
+                recordErasureEvent(id, actor, "REJECTED", detail);
+                logger.warn("Erasure of person "+id+" by "+actor+" rejected: "+detail);
+                throw new PersonErasureException("Person " + id + " cannot be erased: " + detail);
+            }
+
+            for (AccountRequestDTO account : accounts) {
+                closeAccount(id, account.getId());
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(ACTOR_HEADER, actor);
+            ResponseEntity<Void> responseEntity = restTemplate.exchange(String.format(personUrl,id), HttpMethod.DELETE, new HttpEntity<>(headers), Void.class);
+            logger.info("Erasure of person "+id+" by "+actor+" completed with status code "+responseEntity.getStatusCode());
+        } catch (RestClientException e) {
+            String detail = "Erasure interrupted, safe to retry: " + e.getMessage();
+            try {
+                recordErasureEvent(id, actor, "FAILED", detail);
+            } catch (RestClientException auditFailure) {
+                logger.error("Could not record FAILED erasure audit event for person "+id+" by "+actor, auditFailure);
+            }
+            logger.error("Erasure of person "+id+" by "+actor+" failed", e);
+            throw new PersonErasureException("Erasure of person " + id + " did not complete and can be retried", e);
+        }
+    }
+
+    private void closeAccount(UUID personId, UUID accountId) {
+        logger.info("Send POST request to "+String.format(accountClosureUrl, personId, accountId));
+        ResponseEntity<Void> responseEntity = restTemplate.exchange(String.format(accountClosureUrl, personId, accountId), HttpMethod.POST, null, Void.class);
         logger.info("Got response with status code "+responseEntity.getStatusCode());
+    }
+
+    private void recordErasureEvent(UUID personId, String actor, String outcome, String detail) {
+        Map<String, String> event = new HashMap<>();
+        event.put("actor", actor);
+        event.put("outcome", outcome);
+        event.put("detail", detail);
+        restTemplate.postForEntity(String.format(erasureAuditUrl, personId), event, Void.class);
     }
 
     @Override

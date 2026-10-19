@@ -64,17 +64,28 @@ public class AccountsController {
                        @ApiParam("Account to update. Cannot null or empty.") @RequestBody @Valid AccountRequestDTO account,
                        @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{id}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
-        accountsService.update(id,accountMapping.mapToAccount(account));
+        accountsService.update(personId, id, accountMapping.mapToAccount(account));
     }
 
     @Transactional(rollbackFor = Exception.class)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @ApiOperation(value = "Delete a account", tags = { "ACCOUNTS" })
+    @ApiOperation(value = "Close an account (soft close, ledger retained; requires zero balances)", tags = { "ACCOUNTS" })
     public void delete(@ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID personId,
                        @ApiParam("Id of the account to be obtained. Cannot be empty.") @PathVariable("id") UUID id,
                        @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
-        accountsService.delete(id);
+        accountsService.close(personId, id);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    @PostMapping("/{id}/closure")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @ApiOperation(value = "Close an account (soft close, ledger retained; requires zero balances; idempotent)", tags = { "ACCOUNTS" })
+    public void close(@ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID personId,
+                      @ApiParam("Id of the account to be obtained. Cannot be empty.") @PathVariable("id") UUID id,
+                      @RequestHeader HttpHeaders header){
+        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{id}/closure\""+" received a POST request from the server "+header.getHost()+" with content type "+header.getContentType());
+        accountsService.close(personId, id);
     }
 }

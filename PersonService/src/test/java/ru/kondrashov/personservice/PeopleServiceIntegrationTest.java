@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -13,6 +14,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import ru.kondrashov.personservice.controllers.dto.PersonRequestDTO;
 import ru.kondrashov.personservice.entities.Person;
 import ru.kondrashov.personservice.repositories.PeopleRepository;
+import ru.kondrashov.personservice.services.OpenAccountsVerifier;
 import ru.kondrashov.personservice.services.PeopleService;
 
 import java.time.LocalDate;
@@ -39,6 +41,9 @@ public class PeopleServiceIntegrationTest {
 
     @Autowired
     private PeopleService peopleService;
+
+    @MockBean
+    private OpenAccountsVerifier openAccountsVerifier;
 
     private void init() throws Exception{
 
@@ -76,7 +81,7 @@ public class PeopleServiceIntegrationTest {
         assertThat(person.getLastName()).isEqualToIgnoringCase(lastName);
         assertThat(person.getPhoneNumber()).isEqualToIgnoringCase(phoneNumber);
 
-        peopleService.delete(person.getId());
+        peopleRepository.delete(person);
     }
 
     @Test
@@ -110,7 +115,7 @@ public class PeopleServiceIntegrationTest {
         assertThat(person.getLastName()).isEqualToIgnoringCase(lastName);
         assertThat(person.getPhoneNumber()).isEqualToIgnoringCase(phoneNumber);
 
-        peopleService.delete(person.getId());
+        peopleRepository.delete(person);
     }
 
     @Test
@@ -122,5 +127,35 @@ public class PeopleServiceIntegrationTest {
                 MockMvcRequestBuilders.delete("/v1/people/{id}", person.getId())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNoContent());
+
+        Person erased = peopleRepository.getPersonById(person.getId()).get();
+        assertThat(erased.isErased()).isTrue();
+        assertThat(erased.getEmail()).doesNotContain("miketyson");
+        assertThat(peopleService.getAll()).extracting(Person::getId).doesNotContain(person.getId());
+
+        peopleRepository.delete(erased);
+    }
+
+    @Test
+    void deleteRefusedWhileAccountsAreOpen() throws Exception{
+        init();
+        Person person = peopleRepository.findAll().get(0);
+        org.mockito.Mockito.when(openAccountsVerifier.hasOpenAccounts(person.getId())).thenReturn(true);
+
+        mockMvc.perform(MockMvcRequestBuilders.delete("/v1/people/{id}", person.getId()))
+                .andExpect(status().isConflict());
+
+        Person untouched = peopleRepository.getPersonById(person.getId()).get();
+        assertThat(untouched.isErased()).isFalse();
+        assertThat(untouched.getEmail()).isEqualTo("miketyson@mail.com");
+        assertThat(peopleService.getErasureEvents(person.getId())).isEmpty();
+
+        mockMvc.perform(post("/v1/people/{id}/erasure-audit-events", person.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"actor\":\"forger\",\"outcome\":\"COMPLETED\"}"))
+                .andExpect(status().isBadRequest());
+        assertThat(peopleService.getErasureEvents(person.getId())).isEmpty();
+
+        peopleRepository.delete(untouched);
     }
 }

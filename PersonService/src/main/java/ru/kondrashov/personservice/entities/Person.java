@@ -1,6 +1,5 @@
 package ru.kondrashov.personservice.entities;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -8,6 +7,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import javax.persistence.*;
 import javax.validation.constraints.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.Date;
 import java.util.UUID;
@@ -17,7 +17,6 @@ import static javax.persistence.TemporalType.TIMESTAMP;
 @Entity
 @Table(name = "people", schema = "public")
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
 public class Person {
 
@@ -34,7 +33,6 @@ public class Person {
     private String lastName;
 
     @DateTimeFormat(pattern = "yyyy-MM-dd")
-    @NotNull(message = "Birthdate should not be empty")
     private LocalDate birthdate;
 
     @NotEmpty(message = "Phone number should not be empty")
@@ -44,4 +42,17 @@ public class Person {
     @Email(message = "Email should be valid")
     private String email;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean erased = false;
+
+    private LocalDateTime erasedAt;
+
+    public Person(UUID id, String firstName, String lastName, LocalDate birthdate, String phoneNumber, String email) {
+        this.id = id;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.birthdate = birthdate;
+        this.phoneNumber = phoneNumber;
+        this.email = email;
+    }
 }

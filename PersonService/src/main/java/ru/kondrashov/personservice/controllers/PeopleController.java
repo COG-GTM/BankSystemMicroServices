@@ -10,11 +10,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import ru.kondrashov.personservice.controllers.dto.ErasureAuditEventDTO;
 import ru.kondrashov.personservice.controllers.dto.PersonRequestDTO;
 import ru.kondrashov.personservice.controllers.dto.PersonResponseDTO;
 import ru.kondrashov.personservice.services.PeopleService;
 import ru.kondrashov.personservice.utils.PeopleMapping;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.util.Collection;
 import java.util.UUID;
@@ -26,6 +28,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Api(description = "Controller which provides methods for operations with people", tags = {"PEOPLE"})
 public class PeopleController {
+
+    public static final String ACTOR_HEADER = "X-Actor";
 
     private final PeopleService peopleService;
     private final PeopleMapping peopleMapping;
@@ -72,10 +76,30 @@ public class PeopleController {
     @Transactional(rollbackFor = Exception.class)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @ApiOperation("Delete a person")
-    public void deletePerson(@ApiParam("ID of the person. Cannot to be null or empty") @PathVariable("id") UUID id, @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
-        peopleService.delete(id);
+    @ApiOperation("Erase a person: anonymises PII and keeps the record (idempotent)")
+    public void deletePerson(@ApiParam("ID of the person. Cannot to be null or empty") @PathVariable("id") UUID id,
+                             @ApiParam("Identity of the operator requesting the erasure") @RequestHeader(value = ACTOR_HEADER, required = false) String actor,
+                             @RequestHeader HttpHeaders header, HttpServletRequest request){
+        logger.info("The controller "+"\"/v1/people/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType()+" by actor "+actor+" from "+request.getRemoteAddr());
+        peopleService.erase(id, actor, request.getRemoteAddr());
+    }
 
+    @Transactional(rollbackFor = Exception.class)
+    @PostMapping("/{id}/erasure-audit-events")
+    @ResponseStatus(HttpStatus.CREATED)
+    @ApiOperation("Record an erasure audit event for a person")
+    public ErasureAuditEventDTO recordErasureEvent(@ApiParam("ID of the person. Cannot to be null or empty") @PathVariable("id") UUID id,
+                                                   @RequestBody @Valid ErasureAuditEventDTO event, @RequestHeader HttpHeaders header,
+                                                   HttpServletRequest request){
+        logger.info("The controller "+"\"/v1/people/{id}/erasure-audit-events\""+" received a POST request from the server "+header.getHost()+" with content type "+header.getContentType());
+        return ErasureAuditEventDTO.from(peopleService.recordErasureEvent(id, event.getActor(), event.getOutcome(), event.getDetail(), request.getRemoteAddr()));
+    }
+
+    @GetMapping("/{id}/erasure-audit-events")
+    @ResponseStatus(HttpStatus.OK)
+    @ApiOperation("List erasure audit events for a person")
+    public Collection<ErasureAuditEventDTO> getErasureEvents(@ApiParam("ID of the person. Cannot to be null or empty") @PathVariable("id") UUID id, @RequestHeader HttpHeaders header){
+        logger.info("The controller "+"\"/v1/people/{id}/erasure-audit-events\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
+        return peopleService.getErasureEvents(id).stream().map(ErasureAuditEventDTO::from).collect(Collectors.toList());
     }
 }

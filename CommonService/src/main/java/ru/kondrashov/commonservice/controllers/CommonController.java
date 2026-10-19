@@ -4,13 +4,17 @@ import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.HtmlUtils;
 import ru.kondrashov.commonservice.controllers.dto.*;
 import ru.kondrashov.commonservice.services.CommonService;
+import ru.kondrashov.commonservice.services.PersonErasureException;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.util.Collection;
 import java.util.Currency;
@@ -225,9 +229,24 @@ public class CommonController {
 
     @DeleteMapping("/delete/people/{id}")
     @ResponseStatus(HttpStatus.FOUND)
-    public String deletePerson(@PathVariable UUID id){
-        commonService.deletePerson(id);
+    public String deletePerson(@PathVariable UUID id, HttpServletRequest request){
+        commonService.deletePerson(id, resolveActor(request));
         return "redirect:/common/v1/info/people";
+    }
+
+    @ExceptionHandler(PersonErasureException.class)
+    public ResponseEntity<String> erasureFailed(PersonErasureException exp) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .contentType(MediaType.TEXT_HTML)
+                .body("<html><body><h3>Customer erasure not completed</h3><p>" + HtmlUtils.htmlEscape(exp.getMessage())
+                        + "</p><a href=\"/common/v1/info/people\">Back to people</a></body></html>");
+    }
+
+    static String resolveActor(HttpServletRequest request) {
+        if (request.getUserPrincipal() != null) {
+            return request.getUserPrincipal().getName();
+        }
+        return "anonymous@" + request.getRemoteAddr();
     }
 
     @DeleteMapping("/delete/people/{personId}/accounts/{accountId}")

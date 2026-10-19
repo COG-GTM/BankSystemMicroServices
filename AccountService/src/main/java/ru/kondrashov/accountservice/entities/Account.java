@@ -39,6 +39,13 @@ public class Account {
     @NotNull(message = "Person Id shouldn't be null")
     private UUID personId;
 
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    private LocalDate closedDate;
+
+    public boolean isClosed() {
+        return closedDate != null;
+    }
+
     public Account(String name, LocalDate creationDate, UUID personId) {
         this.name = name;
         this.creationDate = creationDate;

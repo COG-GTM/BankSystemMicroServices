@@ -13,9 +13,10 @@ public interface BillsService {
     Collection<Bill> getBills();
     Bill getBill(UUID id);
     Collection<Bill> getBillsByAccountId(UUID accountID);
-    void save(Bill bill);
-    void delete(UUID id);
-    void update (UUID id, Bill bill);
+    void save(UUID personId, UUID accountId, Bill bill);
+    void delete(UUID personId, UUID accountId, UUID id);
+    void update(UUID personId, UUID accountId, UUID id, Bill bill);
+    void requireBillOfAccount(UUID personId, UUID accountId, UUID billId);
     void commitAdjustment(UUID billId, Adjustment adjustment);
     void commitPayment(UUID billId, Payment payment);
     void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer);
