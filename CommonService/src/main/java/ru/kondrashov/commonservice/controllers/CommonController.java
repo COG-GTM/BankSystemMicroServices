@@ -112,7 +112,7 @@ public class CommonController {
     @ResponseStatus(HttpStatus.FOUND)
     public String createPerson(@ModelAttribute("person") @Valid PersonResponseDTO person, BindingResult bindingResult){
         if(bindingResult.hasErrors()){
-            bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
+            logValidationErrors("person", bindingResult);
             return "people/new";
         }
         try {
@@ -127,7 +127,7 @@ public class CommonController {
     @ResponseStatus(HttpStatus.FOUND)
     public String createAccount(@ModelAttribute("account") @Valid AccountResponseDTO account, BindingResult bindingResult, @PathVariable("id") UUID id){
         if(bindingResult.hasErrors()){
-            bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
+            logValidationErrors("account", bindingResult);
             return "accounts/new";
         }
         try {
@@ -143,7 +143,7 @@ public class CommonController {
     @ResponseStatus(HttpStatus.FOUND)
     public String createBill(@ModelAttribute("bill") @Valid BillResponseDTO bill, BindingResult bindingResult, @PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId){
         if(bindingResult.hasErrors()){
-            bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
+            logValidationErrors("bill", bindingResult);
             return "/bills/new";
         }
         AccountRequestDTO accountRequestDTO = commonService.getAccountsByPerson(personId).stream().filter(account -> account.getId().equals(accountId)).findFirst().get();
@@ -189,7 +189,7 @@ public class CommonController {
     @ResponseStatus(HttpStatus.FOUND)
     public String updatePerson(@PathVariable UUID id, @ModelAttribute("person") @Valid PersonResponseDTO personResponseDTO, BindingResult bindingResult) {
         if(bindingResult.hasErrors()){
-            bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
+            logValidationErrors("person", bindingResult);
             return "people/edit";
         }
         commonService.updatePerson(id, personResponseDTO);
@@ -201,7 +201,7 @@ public class CommonController {
     @ResponseStatus(HttpStatus.FOUND)
     public String updateAccount(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @ModelAttribute("account") @Valid AccountResponseDTO accountResponseDTO, BindingResult bindingResult) {
         if(bindingResult.hasErrors()){
-            bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
+            logValidationErrors("account", bindingResult);
             return "accounts/edit";
         }
         commonService.updateAccount(personId, accountId, accountResponseDTO);
@@ -213,7 +213,7 @@ public class CommonController {
     @ResponseStatus(HttpStatus.FOUND)
     public String updateBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId, @ModelAttribute("bill") @Valid BillResponseDTO billResponseDTO, BindingResult bindingResult) {
         if(bindingResult.hasErrors()){
-            bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
+            logValidationErrors("bill", bindingResult);
             return "bills/edit";
         }
 
@@ -221,6 +221,11 @@ public class CommonController {
         commonService.updateBill(personId, accountId, billId, billResponseDTO);
         return String.format("redirect:/common/v1/info/people/%s/accounts/%s", personId,accountId);
 
+    }
+
+    private void logValidationErrors(String form, BindingResult bindingResult) {
+        bindingResult.getFieldErrors().forEach(fieldError ->
+                logger.error("Validation failed for " + form + " form: field '" + fieldError.getField() + "' violated " + fieldError.getCode()));
     }
 
     @DeleteMapping("/delete/people/{id}")
