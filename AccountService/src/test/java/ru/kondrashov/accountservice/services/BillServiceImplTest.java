@@ -33,6 +33,7 @@ class BillServiceImplTest {
     private BillsRepository billsRepository;
     private AccountsRepository accountsRepository;
     private AdjustmentsService adjustmentsService;
+    private FinancialCurrencyExchange currencyExchange;
     private BillServiceImpl service;
 
     private Account closed;
@@ -44,8 +45,10 @@ class BillServiceImplTest {
         billsRepository = mock(BillsRepository.class);
         accountsRepository = mock(AccountsRepository.class);
         adjustmentsService = mock(AdjustmentsService.class);
+        currencyExchange = mock(FinancialCurrencyExchange.class);
+        when(currencyExchange.exchange(any(), any(), any())).thenAnswer(invocation -> invocation.getArgument(2));
         service = new BillServiceImpl(billsRepository, accountsRepository, mock(PaymentsService.class),
-                adjustmentsService, mock(TransferService.class), mock(FinancialCurrencyExchange.class));
+                adjustmentsService, mock(TransferService.class), currencyExchange);
 
         closed = account(AccountStatus.CLOSED);
         open = account(AccountStatus.OPEN);
@@ -96,5 +99,37 @@ class BillServiceImplTest {
                 .isInstanceOf(AccountClosedException.class);
         verifyNoInteractions(adjustmentsService);
         verify(billsRepository, never()).save(any());
+    }
+
+    @Test
+    void ownerIsRecheckedAfterLockingWhenBillMovedConcurrently() {
+        Bill movedBill = new Bill(USD, BigDecimal.ZERO, false, closed);
+        movedBill.setId(UUID.randomUUID());
+        when(billsRepository.getBillById(movedBill.getId())).thenReturn(Optional.of(movedBill));
+        when(billsRepository.findAccountIdByBillId(movedBill.getId()))
+                .thenReturn(Optional.of(open.getId()), Optional.of(closed.getId()));
+        Adjustment adjustment = new Adjustment(USD, BigDecimal.TEN, LocalDateTime.now(), "credit", movedBill);
+
+        assertThatThrownBy(() -> service.commitAdjustment(movedBill.getId(), adjustment))
+                .isInstanceOf(AccountClosedException.class);
+        verify(accountsRepository).findByIdForUpdate(open.getId());
+        verify(accountsRepository).findByIdForUpdate(closed.getId());
+        verifyNoInteractions(adjustmentsService);
+        verify(billsRepository, never()).save(any());
+    }
+
+    @Test
+    void adjustmentProceedsOnceOwnerIsStableAndOpen() {
+        Bill bill = new Bill(USD, BigDecimal.ZERO, false, open);
+        bill.setId(UUID.randomUUID());
+        when(billsRepository.getBillById(bill.getId())).thenReturn(Optional.of(bill));
+        when(billsRepository.findAccountIdByBillId(bill.getId())).thenReturn(Optional.of(open.getId()));
+        Adjustment adjustment = new Adjustment(USD, BigDecimal.TEN, LocalDateTime.now(), "credit", bill);
+
+        service.commitAdjustment(bill.getId(), adjustment);
+
+        verify(accountsRepository, times(1)).findByIdForUpdate(open.getId());
+        verify(billsRepository, times(2)).findAccountIdByBillId(bill.getId());
+        verify(adjustmentsService).save(adjustment);
     }
 }

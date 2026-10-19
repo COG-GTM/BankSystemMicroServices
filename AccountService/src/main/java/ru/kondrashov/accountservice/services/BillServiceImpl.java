@@ -1,6 +1,7 @@
 package ru.kondrashov.accountservice.services;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.kondrashov.accountservice.entities.Account;
@@ -19,13 +20,17 @@ import ru.kondrashov.accountservice.services.interfaces.*;
 
 import java.math.BigDecimal;
 import java.util.Collection;
-import java.util.Objects;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
-import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
 public class BillServiceImpl implements BillsService {
+
+    private static final int MAX_LOCK_ATTEMPTS = 3;
 
     private final BillsRepository billsRepository;
     private final AccountsRepository accountsRepository;
@@ -62,7 +67,7 @@ public class BillServiceImpl implements BillsService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(UUID id) {
-        lockOpenAccounts(accountIdOfBill(id));
+        lockOpenBillOwners(Collections.emptySet(), id);
         billsRepository.delete(getBill(id));
     }
 
@@ -72,7 +77,7 @@ public class BillServiceImpl implements BillsService {
         if (newBill.getAccount() == null || newBill.getAccount().getId() == null) {
             throw new AccountNotFoundException("Bill must reference an existing account.");
         }
-        lockOpenAccounts(accountIdOfBill(id), newBill.getAccount().getId());
+        lockOpenBillOwners(Collections.singleton(newBill.getAccount().getId()), id);
         Bill oldBill = getBill(id);
         oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
         oldBill.setCurrency(newBill.getCurrency());
@@ -110,7 +115,7 @@ public class BillServiceImpl implements BillsService {
     @Transactional(rollbackFor = Exception.class)
     public void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
 
-        lockOpenAccounts(accountIdOfBill(sourceBillId), accountIdOfBill(beneficiaryBillId));
+        lockOpenBillOwners(Collections.emptySet(), sourceBillId, beneficiaryBillId);
         Bill sourceBill = getBill(sourceBillId);
         Bill beneficiaryBill = getBill(beneficiaryBillId);
         transfer.setSourceBill(sourceBill);
@@ -144,7 +149,7 @@ public class BillServiceImpl implements BillsService {
 
 
     private Bill getOpenBill(UUID id) {
-        lockOpenAccounts(accountIdOfBill(id));
+        lockOpenBillOwners(Collections.emptySet(), id);
         return getBill(id);
     }
 
@@ -153,10 +158,27 @@ public class BillServiceImpl implements BillsService {
                 .orElseThrow(() -> new BillNotFoundException("Bill with id = "+billId+" not found."));
     }
 
-    // Takes the same account row lock as AccountsServiceImpl.close, before any bill is read,
-    // so a close cannot interleave with a bill mutation. Sorted to avoid lock-order deadlocks.
-    private void lockOpenAccounts(UUID... accountIds) {
-        Stream.of(accountIds).filter(Objects::nonNull).distinct().sorted().forEach(this::lockOpenAccount);
+    // Takes the same account row lock as AccountsServiceImpl.close before any bill is loaded, so a close
+    // cannot interleave with a bill mutation. Moving a bill requires its current owner's lock, so once the
+    // re-read owners are all locked they cannot change; retry if a bill moved before its owner was locked.
+    private void lockOpenBillOwners(Set<UUID> extraAccountIds, UUID... billIds) {
+        Set<UUID> locked = new HashSet<>();
+        Set<UUID> wanted = new TreeSet<>(extraAccountIds);
+        for (int attempt = 0; attempt < MAX_LOCK_ATTEMPTS; attempt++) {
+            for (UUID billId : billIds) {
+                wanted.add(accountIdOfBill(billId));
+            }
+            if (locked.containsAll(wanted)) {
+                return;
+            }
+            for (UUID accountId : wanted) {
+                if (locked.add(accountId)) {
+                    lockOpenAccount(accountId);
+                }
+            }
+            wanted = new TreeSet<>(extraAccountIds);
+        }
+        throw new ConcurrencyFailureException("Bill ownership changed concurrently; retry the request.");
     }
 
     private Account lockOpenAccount(UUID accountId) {
