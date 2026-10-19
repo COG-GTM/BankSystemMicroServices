@@ -25,3 +25,17 @@ FROM (VALUES ('account-service-db', 'account_service'),
              ('account-service-db-test', 'account_service'),
              ('person-service-db', 'person_service'),
              ('person-service-db-test', 'person_service')) AS t(db, owner)\gexec
+
+-- Lock down the public schema of each database so only the owning service role can create objects in it.
+\connect "account-service-db"
+ALTER SCHEMA public OWNER TO account_service;
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+\connect "account-service-db-test"
+ALTER SCHEMA public OWNER TO account_service;
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+\connect "person-service-db"
+ALTER SCHEMA public OWNER TO person_service;
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+\connect "person-service-db-test"
+ALTER SCHEMA public OWNER TO person_service;
+REVOKE ALL ON SCHEMA public FROM PUBLIC;

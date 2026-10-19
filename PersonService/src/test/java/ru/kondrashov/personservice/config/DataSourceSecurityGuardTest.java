@@ -18,7 +18,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -88,14 +88,43 @@ class DataSourceSecurityGuardTest {
         DataSource dataSource = postgresDataSource(true);
 
         IllegalStateException e = assertThrows(IllegalStateException.class,
-                () -> DataSourceSecurityGuard.requireNonSuperuser(dataSource));
+                () -> DataSourceSecurityGuard.requireSafeSession(dataSource, false));
         assertEquals("Refusing to run as a PostgreSQL superuser: set DB_USER to a least-privilege application role "
                 + "(see db/create-app-roles.sql)", e.getMessage());
     }
 
     @Test
     void allowsNonSuperuserRole() throws SQLException {
-        assertDoesNotThrow(() -> DataSourceSecurityGuard.requireNonSuperuser(postgresDataSource(false)));
+        assertDoesNotThrow(() -> DataSourceSecurityGuard.requireSafeSession(postgresDataSource(false), false));
+    }
+
+    @Test
+    void rejectsUnencryptedSessionToRemoteDatabase() throws SQLException {
+        DataSource dataSource = postgresDataSource(false, false);
+
+        IllegalStateException e = assertThrows(IllegalStateException.class,
+                () -> DataSourceSecurityGuard.requireSafeSession(dataSource, true));
+        assertEquals("Refusing to use an unencrypted connection to a non-local database: "
+                + "the session was opened without TLS", e.getMessage());
+    }
+
+    @Test
+    void allowsEncryptedSessionToRemoteDatabase() throws SQLException {
+        assertDoesNotThrow(() -> DataSourceSecurityGuard.requireSafeSession(postgresDataSource(false, true), true));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "jdbc:postgresql://localhost:5432/db",
+            "jdbc:postgresql:db",
+    })
+    void localUrlsDoNotRequireTls(String url) {
+        assertEquals(false, DataSourceSecurityGuard.requiresTls(url));
+    }
+
+    @Test
+    void remoteUrlRequiresTls() {
+        assertEquals(true, DataSourceSecurityGuard.requiresTls("jdbc:postgresql://db.internal.example:5432/db?sslmode=require"));
     }
 
     @Test
@@ -107,7 +136,7 @@ class DataSourceSecurityGuardTest {
         DataSource dataSource = mock(DataSource.class);
         when(dataSource.getConnection()).thenReturn(connection);
 
-        assertDoesNotThrow(() -> DataSourceSecurityGuard.requireNonSuperuser(dataSource));
+        assertDoesNotThrow(() -> DataSourceSecurityGuard.requireSafeSession(dataSource, true));
         verify(connection, never()).createStatement();
     }
 
@@ -123,11 +152,15 @@ class DataSourceSecurityGuardTest {
     }
 
     private static DataSource postgresDataSource(boolean superuser) throws SQLException {
-        ResultSet resultSet = mock(ResultSet.class);
-        when(resultSet.next()).thenReturn(true);
-        when(resultSet.getBoolean(1)).thenReturn(superuser);
+        return postgresDataSource(superuser, true);
+    }
+
+    private static DataSource postgresDataSource(boolean superuser, boolean ssl) throws SQLException {
         Statement statement = mock(Statement.class);
-        when(statement.executeQuery(anyString())).thenReturn(resultSet);
+        ResultSet roleResult = flagResult(superuser);
+        ResultSet tlsResult = flagResult(ssl);
+        when(statement.executeQuery(contains("pg_roles"))).thenReturn(roleResult);
+        when(statement.executeQuery(contains("pg_stat_ssl"))).thenReturn(tlsResult);
         DatabaseMetaData metaData = mock(DatabaseMetaData.class);
         when(metaData.getDatabaseProductName()).thenReturn("PostgreSQL");
         Connection connection = mock(Connection.class);
@@ -136,5 +169,12 @@ class DataSourceSecurityGuardTest {
         DataSource dataSource = mock(DataSource.class);
         when(dataSource.getConnection()).thenReturn(connection);
         return dataSource;
+    }
+
+    private static ResultSet flagResult(boolean value) throws SQLException {
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.next()).thenReturn(true);
+        when(resultSet.getBoolean(1)).thenReturn(value);
+        return resultSet;
     }
 }
