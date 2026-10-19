@@ -71,6 +71,22 @@ Contains the general logic of working and validating account, bill and transacti
 | DELETE | /v1/people/{personId}/accounts/{id} | delete account by id |
 | DELETE | /v1/people/{personId}/accounts/{accountId}/bills/{id} | delete bill by id |
 
+#### Account Service authentication
+Every `/v1/**` endpoint of the Account Service requires HTTP Basic credentials of a client configured under
+`account-service.security.clients`; with no client configured every request is rejected (Swagger UI stays public).
+
+| ROLE | ALLOWED |
+| ---- | ------- |
+| `ADMIN` (back office / CommonService) | every endpoint, for any person |
+| `CUSTOMER` (bound to one `person-id`) | `GET` endpoints, payments and transfers under `/v1/people/{its person-id}/...` only |
+
+For every bill operation the service also checks that the bill belongs to `{accountId}` and the account to `{personId}`
+(mismatch returns `404`); a transfer's source bill must satisfy this check.
+
+The default ADMIN client is read from `ACCOUNT_SERVICE_ADMIN_USERNAME` / `ACCOUNT_SERVICE_ADMIN_PASSWORD`.
+Set the same variables for the Common Service so it authenticates its calls to the Account Service.
+Passwords may be given raw or pre-encoded (e.g. `{bcrypt}$2a$10$...`).
+
 #### Sample JSON for Account Service
 ##### Create an account:
 ```sh

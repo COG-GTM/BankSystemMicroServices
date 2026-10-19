@@ -1,10 +1,10 @@
 people.URL:       http://localhost:8082/v1/people
 person.URL:       http://localhost:8082/v1/people/%s
-accounts.URL:     http://localhost:8081/v1/people/%s/accounts
-account.URL:      http://localhost:8081/v1/people/%s/accounts/%s
-bills.URL:        http://localhost:8081/v1/people/%s/accounts/%s/bills
-bill.URL:         http://localhost:8081/v1/people/%s/accounts/%s/bills/%s
-transactions.URL: http://localhost:8081/v1/people/%s/accounts/%s/bills/%s/transactions
+accounts.URL:     ${account-service.base-url}/v1/people/%s/accounts
+account.URL:      ${account-service.base-url}/v1/people/%s/accounts/%s
+bills.URL:        ${account-service.base-url}/v1/people/%s/accounts/%s/bills
+bill.URL:         ${account-service.base-url}/v1/people/%s/accounts/%s/bills/%s
+transactions.URL: ${account-service.base-url}/v1/people/%s/accounts/%s/bills/%s/transactions
 
 spring:
   mvc:
@@ -14,3 +14,9 @@ spring:
 
 thymeleaf:
   prefix: classpath:/templates/
+
+# AccountService requires HTTP Basic; must match an ADMIN client in AccountService's account-service.security.clients.
+account-service:
+  base-url: http://localhost:8081
+  username: ${ACCOUNT_SERVICE_ADMIN_USERNAME:}
+  password: ${ACCOUNT_SERVICE_ADMIN_PASSWORD:}
