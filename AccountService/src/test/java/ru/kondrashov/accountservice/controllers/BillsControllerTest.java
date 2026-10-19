@@ -10,6 +10,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.kondrashov.accountservice.controllers.dto.BillRequestDTO;
 import ru.kondrashov.accountservice.entities.Account;
+import ru.kondrashov.accountservice.exceptions.BillUpdateNotAllowedException;
 import ru.kondrashov.accountservice.services.interfaces.BillsService;
 import ru.kondrashov.accountservice.utils.interfaces.AdjustmentMapping;
 import ru.kondrashov.accountservice.utils.interfaces.BillsMapping;
@@ -21,7 +22,12 @@ import java.time.LocalDate;
 import java.util.Currency;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(SpringExtension.class)
@@ -90,6 +96,21 @@ class BillsControllerTest {
                 .contentType("application/json")
                 .content(request))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void whenUpdateChangesAmount_thenReturns400() throws Exception {
+
+        UUID billId = UUID.randomUUID();
+        BillRequestDTO bill = new BillRequestDTO(Currency.getInstance("USD"), new BigDecimal("1000000"), false, new Account("name", LocalDate.now(), UUID.randomUUID()));
+        doThrow(new BillUpdateNotAllowedException("Amount of bill cannot be changed by update."))
+                .when(billsService).update(eq(billId), any());
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{id}", UUID.randomUUID(), UUID.randomUUID(), billId)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(bill)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.exception").value("BillUpdateNotAllowedException"));
     }
 
 }

@@ -8,12 +8,14 @@ import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.entities.Payment;
 import ru.kondrashov.accountservice.entities.Transfer;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
+import ru.kondrashov.accountservice.exceptions.BillUpdateNotAllowedException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.interfaces.*;
 
 import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -51,23 +53,39 @@ public class BillServiceImpl implements BillsService {
         billsRepository.delete(getBill(id));
     }
 
+    /**
+     * Updates bill metadata (currency, overdraft) only. The balance is never taken from the request:
+     * any change of amount must go through a payment, adjustment or transfer so it is recorded in the ledger.
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(UUID id, Bill newBill) {
         Bill oldBill = getBill(id);
-        oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
-        oldBill.setCurrency(newBill.getCurrency());
+
+        if(newBill.getAmount() != null && newBill.getAmount().compareTo(oldBill.getAmount()) != 0){
+            throw new BillUpdateNotAllowedException("Amount of bill with ID: " + id + " cannot be changed by update. Commit an adjustment, payment or transfer instead.");
+        }
+        if(newBill.getAccount() != null && !Objects.equals(newBill.getAccount().getId(), oldBill.getAccount().getId())){
+            throw new BillUpdateNotAllowedException("Bill with ID: " + id + " cannot be moved to another account.");
+        }
+
+        if(!oldBill.getCurrency().equals(newBill.getCurrency())){
+            oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),oldBill.getAmount()));
+            oldBill.setCurrency(newBill.getCurrency());
+        }
         oldBill.setIsOverdraft(newBill.getIsOverdraft());
-        oldBill.setAccount(newBill.getAccount());
         billsRepository.save(oldBill);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitAdjustment(UUID billId, Adjustment adjustment) {
 
         Bill bill = getBill(billId);
 
-       increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
+        increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
 
+        adjustment.setBill(bill);
         adjustmentsService.save(adjustment);
     }
 
@@ -79,11 +97,13 @@ public class BillServiceImpl implements BillsService {
 
         decreaseBillsAmount(bill,currencyConversion.exchange(payment.getCurrency(),bill.getCurrency(),payment.getAmount()));
 
+        payment.setBill(bill);
         paymentsService.save(payment);
     }
 
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
 
         Bill sourceBill = getBill(sourceBillId);
@@ -92,6 +112,8 @@ public class BillServiceImpl implements BillsService {
         decreaseBillsAmount(sourceBill, currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount()));
         increaseBillsAmount(beneficiaryBill, currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount()));
 
+        transfer.setSourceBill(sourceBill);
+        transfer.setBeneficiaryBill(beneficiaryBill);
         transferService.save(transfer);
     }
 
