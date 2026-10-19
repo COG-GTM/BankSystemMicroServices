@@ -53,6 +53,7 @@ public class FinancialRecordRetentionService {
     }
 
     @Scheduled(cron = "${retention.financial-records.purge-cron:0 0 3 * * *}")
+    @Transactional(rollbackFor = Exception.class)
     public void purgeExpiredRecords() {
         if (!purgeEnabled) {
             return;
