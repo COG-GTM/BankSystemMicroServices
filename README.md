@@ -28,6 +28,18 @@ To launch classes Application.java in servecies customerService, accountService 
 Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
 Postgre database initialized with some sample user.
 
+### Database connection and TLS
+`PersonService` and `AccountService` connect to PostgreSQL with `sslmode=require` by default, so the local server must have TLS enabled (`ssl = on`).
+
+| Variable | Default | Purpose |
+| -------- | ------- | ------- |
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/<service>-db?sslmode=${DB_SSLMODE}` | Full JDBC URL |
+| `DB_SSLMODE` | `require` | `sslmode` used by the default URL |
+| `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` | `postgres` / `12345` | Credentials |
+| `APP_DATASOURCE_ALLOW_INSECURE_TRANSPORT` | `false` | Opt out of the TLS check below |
+
+The services refuse to start if the URL points at a non-loopback host without `sslmode=require`, `verify-ca` or `verify-full` (or `ssl=true`). For any deployment off the local machine, use `sslmode=verify-full&sslrootcert=/path/to/ca.pem`. On a local server without TLS, set `DB_SSLMODE=disable`.
+
 ## Functional Services
 BankSystem was decomposed into three core microservices. All of them are independently deployable applications, organized around certain business domains.
 
