@@ -67,12 +67,26 @@ class DatasourceTlsEnforcerTest {
                 .withProperty(DatasourceTlsEnforcer.DATA_SOURCE_PROPERTIES_PREFIX + "sslmode", "verify-full"));
         assertRejected(url("jdbc:postgresql://db.internal/person-service-db?sslmode=disable")
                 .withProperty(DatasourceTlsEnforcer.DATA_SOURCE_PROPERTIES_PREFIX + "sslmode", "verify-full"));
+        assertRejected(url("jdbc:postgresql://db.internal/person-service-db?sslmode=require")
+                .withProperty(DatasourceTlsEnforcer.DATA_SOURCE_PROPERTIES_PREFIX + "sslmode", "disable"));
+        assertRejected(url("jdbc:postgresql://db.internal/person-service-db?ssl=true")
+                .withProperty(DatasourceTlsEnforcer.DATA_SOURCE_PROPERTIES_PREFIX + "ssl", "false"));
+    }
+
+    @Test
+    void hostOverridesInParametersOrPropertiesAreChecked() {
+        assertRejected(url("jdbc:postgresql:person-service-db?host=db.internal&sslmode=disable"));
+        assertRejected(url("jdbc:postgresql://localhost/person-service-db?PGHOST=db.internal"));
+        assertRejected(url("jdbc:postgresql:person-service-db")
+                .withProperty(DatasourceTlsEnforcer.DATA_SOURCE_PROPERTIES_PREFIX + "PGHOST", "db.internal"));
+        assertAccepted(url("jdbc:postgresql:person-service-db?host=db.internal&sslmode=verify-full"));
+        assertAccepted(url("jdbc:postgresql:person-service-db?host=127.0.0.1"));
     }
 
     @Test
     void anyRemoteHostInMultiHostUrlRequiresTls() {
         assertRejected(url("jdbc:postgresql://localhost:5432,db-replica.internal:5432/person-service-db"));
-        assertThat(DatasourceTlsEnforcer.hosts("jdbc:postgresql://localhost:5432,[2001:db8::1]:5433/person-service-db"))
+        assertThat(DatasourceTlsEnforcer.hosts("jdbc:postgresql://localhost:5432,[2001:db8::1]:5433/person-service-db", new MockEnvironment()))
                 .containsExactly("localhost", "[2001:db8::1]");
     }
 

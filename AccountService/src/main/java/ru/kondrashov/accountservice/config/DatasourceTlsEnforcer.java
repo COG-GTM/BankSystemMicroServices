@@ -30,6 +30,7 @@ public class DatasourceTlsEnforcer implements EnvironmentPostProcessor, Ordered 
     private static final String JDBC_PREFIX = "jdbc:postgresql:";
     private static final Set<String> TLS_ENFORCING_MODES =
             Collections.unmodifiableSet(new HashSet<>(Arrays.asList("require", "verify-ca", "verify-full")));
+    private static final List<String> HOST_KEYS = Arrays.asList("host", "pghost");
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
@@ -50,7 +51,7 @@ public class DatasourceTlsEnforcer implements EnvironmentPostProcessor, Ordered 
             return;
         }
         List<String> remoteHosts = new ArrayList<>();
-        for (String host : hosts(url)) {
+        for (String host : hosts(url, environment)) {
             if (!isLoopback(host)) {
                 remoteHosts.add(host);
             }
@@ -68,7 +69,34 @@ public class DatasourceTlsEnforcer implements EnvironmentPostProcessor, Ordered 
         }
     }
 
-    static List<String> hosts(String url) {
+    /**
+     * Every host the driver could connect to: the URL authority (localhost when absent) plus any
+     * {@code host}/{@code PGHOST} given as a URL parameter or Hikari data-source property, which
+     * pgjdbc lets override it.
+     */
+    static List<String> hosts(String url, Environment environment) {
+        List<String> hosts = new ArrayList<>(authorityHosts(url));
+        Map<String, String> params = queryParameters(url);
+        for (String key : HOST_KEYS) {
+            addHosts(hosts, params.get(key));
+            addHosts(hosts, environment.getProperty(DATA_SOURCE_PROPERTIES_PREFIX + key));
+            addHosts(hosts, environment.getProperty(DATA_SOURCE_PROPERTIES_PREFIX + key.toUpperCase(Locale.ROOT)));
+        }
+        return hosts;
+    }
+
+    private static void addHosts(List<String> hosts, String value) {
+        if (value == null) {
+            return;
+        }
+        for (String host : value.split(",")) {
+            if (!host.trim().isEmpty()) {
+                hosts.add(host.trim());
+            }
+        }
+    }
+
+    private static List<String> authorityHosts(String url) {
         String rest = url.substring(JDBC_PREFIX.length());
         if (!rest.startsWith("//")) {
             return Collections.singletonList("localhost");
@@ -92,18 +120,33 @@ public class DatasourceTlsEnforcer implements EnvironmentPostProcessor, Ordered 
         return hosts;
     }
 
+    /**
+     * The weakest sslmode configured via the URL or Hikari data-source properties, so a non-enforcing
+     * value in either place is caught regardless of which one the driver ends up honouring.
+     */
     static String effectiveSslMode(String url, Environment environment) {
         Map<String, String> params = queryParameters(url);
-        String sslMode = firstNonNull(params.get("sslmode"),
-                environment.getProperty(DATA_SOURCE_PROPERTIES_PREFIX + "sslmode"));
-        if (sslMode != null) {
-            return sslMode.trim().toLowerCase(Locale.ROOT);
+        List<String> sslModes = new ArrayList<>();
+        addIfPresent(sslModes, params.get("sslmode"));
+        addIfPresent(sslModes, environment.getProperty(DATA_SOURCE_PROPERTIES_PREFIX + "sslmode"));
+        if (!sslModes.isEmpty()) {
+            for (String sslMode : sslModes) {
+                if (!TLS_ENFORCING_MODES.contains(sslMode)) {
+                    return sslMode;
+                }
+            }
+            return sslModes.get(0);
         }
-        String ssl = firstNonNull(params.get("ssl"), environment.getProperty(DATA_SOURCE_PROPERTIES_PREFIX + "ssl"));
-        if ("true".equalsIgnoreCase(ssl == null ? null : ssl.trim())) {
-            return "verify-full";
+        List<String> sslFlags = new ArrayList<>();
+        addIfPresent(sslFlags, params.get("ssl"));
+        addIfPresent(sslFlags, environment.getProperty(DATA_SOURCE_PROPERTIES_PREFIX + "ssl"));
+        return !sslFlags.isEmpty() && sslFlags.stream().allMatch("true"::equals) ? "verify-full" : "prefer";
+    }
+
+    private static void addIfPresent(List<String> values, String value) {
+        if (value != null) {
+            values.add(value.trim().toLowerCase(Locale.ROOT));
         }
-        return "prefer";
     }
 
     static boolean isLoopback(String host) {
@@ -144,7 +187,4 @@ public class DatasourceTlsEnforcer implements EnvironmentPostProcessor, Ordered 
         return params;
     }
 
-    private static String firstNonNull(String first, String second) {
-        return first != null ? first : second;
-    }
 }
