@@ -1,9 +1,11 @@
 spring:
   datasource:
     driverClassName: org.postgresql.Driver
-    url: jdbc:postgresql://localhost/person-service-db
-    username: postgres
-    password: 12345
+    # Credentials have no defaults: supply them from a secret store via the environment.
+    # Non-local DB_URL values must include sslmode=require (or verify-ca / verify-full).
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/person-service-db}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
 
 server:
   port: 8082
