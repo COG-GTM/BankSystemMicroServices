@@ -6,6 +6,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
+import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
+import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.entities.*;
 import ru.kondrashov.accountservice.repositories.*;
 import ru.kondrashov.accountservice.services.LedgerRetentionService;
@@ -18,6 +23,8 @@ import java.time.LocalDateTime;
 import java.util.Currency;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,6 +46,7 @@ public class LedgerRetentionIntegrationTest {
     @Autowired private AccountsService accountsService;
     @Autowired private BillsService billsService;
     @Autowired private LedgerRetentionService retentionService;
+    @Autowired private PlatformTransactionManager transactionManager;
 
     private Account account() {
         return accountsRepository.save(new Account("account", LocalDate.now(), UUID.randomUUID()));
@@ -141,5 +149,48 @@ public class LedgerRetentionIntegrationTest {
         assertThat(adjustmentsRepository.getAdjustmentsByBill_Id(heldBack.getId())).hasSize(1);
         assertThat(transferRepository.getTransfersByBeneficiaryBill_Id(retainedCounterparty.getId())).hasSize(1);
         assertThat(purgeRecordRepository.getLedgerPurgeRecordsByBillId(heldBack.getId())).isEmpty();
+    }
+
+    @Test
+    void closedAccountRejectsNewBillsAndStaleBillUpdates() {
+        Account closed = account();
+        Account open = account();
+        Bill openBill = bill(open);
+        Account staleCopy = accountsRepository.getAccountsById(closed.getId()).get();
+        accountsService.delete(closed.getId());
+
+        assertThatThrownBy(() -> billsService.save(new Bill(USD, BigDecimal.TEN, true, staleCopy)))
+                .isInstanceOf(AccountNotFoundException.class);
+        assertThat(billsRepository.getBillsByAccount_Id(closed.getId())).isEmpty();
+
+        assertThatThrownBy(() -> billsService.update(openBill.getId(), new Bill(USD, BigDecimal.TEN, true, staleCopy)))
+                .isInstanceOf(AccountNotFoundException.class);
+        assertThat(accountsRepository.getAccountsById(closed.getId()).get().getClosedAt()).isNotNull();
+        assertThat(billsRepository.getBillById(openBill.getId()).get().getAccount().getId()).isEqualTo(open.getId());
+    }
+
+    @Test
+    void closingABillWaitsForAnInFlightPostingAndThenBlocksNewOnes() throws Exception {
+        Bill bill = bill(account());
+
+        TransactionStatus posting = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        CompletableFuture<Void> close;
+        try {
+            Bill locked = billsRepository.lockActiveBill(bill.getId()).get();
+            close = CompletableFuture.runAsync(() -> billsService.delete(bill.getId()));
+            Thread.sleep(500);
+            assertThat(close).isNotDone();
+            locked.setAmount(locked.getAmount().add(BigDecimal.ONE));
+            billsRepository.save(locked);
+        } finally {
+            transactionManager.commit(posting);
+        }
+        close.get(10, TimeUnit.SECONDS);
+
+        Bill stored = billsRepository.getBillById(bill.getId()).get();
+        assertThat(stored.getClosedAt()).isNotNull();
+        assertThat(stored.getAmount()).isEqualByComparingTo(BigDecimal.valueOf(11));
+        assertThatThrownBy(() -> billsService.commitPayment(bill.getId(), new Payment(USD, BigDecimal.ONE, LocalDateTime.now(), "late", bill)))
+                .isInstanceOf(BillNotFoundException.class);
     }
 }

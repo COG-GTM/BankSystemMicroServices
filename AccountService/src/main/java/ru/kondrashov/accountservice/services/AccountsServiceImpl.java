@@ -63,9 +63,10 @@ public class AccountsServiceImpl implements AccountsService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(UUID id) {
-        Account account = getAccount(id);
+        Account account = accountsRepository.lockActiveAccount(id)
+                .orElseThrow(()-> new AccountNotFoundException("Account with id = "+id+" not found."));
         LocalDateTime closedAt = LocalDateTime.now();
-        for (Bill bill : billsRepository.getBillsByAccount_IdAndClosedAtIsNull(id)) {
+        for (Bill bill : billsRepository.lockActiveBillsByAccount(id)) {
             bill.setClosedAt(closedAt);
             billsRepository.save(bill);
         }

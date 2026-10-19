@@ -3,12 +3,15 @@ package ru.kondrashov.accountservice.services;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.kondrashov.accountservice.entities.Account;
 import ru.kondrashov.accountservice.entities.Adjustment;
 import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.entities.Payment;
 import ru.kondrashov.accountservice.entities.Transfer;
+import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
+import ru.kondrashov.accountservice.repositories.AccountsRepository;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.interfaces.*;
 
@@ -22,6 +25,7 @@ import java.util.UUID;
 public class BillServiceImpl implements BillsService {
 
     private final BillsRepository billsRepository;
+    private final AccountsRepository accountsRepository;
     private final PaymentsService paymentsService;
     private final AdjustmentsService adjustmentsService;
     private final TransferService transferService;
@@ -43,7 +47,10 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void save(Bill bill) {
+        bill.setAccount(lockActiveAccount(bill.getAccount()));
+        bill.setClosedAt(null);
         billsRepository.save(bill);
     }
 
@@ -54,28 +61,32 @@ public class BillServiceImpl implements BillsService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(UUID id) {
-        Bill bill = getBill(id);
+        Bill bill = lockActiveBill(id);
         bill.setClosedAt(LocalDateTime.now());
         billsRepository.save(bill);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(UUID id, Bill newBill) {
-        Bill oldBill = getBill(id);
+        Account account = lockActiveAccount(newBill.getAccount());
+        Bill oldBill = lockActiveBill(id);
         oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
         oldBill.setCurrency(newBill.getCurrency());
         oldBill.setIsOverdraft(newBill.getIsOverdraft());
-        oldBill.setAccount(newBill.getAccount());
+        oldBill.setAccount(account);
         billsRepository.save(oldBill);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitAdjustment(UUID billId, Adjustment adjustment) {
 
-        Bill bill = getBill(billId);
+        Bill bill = lockActiveBill(billId);
 
        increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
 
+        adjustment.setBill(bill);
         adjustmentsService.save(adjustment);
     }
 
@@ -83,23 +94,31 @@ public class BillServiceImpl implements BillsService {
     @Transactional(rollbackFor = Exception.class)
     public void commitPayment(UUID billId, Payment payment) {
 
-        Bill bill = getBill(billId);
+        Bill bill = lockActiveBill(billId);
 
         decreaseBillsAmount(bill,currencyConversion.exchange(payment.getCurrency(),bill.getCurrency(),payment.getAmount()));
 
+        payment.setBill(bill);
         paymentsService.save(payment);
     }
 
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
 
-        Bill sourceBill = getBill(sourceBillId);
-        Bill beneficiaryBill = getBill(beneficiaryBillId);
+        // Lock both bills in a fixed order so opposite-direction transfers cannot deadlock.
+        boolean sourceFirst = sourceBillId.compareTo(beneficiaryBillId) <= 0;
+        Bill first = lockActiveBill(sourceFirst ? sourceBillId : beneficiaryBillId);
+        Bill second = lockActiveBill(sourceFirst ? beneficiaryBillId : sourceBillId);
+        Bill sourceBill = sourceFirst ? first : second;
+        Bill beneficiaryBill = sourceFirst ? second : first;
 
         decreaseBillsAmount(sourceBill, currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount()));
         increaseBillsAmount(beneficiaryBill, currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount()));
 
+        transfer.setSourceBill(sourceBill);
+        transfer.setBeneficiaryBill(beneficiaryBill);
         transferService.save(transfer);
     }
 
@@ -123,6 +142,27 @@ public class BillServiceImpl implements BillsService {
         return transferService.getTransfersByBeneficiaryBill_Id(billId);
     }
 
+
+    /**
+     * Postings, updates and closure all take this row lock, so a posting can neither
+     * land on a bill closed concurrently nor write back a stale {@code closedAt}.
+     */
+    private Bill lockActiveBill(UUID id) {
+        return billsRepository.lockActiveBill(id).orElseThrow(()->new BillNotFoundException("Bill with id = "+id+" not found."));
+    }
+
+    /**
+     * Resolves a request-supplied account to the managed, open account, so a stale
+     * payload can neither attach a bill to a closed account nor reopen it via merge.
+     */
+    private Account lockActiveAccount(Account requested) {
+        UUID accountId = requested == null ? null : requested.getId();
+        if (accountId == null) {
+            throw new AccountNotFoundException("Account for bill not specified.");
+        }
+        return accountsRepository.lockActiveAccount(accountId)
+                .orElseThrow(()->new AccountNotFoundException("Account with id = "+accountId+" not found."));
+    }
 
     private void decreaseBillsAmount(Bill bill, BigDecimal amount){
 
