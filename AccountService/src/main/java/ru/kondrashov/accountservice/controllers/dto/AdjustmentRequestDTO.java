@@ -32,6 +32,5 @@ public class AdjustmentRequestDTO {
     @NotEmpty(message = "Message should not empty")
     private String message;
 
-    @NotNull(message = "Bill should not be null")
     private Bill bill;
 }

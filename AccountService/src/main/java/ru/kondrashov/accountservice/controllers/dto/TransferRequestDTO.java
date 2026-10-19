@@ -32,10 +32,8 @@ public class TransferRequestDTO {
     @NotEmpty(message = "Message should not empty")
     private String message;
 
-    @NotNull(message = "Bill should not be null")
     private Bill sourceBill;
 
-    @NotNull(message = "Bill should not be null")
     private Bill beneficiaryBill;
 
 }
