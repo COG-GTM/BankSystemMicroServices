@@ -7,3 +7,14 @@ spring:
 
 server:
   port: 8082
+
+# Verbose framework logging only for local development: run with --spring.profiles.active=dev
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+logging:
+  level:
+    org.apache: debug
+    org.hibernate.SQL: debug
