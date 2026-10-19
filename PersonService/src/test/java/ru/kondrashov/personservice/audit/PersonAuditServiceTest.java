@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import ru.kondrashov.personservice.entities.Person;
@@ -48,6 +49,19 @@ class PersonAuditServiceTest {
         ArgumentCaptor<PersonAuditEvent> captor = ArgumentCaptor.forClass(PersonAuditEvent.class);
         verify(repository).save(captor.capture());
         return captor.getValue();
+    }
+
+    @Test
+    void logLineIsDeferredUntilCommitInsideTransaction() {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.recordDelete(person);
+
+            verify(repository).save(any(PersonAuditEvent.class));
+            assertThat(TransactionSynchronizationManager.getSynchronizations()).hasSize(1);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test

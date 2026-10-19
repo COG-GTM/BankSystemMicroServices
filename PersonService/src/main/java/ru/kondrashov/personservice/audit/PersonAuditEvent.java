@@ -21,9 +21,10 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PersonAuditEvent {
 
+    /** Insertion order; tie-breaker for events with the same {@code occurredAt}. */
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "person_id", nullable = false, updatable = false)
     private UUID personId;

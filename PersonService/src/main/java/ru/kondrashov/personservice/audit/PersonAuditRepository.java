@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-public interface PersonAuditRepository extends JpaRepository<PersonAuditEvent, UUID> {
+public interface PersonAuditRepository extends JpaRepository<PersonAuditEvent, Long> {
 
-    List<PersonAuditEvent> findByPersonIdOrderByOccurredAtAsc(UUID personId);
+    List<PersonAuditEvent> findByPersonIdOrderByOccurredAtAscIdAsc(UUID personId);
 }

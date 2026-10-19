@@ -172,7 +172,7 @@ public class PeopleServiceIntegrationTest {
 
         assertThat(peopleRepository.getPersonById(id)).isEmpty();
 
-        List<PersonAuditEvent> events = personAuditRepository.findByPersonIdOrderByOccurredAtAsc(id);
+        List<PersonAuditEvent> events = personAuditRepository.findByPersonIdOrderByOccurredAtAscIdAsc(id);
         assertThat(events).extracting(PersonAuditEvent::getAction)
                 .containsExactly(PersonAuditAction.CREATE, PersonAuditAction.UPDATE, PersonAuditAction.DELETE);
         assertThat(events).extracting(PersonAuditEvent::getActor)

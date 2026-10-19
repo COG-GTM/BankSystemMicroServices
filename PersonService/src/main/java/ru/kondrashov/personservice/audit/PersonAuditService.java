@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import ru.kondrashov.personservice.entities.Person;
 
 import java.time.Clock;
@@ -98,8 +100,18 @@ public class PersonAuditService {
                 String.join(",", fields),
                 changes);
         personAuditRepository.save(event);
-        auditLogger.info("person_audit action={} personId={} actor={} source={} fields={}",
+        Runnable log = () -> auditLogger.info("person_audit action={} personId={} actor={} source={} fields={}",
                 action, personId, event.getActor(), event.getSourceAddress(), event.getChangedFields());
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    log.run();
+                }
+            });
+        } else {
+            log.run();
+        }
     }
 
     static String mask(Object value) {
