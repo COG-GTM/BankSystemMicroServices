@@ -13,9 +13,9 @@ public interface PeopleService {
     Person get(UUID id);
     void save(Person person);
     void update(UUID id, Person person);
-    Person erase(UUID id, String actor);
+    Person erase(UUID id, String actor, String sourceAddress);
 
-    ErasureAuditEvent recordErasureEvent(UUID personId, String actor, ErasureAuditEvent.Outcome outcome, String detail);
+    ErasureAuditEvent recordErasureEvent(UUID personId, String actor, ErasureAuditEvent.Outcome outcome, String detail, String sourceAddress);
 
     List<ErasureAuditEvent> getErasureEvents(UUID personId);
 }

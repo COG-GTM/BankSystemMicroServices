@@ -25,6 +25,8 @@ public class ErasureAuditEventDTO {
 
     private String detail;
 
+    private String sourceAddress;
+
     private LocalDateTime occurredAt;
 
     public static ErasureAuditEventDTO from(ErasureAuditEvent event) {
@@ -34,6 +36,7 @@ public class ErasureAuditEventDTO {
         dto.setActor(event.getActor());
         dto.setOutcome(event.getOutcome());
         dto.setDetail(event.getDetail());
+        dto.setSourceAddress(event.getSourceAddress());
         dto.setOccurredAt(event.getOccurredAt());
         return dto;
     }

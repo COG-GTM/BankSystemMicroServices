@@ -16,6 +16,7 @@ import ru.kondrashov.personservice.controllers.dto.PersonResponseDTO;
 import ru.kondrashov.personservice.services.PeopleService;
 import ru.kondrashov.personservice.utils.PeopleMapping;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.util.Collection;
 import java.util.UUID;
@@ -78,9 +79,9 @@ public class PeopleController {
     @ApiOperation("Erase a person: anonymises PII and keeps the record (idempotent)")
     public void deletePerson(@ApiParam("ID of the person. Cannot to be null or empty") @PathVariable("id") UUID id,
                              @ApiParam("Identity of the operator requesting the erasure") @RequestHeader(value = ACTOR_HEADER, required = false) String actor,
-                             @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType()+" by actor "+actor);
-        peopleService.erase(id, actor);
+                             @RequestHeader HttpHeaders header, HttpServletRequest request){
+        logger.info("The controller "+"\"/v1/people/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType()+" by actor "+actor+" from "+request.getRemoteAddr());
+        peopleService.erase(id, actor, request.getRemoteAddr());
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -88,9 +89,10 @@ public class PeopleController {
     @ResponseStatus(HttpStatus.CREATED)
     @ApiOperation("Record an erasure audit event for a person")
     public ErasureAuditEventDTO recordErasureEvent(@ApiParam("ID of the person. Cannot to be null or empty") @PathVariable("id") UUID id,
-                                                   @RequestBody @Valid ErasureAuditEventDTO event, @RequestHeader HttpHeaders header){
+                                                   @RequestBody @Valid ErasureAuditEventDTO event, @RequestHeader HttpHeaders header,
+                                                   HttpServletRequest request){
         logger.info("The controller "+"\"/v1/people/{id}/erasure-audit-events\""+" received a POST request from the server "+header.getHost()+" with content type "+header.getContentType());
-        return ErasureAuditEventDTO.from(peopleService.recordErasureEvent(id, event.getActor(), event.getOutcome(), event.getDetail()));
+        return ErasureAuditEventDTO.from(peopleService.recordErasureEvent(id, event.getActor(), event.getOutcome(), event.getDetail(), request.getRemoteAddr()));
     }
 
     @GetMapping("/{id}/erasure-audit-events")

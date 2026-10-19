@@ -198,7 +198,7 @@ public class CommonServiceImpl implements CommonService{
             List<String> unsettled = new ArrayList<>();
             for (AccountRequestDTO account : accounts) {
                 for (BillRequestDTO bill : getBillsByAccountId(id, account.getId())) {
-                    if (bill.getAmount() != null && bill.getAmount().signum() != 0) {
+                    if (bill.getAmount() == null || bill.getAmount().signum() != 0) {
                         unsettled.add("bill " + bill.getId() + " of account " + account.getId());
                     }
                 }

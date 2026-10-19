@@ -193,6 +193,67 @@ public class BillControllerIntegrationTest {
         purge(account);
     }
 
+    Account newAccount() {
+        UUID personId = UUID.randomUUID();
+        accountsService.save(new Account("account", LocalDate.now(), personId));
+        return accountsService.getAccountsByPersonId(personId).stream().findFirst().get();
+    }
+
+    @Test
+    void transferToClosedAccountDoesNotDebitSource() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account source = newAccount();
+        Account beneficiary = newAccount();
+        init(currency, new BigDecimal(10), false, source);
+        init(currency, BigDecimal.ZERO, false, beneficiary);
+        Bill sourceBill = billsRepository.getBillsByAccount_Id(source.getId()).stream().findFirst().get();
+        Bill beneficiaryBill = billsRepository.getBillsByAccount_Id(beneficiary.getId()).stream().findFirst().get();
+        accountsService.close(beneficiary.getPersonId(), beneficiary.getId());
+
+        TransferRequestDTO transfer = new TransferRequestDTO(currency, new BigDecimal(5), LocalDateTime.now(), "Transfer", sourceBill, beneficiaryBill);
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}",
+                        source.getPersonId(), source.getId(), sourceBill.getId(), beneficiaryBill.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(transfer)))
+                .andExpect(status().isConflict());
+
+        assertThat(billsRepository.getBillById(sourceBill.getId()).get().getAmount().compareTo(new BigDecimal(10))).isZero();
+        assertThat(transferRepository.getTransfersBySourceBill_Id(sourceBill.getId())).isEmpty();
+        purge(source);
+        purge(beneficiary);
+    }
+
+    @Test
+    void billIsBoundToUrlAccountAndCannotTouchAnotherCustomer() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account mine = newAccount();
+        Account other = newAccount();
+        init(currency, BigDecimal.ONE, false, other);
+        Bill otherBill = billsRepository.getBillsByAccount_Id(other.getId()).stream().findFirst().get();
+
+        BillRequestDTO billNamingOtherAccount = new BillRequestDTO(currency, BigDecimal.ZERO, false, other);
+        mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills", mine.getPersonId(), mine.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(billNamingOtherAccount)))
+                .andExpect(status().isCreated());
+        assertThat(billsRepository.getBillsByAccount_Id(mine.getId())).hasSize(1);
+        assertThat(billsRepository.getBillsByAccount_Id(other.getId())).hasSize(1);
+
+        mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills", mine.getPersonId(), other.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(billNamingOtherAccount)))
+                .andExpect(status().isNotFound());
+
+        PaymentRequestDTO payment = new PaymentRequestDTO(currency, BigDecimal.ONE, LocalDateTime.now(), "Payment", otherBill);
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments", mine.getPersonId(), mine.getId(), otherBill.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payment)))
+                .andExpect(status().isNotFound());
+        assertThat(billsRepository.getBillById(otherBill.getId()).get().getAmount().compareTo(BigDecimal.ONE)).isZero();
+        purge(mine);
+        purge(other);
+    }
+
     @Test
     void closeAccountRequiresZeroBalanceAndRetainsLedger() throws Exception {
         Currency currency = Currency.getInstance("USD");

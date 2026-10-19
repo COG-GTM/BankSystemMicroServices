@@ -12,6 +12,6 @@ public interface AccountsService {
     Collection<Account> getAccountsByPersonId(UUID id);
     Account getAccount(UUID id);
     void save(Account account);
-    void update(UUID id, Account account);
+    void update(UUID personId, UUID id, Account account);
     void close(UUID personId, UUID id);
 }

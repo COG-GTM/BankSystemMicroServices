@@ -7,3 +7,5 @@ spring:
 
 server:
   port: 8082
+
+accounts.URL: http://localhost:8081/v1/people/%s/accounts

@@ -35,14 +35,19 @@ public class ErasureAuditEvent {
     @Column(length = 2000, updatable = false)
     private String detail;
 
+    /** Network address the request actually came from, captured server-side (not caller supplied). */
+    @Column(updatable = false)
+    private String sourceAddress;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime occurredAt;
 
-    public ErasureAuditEvent(UUID personId, String actor, Outcome outcome, String detail, LocalDateTime occurredAt) {
+    public ErasureAuditEvent(UUID personId, String actor, Outcome outcome, String detail, String sourceAddress, LocalDateTime occurredAt) {
         this.personId = personId;
         this.actor = actor;
         this.outcome = outcome;
         this.detail = detail;
+        this.sourceAddress = sourceAddress;
         this.occurredAt = occurredAt;
     }
 }

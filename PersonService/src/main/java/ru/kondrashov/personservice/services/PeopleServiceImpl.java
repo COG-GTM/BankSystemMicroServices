@@ -5,7 +5,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.kondrashov.personservice.entities.ErasureAuditEvent;
 import ru.kondrashov.personservice.entities.Person;
+import ru.kondrashov.personservice.exception.InvalidErasureAuditEventException;
 import ru.kondrashov.personservice.exception.PersonErasedException;
+import ru.kondrashov.personservice.exception.PersonHasOpenAccountsException;
 import ru.kondrashov.personservice.exception.PersonNotFoundException;
 import ru.kondrashov.personservice.repositories.ErasureAuditEventRepository;
 import ru.kondrashov.personservice.repositories.PeopleRepository;
@@ -22,16 +24,20 @@ public class PeopleServiceImpl implements PeopleService{
 
     private final PeopleRepository peopleRepository;
     private final ErasureAuditEventRepository erasureAuditEventRepository;
+    private final OpenAccountsVerifier openAccountsVerifier;
     private final Clock clock;
 
     @Autowired
-    public PeopleServiceImpl(PeopleRepository peopleRepository, ErasureAuditEventRepository erasureAuditEventRepository) {
-        this(peopleRepository, erasureAuditEventRepository, Clock.systemUTC());
+    public PeopleServiceImpl(PeopleRepository peopleRepository, ErasureAuditEventRepository erasureAuditEventRepository,
+                             OpenAccountsVerifier openAccountsVerifier) {
+        this(peopleRepository, erasureAuditEventRepository, openAccountsVerifier, Clock.systemUTC());
     }
 
-    PeopleServiceImpl(PeopleRepository peopleRepository, ErasureAuditEventRepository erasureAuditEventRepository, Clock clock) {
+    PeopleServiceImpl(PeopleRepository peopleRepository, ErasureAuditEventRepository erasureAuditEventRepository,
+                      OpenAccountsVerifier openAccountsVerifier, Clock clock) {
         this.peopleRepository = peopleRepository;
         this.erasureAuditEventRepository = erasureAuditEventRepository;
+        this.openAccountsVerifier = openAccountsVerifier;
         this.clock = clock;
     }
 
@@ -67,15 +73,19 @@ public class PeopleServiceImpl implements PeopleService{
     /**
      * Anonymises the person's PII in place instead of deleting the row, so that
      * retained financial records still reference a resolvable (but anonymous) customer.
-     * The COMPLETED audit event is written in the same local transaction as the anonymisation.
-     * Idempotent: erasing an already erased person is a no-op.
+     * Refuses while AccountService still reports open accounts for the person, so it can only be the final
+     * step after every account has been settled and closed. The COMPLETED audit event is written in the same
+     * local transaction as the anonymisation. Idempotent: erasing an already erased person is a no-op.
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Person erase(UUID id, String actor){
+    public Person erase(UUID id, String actor, String sourceAddress){
         Person person = get(id);
         if (person.isErased()) {
             return person;
+        }
+        if (openAccountsVerifier.hasOpenAccounts(id)) {
+            throw new PersonHasOpenAccountsException("Person with id = " + id + " still has open accounts; close them before erasure");
         }
         person.setFirstName(ERASED);
         person.setLastName(ERASED);
@@ -85,15 +95,22 @@ public class PeopleServiceImpl implements PeopleService{
         person.setErased(true);
         person.setErasedAt(LocalDateTime.now(clock));
         Person saved = peopleRepository.save(person);
-        recordErasureEvent(id, actor, ErasureAuditEvent.Outcome.COMPLETED, "Person PII anonymised; financial records retained");
+        saveEvent(id, actor, ErasureAuditEvent.Outcome.COMPLETED, "Person PII anonymised; financial records retained", sourceAddress);
         return saved;
     }
 
     @Override
-    public ErasureAuditEvent recordErasureEvent(UUID personId, String actor, ErasureAuditEvent.Outcome outcome, String detail) {
+    public ErasureAuditEvent recordErasureEvent(UUID personId, String actor, ErasureAuditEvent.Outcome outcome, String detail, String sourceAddress) {
+        if (outcome == ErasureAuditEvent.Outcome.COMPLETED) {
+            throw new InvalidErasureAuditEventException("COMPLETED events are only recorded by the erasure itself");
+        }
+        return saveEvent(personId, actor, outcome, detail, sourceAddress);
+    }
+
+    private ErasureAuditEvent saveEvent(UUID personId, String actor, ErasureAuditEvent.Outcome outcome, String detail, String sourceAddress) {
         String safeActor = (actor == null || actor.trim().isEmpty()) ? UNKNOWN_ACTOR : actor.trim();
         return erasureAuditEventRepository.save(
-                new ErasureAuditEvent(personId, safeActor, outcome, detail, LocalDateTime.now(clock)));
+                new ErasureAuditEvent(personId, safeActor, outcome, detail, sourceAddress, LocalDateTime.now(clock)));
     }
 
     @Override

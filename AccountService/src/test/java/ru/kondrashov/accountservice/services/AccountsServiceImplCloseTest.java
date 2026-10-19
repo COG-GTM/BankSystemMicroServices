@@ -43,7 +43,7 @@ class AccountsServiceImplCloseTest {
         service = new AccountsServiceImpl(accountsRepository, billsRepository, clock);
         account = new Account("Salary", LocalDate.of(2020, 1, 1), personId);
         account.setId(UUID.randomUUID());
-        when(accountsRepository.getAccountsById(account.getId())).thenReturn(Optional.of(account));
+        when(accountsRepository.lockById(account.getId())).thenReturn(Optional.of(account));
     }
 
     @Test
@@ -71,6 +71,28 @@ class AccountsServiceImplCloseTest {
     }
 
     @Test
+    void closeTreatsMissingBalanceAsUnsettled() {
+        Bill bill = bill("0");
+        bill.setAmount(null);
+        when(billsRepository.getBillsByAccount_Id(account.getId())).thenReturn(Collections.singletonList(bill));
+
+        assertThatThrownBy(() -> service.close(personId, account.getId()))
+                .isInstanceOf(AccountNotSettledException.class);
+    }
+
+    @Test
+    void updateCannotReassignOwner() {
+        UUID otherPerson = UUID.randomUUID();
+
+        service.update(personId, account.getId(), new Account("Renamed", LocalDate.of(2020, 1, 1), otherPerson));
+
+        assertThat(account.getPersonId()).isEqualTo(personId);
+        assertThat(account.getName()).isEqualTo("Renamed");
+        assertThatThrownBy(() -> service.update(otherPerson, account.getId(), new Account("x", LocalDate.now(), otherPerson)))
+                .isInstanceOf(AccountNotFoundException.class);
+    }
+
+    @Test
     void closeIsIdempotent() {
         account.setClosedDate(LocalDate.of(2025, 5, 5));
 
@@ -92,7 +114,7 @@ class AccountsServiceImplCloseTest {
         account.setClosedDate(LocalDate.of(2025, 5, 5));
 
         assertThat(service.getAccountsByPersonId(personId)).isEmpty();
-        assertThatThrownBy(() -> service.update(account.getId(), new Account("x", LocalDate.now(), personId)))
+        assertThatThrownBy(() -> service.update(personId, account.getId(), new Account("x", LocalDate.now(), personId)))
                 .isInstanceOf(AccountClosedException.class);
     }
 

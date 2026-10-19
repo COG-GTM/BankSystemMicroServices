@@ -56,15 +56,15 @@ public class AccountsServiceImpl implements AccountsService {
     }
 
     @Override
-    public void update(UUID id, Account account) {
-        Account updatedAccount = getAccount(id);
+    @Transactional(rollbackFor = Exception.class)
+    public void update(UUID personId, UUID id, Account account) {
+        Account updatedAccount = lockOwnedAccount(personId, id);
         if (updatedAccount.isClosed()) {
             throw new AccountClosedException("Account with id = "+id+" is closed.");
         }
 
         updatedAccount.setName(account.getName());
         updatedAccount.setCreationDate(account.getCreationDate());
-        updatedAccount.setPersonId(account.getPersonId());
 
         accountsRepository.save(updatedAccount);
     }
@@ -76,19 +76,28 @@ public class AccountsServiceImpl implements AccountsService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void close(UUID personId, UUID id) {
-        Account account = getAccount(id);
-        if (!account.getPersonId().equals(personId)) {
-            throw new AccountNotFoundException("Person with id = "+personId+" has no account with id = "+id+".");
-        }
+        Account account = lockOwnedAccount(personId, id);
         if (account.isClosed()) {
             return;
         }
         boolean unsettled = billsRepository.getBillsByAccount_Id(id).stream()
-                .anyMatch(bill -> bill.getAmount() != null && bill.getAmount().signum() != 0);
+                .anyMatch(bill -> bill.getAmount() == null || bill.getAmount().signum() != 0);
         if (unsettled) {
             throw new AccountNotSettledException("Account with id = "+id+" has bills with a non-zero balance.");
         }
         account.setClosedDate(LocalDate.now(clock));
         accountsRepository.save(account);
+    }
+
+    /**
+     * Locks the account row so that closure and bill postings on the same account are serialised.
+     */
+    private Account lockOwnedAccount(UUID personId, UUID id) {
+        Account account = accountsRepository.lockById(id)
+                .orElseThrow(() -> new AccountNotFoundException("Account with id = "+id+" not found."));
+        if (!account.getPersonId().equals(personId)) {
+            throw new AccountNotFoundException("Person with id = "+personId+" has no account with id = "+id+".");
+        }
+        return account;
     }
 }
