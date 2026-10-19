@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
+import ru.kondrashov.accountservice.exceptions.MakerCheckerViolationException;
+import ru.kondrashov.accountservice.exceptions.MissingActorException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
 
 @ControllerAdvice
@@ -41,6 +43,28 @@ public class AccountServiceExceptionHandler {
                         400,
                         "NotEnoughMoneyException"),
                 HttpStatus.BAD_REQUEST);
+
+    }
+
+    @ExceptionHandler(MissingActorException.class)
+    public ResponseEntity<AccountServiceExceptionTemplate> missingActorExceptions(MissingActorException exp) {
+        return new ResponseEntity<>(
+                new AccountServiceExceptionTemplate(
+                        exp.getMessage(),
+                        400,
+                        "MissingActorException"),
+                HttpStatus.BAD_REQUEST);
+
+    }
+
+    @ExceptionHandler(MakerCheckerViolationException.class)
+    public ResponseEntity<AccountServiceExceptionTemplate> makerCheckerViolationExceptions(MakerCheckerViolationException exp) {
+        return new ResponseEntity<>(
+                new AccountServiceExceptionTemplate(
+                        exp.getMessage(),
+                        403,
+                        "MakerCheckerViolationException"),
+                HttpStatus.FORBIDDEN);
 
     }
 }

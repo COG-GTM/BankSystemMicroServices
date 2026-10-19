@@ -16,9 +16,26 @@
                 <TimeBasedTriggeringPolicy />
             </Policies>
         </RollingFile>
+        <RollingFile name="AuditFile"
+                     fileName="./logs/accountService-audit.log"
+                     filePattern="./logs/accountService-audit-%d{yyyy-MM-dd}-%i.log">
+            <PatternLayout>
+                <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %msg%n</pattern>
+            </PatternLayout>
+            <Policies>
+                <SizeBasedTriggeringPolicy
+                        size="10 MB" />
+                <TimeBasedTriggeringPolicy />
+            </Policies>
+            <DefaultRolloverStrategy max="365" />
+        </RollingFile>
     </Appenders>
 
     <Loggers>
+        <!-- One JSON line per committed or failed bills mutation (see AuditServiceImpl) -->
+        <Logger name="AUDIT" level="info" additivity="false">
+            <AppenderRef ref="AuditFile" />
+        </Logger>
         <!-- LOG everything at INFO level -->
         <Root level="info">
             <AppenderRef ref="RollingFile" />

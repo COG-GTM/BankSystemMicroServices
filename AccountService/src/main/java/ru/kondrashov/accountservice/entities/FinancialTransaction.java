@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.springframework.format.annotation.DateTimeFormat;
 
+import javax.persistence.Column;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -35,6 +36,12 @@ public abstract class FinancialTransaction {
 
     @NotEmpty(message = "Message should not empty")
     private String message;
+
+    @Column(updatable = false, length = 128)
+    private String initiatedBy;
+
+    @Column(updatable = false, length = 128)
+    private String approvedBy;
 
     public FinancialTransaction(Currency currency, BigDecimal amount, LocalDateTime time, String message){
         this.currency = currency;

@@ -12,6 +12,9 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import ru.kondrashov.accountservice.audit.AuditContextResolver;
+import ru.kondrashov.accountservice.audit.AuditOperation;
+import ru.kondrashov.accountservice.audit.AuditOutcome;
 import ru.kondrashov.accountservice.controllers.dto.*;
 import ru.kondrashov.accountservice.entities.*;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
@@ -38,6 +41,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(locations = "/hibernate.properties")
 public class BillControllerIntegrationTest {
 
+    private static final String MAKER = "maker-1";
+    private static final String CHECKER = "checker-1";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -55,6 +61,29 @@ public class BillControllerIntegrationTest {
 
     @Autowired
     private JavaMonetaApiCurrencyExchange currencyExchange;
+
+    Bill initBill(Currency currency, BigDecimal amount, boolean over, Account account) throws Exception {
+        init(currency, amount, over, account);
+        return billsRepository.
+                getBillsByAccount_Id(account.getId())
+                .stream()
+                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(over) && bill1.getAmount().compareTo(amount)==0)
+                .findFirst().get();
+    }
+
+    List<AuditEventResponseDTO> auditEvents(Account account, UUID billId) throws Exception {
+        MvcResult mvcResult = mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", account.getPersonId(), account.getId(), billId))
+                .andExpect(status().isOk()).andReturn();
+        return objectMapper.readValue(mvcResult.getResponse().getContentAsString(), new TypeReference<List<AuditEventResponseDTO>>() {});
+    }
+
+    AuditEventResponseDTO lastAuditEvent(Account account, UUID billId, AuditOperation operation) throws Exception {
+        List<AuditEventResponseDTO> events = auditEvents(account, billId);
+        return events.stream()
+                .filter(event -> event.getOperation() == operation)
+                .reduce((first, second) -> second)
+                .orElseThrow(() -> new AssertionError("No " + operation + " audit event in " + events));
+    }
 
     void init(Currency currency, BigDecimal amount, boolean over, Account account) throws Exception {
         BillRequestDTO billRequestDTO = new BillRequestDTO(currency, amount , over, account);
@@ -112,6 +141,7 @@ public class BillControllerIntegrationTest {
         BillRequestDTO billRequestDTO = new BillRequestDTO(newCurrency, amount , newOverdraft, account);
 
         mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId())
+                .header(AuditContextResolver.ACTOR_HEADER, MAKER)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(billRequestDTO)))
                 .andExpect(status().isAccepted());
@@ -140,7 +170,8 @@ public class BillControllerIntegrationTest {
                 .findFirst().get();
 
         mockMvc.perform(MockMvcRequestBuilders
-                .delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId()))
+                .delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId())
+                .header(AuditContextResolver.ACTOR_HEADER, MAKER))
                 .andExpect(status().isNoContent());
 
         assertThat(billsRepository.getBillById(bill.getId()).isPresent()).isFalse();
@@ -167,6 +198,9 @@ public class BillControllerIntegrationTest {
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments",account.getPersonId(), account.getId(), bill.getId())
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestDTO)))
                 .andExpect(status().isAccepted());
@@ -218,6 +252,9 @@ public class BillControllerIntegrationTest {
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments",account.getPersonId(), account.getId(), bill.getId())
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestDTO)))
                 .andExpect(status().isBadRequest());
@@ -242,10 +279,13 @@ public class BillControllerIntegrationTest {
                 .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
                 .findFirst().get();
 
-        AdjustmentRequestDTO requestDTO = new AdjustmentRequestDTO(currency, adjustmentAmount, time,"Adjustment", bill);
+        AdjustmentRequestDTO requestDTO = new AdjustmentRequestDTO(currency, adjustmentAmount, time,"Adjustment", bill, CHECKER);
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments",account.getPersonId(), account.getId(), bill.getId())
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestDTO)))
                 .andExpect(status().isAccepted());
@@ -309,6 +349,7 @@ public class BillControllerIntegrationTest {
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}", account.getPersonId(), account.getId(), sourceBill.getId(), targetBill.getId())
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(transferRequestDTO)))
                 .andExpect(status().isAccepted());
@@ -365,6 +406,294 @@ public class BillControllerIntegrationTest {
 
         assertThat(targetTransfer.getSourceBill()).isEqualTo(newSourceBill);
         assertThat(targetTransfer.getBeneficiaryBill()).isEqualTo(newTargetBill);
+
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void commitPayment_writesSuccessAuditEventAndInitiator() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        Bill bill = initBill(currency, new BigDecimal("10"), true, account);
+
+        PaymentRequestDTO requestDTO = new PaymentRequestDTO(currency, new BigDecimal("4"), LocalDateTime.now(), "Payment for order #2", bill);
+        mockMvc.perform(
+                put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments", account.getPersonId(), account.getId(), bill.getId())
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                        .header(AuditContextResolver.REQUEST_ID_HEADER, "req-123")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isAccepted());
+
+        AuditEventResponseDTO event = lastAuditEvent(account, bill.getId(), AuditOperation.PAYMENT);
+        Payment payment = billsService.getPaymentsByBillId(bill.getId()).stream().findFirst().get();
+
+        assertThat(event.getOutcome()).isEqualTo(AuditOutcome.SUCCESS);
+        assertThat(event.getActor()).isEqualTo(MAKER);
+        assertThat(event.getPersonId()).isEqualTo(account.getPersonId());
+        assertThat(event.getAccountId()).isEqualTo(account.getId());
+        assertThat(event.getBillId()).isEqualTo(bill.getId());
+        assertThat(event.getTransactionId()).isEqualTo(payment.getId());
+        assertThat(event.getAmount()).isEqualByComparingTo("4");
+        assertThat(event.getCurrency()).isEqualTo("USD");
+        assertThat(event.getBalanceBefore()).isEqualByComparingTo("10");
+        assertThat(event.getBalanceAfter()).isEqualByComparingTo("6");
+        assertThat(event.getRequestId()).isEqualTo("req-123");
+        assertThat(event.getOccurredAt()).isNotNull();
+        assertThat(payment.getInitiatedBy()).isEqualTo(MAKER);
+
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void commitPayment_withoutActor_isRejectedAndAudited() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        Bill bill = initBill(currency, new BigDecimal("10"), true, account);
+
+        PaymentRequestDTO requestDTO = new PaymentRequestDTO(currency, new BigDecimal("4"), LocalDateTime.now(), "Payment", bill);
+        mockMvc.perform(
+                put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments", account.getPersonId(), account.getId(), bill.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isBadRequest());
+
+        AuditEventResponseDTO event = lastAuditEvent(account, bill.getId(), AuditOperation.PAYMENT);
+        assertThat(event.getOutcome()).isEqualTo(AuditOutcome.REJECTED);
+        assertThat(event.getActor()).isEqualTo("unidentified");
+        assertThat(event.getFailureReason()).contains("MissingActorException");
+        assertThat(billsRepository.getBillById(bill.getId()).get().getAmount()).isEqualByComparingTo("10");
+        assertThat(billsService.getPaymentsByBillId(bill.getId())).isEmpty();
+
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void commitPayment_failure_isAuditedAndBalanceUnchanged() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        Bill bill = initBill(currency, new BigDecimal("10"), false, account);
+
+        PaymentRequestDTO requestDTO = new PaymentRequestDTO(currency, new BigDecimal("15"), LocalDateTime.now(), "Payment", bill);
+        mockMvc.perform(
+                put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments", account.getPersonId(), account.getId(), bill.getId())
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isBadRequest());
+
+        AuditEventResponseDTO event = lastAuditEvent(account, bill.getId(), AuditOperation.PAYMENT);
+        assertThat(event.getOutcome()).isEqualTo(AuditOutcome.FAILED);
+        assertThat(event.getActor()).isEqualTo(MAKER);
+        assertThat(event.getFailureReason()).contains("NotEnoughMoneyException");
+        assertThat(event.getAmount()).isEqualByComparingTo("15");
+        assertThat(event.getBalanceBefore()).isEqualByComparingTo("10");
+        assertThat(event.getBalanceAfter()).isEqualByComparingTo("10");
+        assertThat(billsRepository.getBillById(bill.getId()).get().getAmount()).isEqualByComparingTo("10");
+        assertThat(billsService.getPaymentsByBillId(bill.getId())).isEmpty();
+
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void commitAdjustment_recordsMakerAndChecker() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        Bill bill = initBill(currency, new BigDecimal("10"), true, account);
+
+        AdjustmentRequestDTO requestDTO = new AdjustmentRequestDTO(currency, new BigDecimal("3"), LocalDateTime.now(), "Correction", bill, CHECKER);
+        mockMvc.perform(
+                put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments", account.getPersonId(), account.getId(), bill.getId())
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isAccepted());
+
+        AuditEventResponseDTO event = lastAuditEvent(account, bill.getId(), AuditOperation.ADJUSTMENT);
+        Adjustment adjustment = billsService.getAdjustmentsByBillId(bill.getId()).stream().findFirst().get();
+
+        assertThat(event.getOutcome()).isEqualTo(AuditOutcome.SUCCESS);
+        assertThat(event.getActor()).isEqualTo(MAKER);
+        assertThat(event.getApprovedBy()).isEqualTo(CHECKER);
+        assertThat(event.getTransactionId()).isEqualTo(adjustment.getId());
+        assertThat(event.getBalanceBefore()).isEqualByComparingTo("10");
+        assertThat(event.getBalanceAfter()).isEqualByComparingTo("13");
+        assertThat(adjustment.getInitiatedBy()).isEqualTo(MAKER);
+        assertThat(adjustment.getApprovedBy()).isEqualTo(CHECKER);
+
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void commitAdjustment_selfApproved_isForbiddenAndAudited() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        Bill bill = initBill(currency, new BigDecimal("10"), true, account);
+
+        AdjustmentRequestDTO requestDTO = new AdjustmentRequestDTO(currency, new BigDecimal("3"), LocalDateTime.now(), "Correction", bill, MAKER);
+        mockMvc.perform(
+                put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments", account.getPersonId(), account.getId(), bill.getId())
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isForbidden());
+
+        AuditEventResponseDTO event = lastAuditEvent(account, bill.getId(), AuditOperation.ADJUSTMENT);
+        assertThat(event.getOutcome()).isEqualTo(AuditOutcome.REJECTED);
+        assertThat(event.getFailureReason()).contains("MakerCheckerViolationException");
+        assertThat(billsRepository.getBillById(bill.getId()).get().getAmount()).isEqualByComparingTo("10");
+        assertThat(billsService.getAdjustmentsByBillId(bill.getId())).isEmpty();
+
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void commitAdjustment_withoutApprover_returns400() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        Bill bill = initBill(currency, new BigDecimal("10"), true, account);
+
+        AdjustmentRequestDTO requestDTO = new AdjustmentRequestDTO(currency, new BigDecimal("3"), LocalDateTime.now(), "Correction", bill, null);
+        mockMvc.perform(
+                put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments", account.getPersonId(), account.getId(), bill.getId())
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isBadRequest());
+
+        assertThat(billsService.getAdjustmentsByBillId(bill.getId())).isEmpty();
+
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void commitTransfer_auditsBothBills() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        Bill sourceBill = initBill(currency, new BigDecimal("10"), false, account);
+        Bill targetBill = initBill(currency, new BigDecimal("1"), false, account);
+
+        TransferRequestDTO requestDTO = new TransferRequestDTO(currency, new BigDecimal("5"), LocalDateTime.now(), "Transfer", sourceBill, targetBill);
+        mockMvc.perform(
+                put("/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}", account.getPersonId(), account.getId(), sourceBill.getId(), targetBill.getId())
+                        .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isAccepted());
+
+        AuditEventResponseDTO event = lastAuditEvent(account, sourceBill.getId(), AuditOperation.TRANSFER);
+        Transfer transfer = billsService.getTransfersBySourceBillId(sourceBill.getId()).stream().findFirst().get();
+
+        assertThat(event.getOutcome()).isEqualTo(AuditOutcome.SUCCESS);
+        assertThat(event.getActor()).isEqualTo(MAKER);
+        assertThat(event.getBillId()).isEqualTo(sourceBill.getId());
+        assertThat(event.getCounterpartyBillId()).isEqualTo(targetBill.getId());
+        assertThat(event.getTransactionId()).isEqualTo(transfer.getId());
+        assertThat(event.getBalanceBefore()).isEqualByComparingTo("10");
+        assertThat(event.getBalanceAfter()).isEqualByComparingTo("5");
+        assertThat(event.getCounterpartyBalanceBefore()).isEqualByComparingTo("1");
+        assertThat(event.getCounterpartyBalanceAfter()).isEqualByComparingTo("6");
+        assertThat(transfer.getInitiatedBy()).isEqualTo(MAKER);
+        assertThat(lastAuditEvent(account, targetBill.getId(), AuditOperation.TRANSFER).getId()).isEqualTo(event.getId());
+
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void delete_auditEventSurvivesBillDeletion() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        Bill bill = initBill(currency, new BigDecimal("10"), true, account);
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}", account.getPersonId(), account.getId(), bill.getId())
+                .header(AuditContextResolver.ACTOR_HEADER, MAKER))
+                .andExpect(status().isNoContent());
+
+        AuditEventResponseDTO event = lastAuditEvent(account, bill.getId(), AuditOperation.BILL_DELETED);
+        assertThat(event.getOutcome()).isEqualTo(AuditOutcome.SUCCESS);
+        assertThat(event.getActor()).isEqualTo(MAKER);
+        assertThat(event.getBalanceBefore()).isEqualByComparingTo("10");
+        assertThat(event.getBalanceBeforeCurrency()).isEqualTo("USD");
+        assertThat(event.getBalanceAfter()).isNull();
+        AuditEventResponseDTO created = lastAuditEvent(account, bill.getId(), AuditOperation.BILL_CREATED);
+        assertThat(created.getOutcome()).isEqualTo(AuditOutcome.SUCCESS);
+        assertThat(created.getBalanceAfterCurrency()).isEqualTo("USD");
+
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", account.getPersonId(), UUID.randomUUID(), bill.getId()))
+                .andExpect(status().isNotFound());
+
+        // a rejected request with forged path ids must not grant access to the deleted bill's trail
+        UUID forgedPerson = UUID.randomUUID();
+        UUID forgedAccount = UUID.randomUUID();
+        PaymentRequestDTO payment = new PaymentRequestDTO(currency, new BigDecimal("1"), LocalDateTime.now(), "forged", bill);
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments", forgedPerson, forgedAccount, bill.getId())
+                .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(payment)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", forgedPerson, forgedAccount, bill.getId()))
+                .andExpect(status().isNotFound());
+
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void auditEvents_ofDeletedBill_areReadableOnlyByItsFinalOwner() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account formerOwner = initAccount();
+        UUID newPersonId = UUID.randomUUID();
+        accountsService.save(new Account("new owner", LocalDate.now(), newPersonId));
+        Account newOwner = accountsService.getAccounts().stream()
+                .filter(a -> newPersonId.equals(a.getPersonId())).findFirst().get();
+        Bill bill = initBill(currency, new BigDecimal("10"), true, formerOwner);
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{id}", formerOwner.getPersonId(), formerOwner.getId(), bill.getId())
+                .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new BillRequestDTO(currency, new BigDecimal("10"), true, newOwner))))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(MockMvcRequestBuilders.delete("/v1/people/{personId}/accounts/{accountId}/bills/{id}", newOwner.getPersonId(), newOwner.getId(), bill.getId())
+                .header(AuditContextResolver.ACTOR_HEADER, MAKER))
+                .andExpect(status().isNoContent());
+
+        assertThat(lastAuditEvent(newOwner, bill.getId(), AuditOperation.BILL_UPDATED).getAccountId()).isEqualTo(newOwner.getId());
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", formerOwner.getPersonId(), formerOwner.getId(), bill.getId()))
+                .andExpect(status().isNotFound());
+        accountsService.delete(formerOwner.getId());
+        accountsService.delete(newOwner.getId());
+    }
+
+    @Test
+    void auditEvents_remainReadableAfterAccountDeletion() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        Bill bill = initBill(currency, new BigDecimal("10"), true, account);
+        PaymentRequestDTO payment = new PaymentRequestDTO(currency, new BigDecimal("1"), LocalDateTime.now(), "before account deletion", bill);
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments", account.getPersonId(), account.getId(), bill.getId())
+                .header(AuditContextResolver.ACTOR_HEADER, MAKER)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(payment)))
+                .andExpect(status().isAccepted());
+
+        accountsService.delete(account.getId());
+
+        assertThat(lastAuditEvent(account, bill.getId(), AuditOperation.PAYMENT).getOutcome()).isEqualTo(AuditOutcome.SUCCESS);
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", account.getPersonId(), UUID.randomUUID(), bill.getId()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void auditEvents_areNotReadableThroughAnotherPersonOrAccount() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        Bill bill = initBill(currency, new BigDecimal("10"), true, account);
+
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", account.getPersonId(), UUID.randomUUID(), bill.getId()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", UUID.randomUUID(), account.getId(), bill.getId()))
+                .andExpect(status().isNotFound());
+        assertThat(auditEvents(account, bill.getId())).isNotEmpty();
 
         accountsService.delete(account.getId());
     }

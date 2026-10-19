@@ -9,7 +9,16 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import ru.kondrashov.accountservice.audit.AuditOperation;
+import ru.kondrashov.accountservice.audit.BillAuditRecorder;
 import ru.kondrashov.accountservice.controllers.dto.*;
+import ru.kondrashov.accountservice.entities.Adjustment;
+import ru.kondrashov.accountservice.entities.AuditEvent;
+import ru.kondrashov.accountservice.entities.Bill;
+import ru.kondrashov.accountservice.entities.Payment;
+import ru.kondrashov.accountservice.entities.Transfer;
+import ru.kondrashov.accountservice.exceptions.MakerCheckerViolationException;
+import ru.kondrashov.accountservice.services.interfaces.AuditService;
 import ru.kondrashov.accountservice.services.interfaces.BillsService;
 import ru.kondrashov.accountservice.utils.interfaces.AdjustmentMapping;
 import ru.kondrashov.accountservice.utils.interfaces.BillsMapping;
@@ -18,8 +27,10 @@ import ru.kondrashov.accountservice.utils.interfaces.PaymentsMapping;
 import ru.kondrashov.accountservice.utils.interfaces.TransferMapping;
 
 import javax.validation.Valid;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Currency;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -34,6 +45,8 @@ public class BillsController {
     private final PaymentsMapping paymentsMapping;
     private final AdjustmentMapping adjustmentMapping;
     private final TransferMapping transferMapping;
+    private final BillAuditRecorder auditRecorder;
+    private final AuditService auditService;
     private final Logger logger;
 
     @GetMapping
@@ -61,7 +74,18 @@ public class BillsController {
             @RequestHeader HttpHeaders header){
 
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills\""+" received a POST request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.save(billsMapping.mapToBill(billRequestDTO));
+        AuditEvent.AuditEventBuilder event = auditEvent(AuditOperation.BILL_CREATED, personId, accountId, billRequestDTO.getAmount(), billRequestDTO.getCurrency());
+        auditRecorder.record(event, null, null, () -> {
+            Bill bill = billsMapping.mapToBill(billRequestDTO);
+            billsService.save(bill);
+            if (bill != null) {
+                event.billId(bill.getId())
+                        .balanceAfter(bill.getAmount())
+                        .balanceAfterCurrency(BillAuditRecorder.currencyCode(bill));
+                BillAuditRecorder.recordOwner(event, bill);
+            }
+            return null;
+        });
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -76,7 +100,11 @@ public class BillsController {
             @RequestHeader HttpHeaders header){
 
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.update(id,billsMapping.mapToBill(bill));
+        auditRecorder.record(auditEvent(AuditOperation.BILL_UPDATED, personId, accountId, bill.getAmount(), bill.getCurrency()), id, null, () -> {
+            auditRecorder.requireActor();
+            billsService.update(id,billsMapping.mapToBill(bill));
+            return null;
+        });
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -88,10 +116,15 @@ public class BillsController {
                        @ApiParam(value = "Id of the bill to be delete. Cannot be empty.") @PathVariable("id") UUID id,
                        @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.delete(id);
+        auditRecorder.record(auditEvent(AuditOperation.BILL_DELETED, personId, accountId, null, null), id, null, () -> {
+            auditRecorder.requireActor();
+            billsService.delete(id);
+            return null;
+        });
     }
 
 
+    @Transactional(rollbackFor = Exception.class)
     @PutMapping("/{billId}/payments")
     @ApiOperation(value = "Commit payment for bill", tags = { "BILLS" })
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -101,9 +134,16 @@ public class BillsController {
                               @ApiParam("Payment to commit. Cannot null or empty.") @RequestBody @Valid PaymentRequestDTO paymentRequestDTO,
                               @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.commitPayment(billId,paymentsMapping.mapToPayment(paymentRequestDTO));
+        auditRecorder.record(auditEvent(AuditOperation.PAYMENT, personId, accountId, paymentRequestDTO.getAmount(), paymentRequestDTO.getCurrency()), billId, null, () -> {
+            String actor = auditRecorder.requireActor();
+            Payment payment = paymentsMapping.mapToPayment(paymentRequestDTO);
+            payment.setInitiatedBy(actor);
+            billsService.commitPayment(billId, payment);
+            return payment.getId();
+        });
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @PutMapping("/{id}/adjustments")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @ApiOperation(value = "Commit adjustment for bill", tags = { "BILLS" })
@@ -113,9 +153,21 @@ public class BillsController {
                                  @ApiParam("Adjustment to commit. Cannot null or empty.") @RequestBody @Valid AdjustmentRequestDTO adjustmentRequestDTO,
                                  @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.commitAdjustment(billId,adjustmentMapping.mapToAdjustment(adjustmentRequestDTO));
+        String approver = adjustmentRequestDTO.getApprovedBy();
+        auditRecorder.record(auditEvent(AuditOperation.ADJUSTMENT, personId, accountId, adjustmentRequestDTO.getAmount(), adjustmentRequestDTO.getCurrency()).approvedBy(approver), billId, null, () -> {
+            String actor = auditRecorder.requireActor();
+            if (actor.equalsIgnoreCase(approver)) {
+                throw new MakerCheckerViolationException("Adjustment must be approved by a different user than the one who initiates it");
+            }
+            Adjustment adjustment = adjustmentMapping.mapToAdjustment(adjustmentRequestDTO);
+            adjustment.setInitiatedBy(actor);
+            adjustment.setApprovedBy(approver);
+            billsService.commitAdjustment(billId, adjustment);
+            return adjustment.getId();
+        });
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @PutMapping("/{sourceId}/transfer/{beneficiaryBillId}")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @ApiOperation(value = "Commit transfer for bills", tags = { "BILLS" })
@@ -126,7 +178,27 @@ public class BillsController {
                                @ApiParam("Transfer to commit. Cannot null or empty.") @RequestBody @Valid TransferRequestDTO transferRequestDTO,
                                @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.commitTransfer(sourceId,beneficiaryBillId,transferMapping.mapToTransfer(transferRequestDTO));
+        auditRecorder.record(auditEvent(AuditOperation.TRANSFER, personId, accountId, transferRequestDTO.getAmount(), transferRequestDTO.getCurrency()), sourceId, beneficiaryBillId, () -> {
+            String actor = auditRecorder.requireActor();
+            Transfer transfer = transferMapping.mapToTransfer(transferRequestDTO);
+            transfer.setInitiatedBy(actor);
+            billsService.commitTransfer(sourceId, beneficiaryBillId, transfer);
+            return transfer.getId();
+        });
+    }
+
+    @GetMapping("/{id}/audit-events")
+    @ResponseStatus(HttpStatus.OK)
+    @ApiOperation(value = "Get the audit trail of a bill", tags = { "BILLS" })
+    public Collection<AuditEventResponseDTO> getAuditEventsByBillId(@ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
+                                                                    @ApiParam(value = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
+                                                                    @ApiParam(value = "Id of the bill. Cannot be empty.") @PathVariable("id") UUID billId,
+                                                                    @RequestHeader HttpHeaders header){
+        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
+        return auditService.getEventsByBillId(personId, accountId, billId)
+                .stream()
+                .map(event -> AuditEventResponseDTO.from(event, billId))
+                .collect(Collectors.toList());
     }
 
     @GetMapping("/{id}/transactions")
@@ -165,6 +237,15 @@ public class BillsController {
         financialTransactionResponseDTOS.addAll(setAmountNegative(billsService.getTransfersBySourceBillId(billId).stream().map(transferMapping::mapToFinancialTransactionResponseDTO).collect(Collectors.toList())));
 
         return financialTransactionResponseDTOS;
+    }
+
+    private static AuditEvent.AuditEventBuilder auditEvent(AuditOperation operation, UUID personId, UUID accountId, BigDecimal amount, Currency currency) {
+        return AuditEvent.builder()
+                .operation(operation)
+                .personId(personId)
+                .accountId(accountId)
+                .amount(amount)
+                .currency(currency == null ? null : currency.getCurrencyCode());
     }
 
     private Collection<FinancialTransactionResponseDTO> setAmountNegative(Collection<FinancialTransactionResponseDTO> financialTransactionResponseDTOS){
