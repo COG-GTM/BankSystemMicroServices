@@ -28,6 +28,9 @@ To launch classes Application.java in servecies customerService, accountService 
 Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
 Postgre database initialized with some sample user.
 
+Swagger UI (`/swagger-ui.html`, `/v2/api-docs`) for accountService is only available with the `dev` profile
+(`--spring.profiles.active=dev`); in every other profile those paths return 404.
+
 ## Functional Services
 BankSystem was decomposed into three core microservices. All of them are independently deployable applications, organized around certain business domains.
 
