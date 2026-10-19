@@ -28,6 +28,24 @@ To launch classes Application.java in servecies customerService, accountService 
 Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
 Postgre database initialized with some sample user.
 
+### Web UI sign-in (commonService)
+The commonService web UI (`/common/v1/**`) requires form login. CSRF protection is on, so every
+state-changing form (including the hidden-method `PUT`/`DELETE` forms) must carry the `_csrf` token.
+Thymeleaf `th:action` forms add the token automatically.
+
+| Role | Access |
+| ---- | ------ |
+| `STAFF` | view people, accounts, bills and transactions; create and update |
+| `ADMIN` | everything `STAFF` can do, plus delete people, accounts and bills |
+
+No users are built in. commonService refuses to start until at least one user is configured.
+Passwords must be stored pre-encoded with `{bcrypt}` or `{pbkdf2}`; plain-text, `{noop}`, legacy digests (`{MD5}`, `{SHA-1}`, `{sha256}`, ...) and unknown encodings are rejected at startup:
+```sh
+export COMMON_SECURITY_USERS_0_USERNAME=alice
+export COMMON_SECURITY_USERS_0_PASSWORD='{bcrypt}$2a$10$...'   # BCryptPasswordEncoder hash
+export COMMON_SECURITY_USERS_0_ROLES=STAFF,ADMIN
+```
+
 ## Functional Services
 BankSystem was decomposed into three core microservices. All of them are independently deployable applications, organized around certain business domains.
 

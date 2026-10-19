@@ -12,7 +12,13 @@
 
 <br>
 <hr>
-<a href="/common/v1/create/people/new">Create person</a>
+<a th:href="@{/common/v1/create/people/new}">Create person</a>
+
+<hr>
+<form th:action="@{/logout}" method="post">
+    <span th:text="'Signed in as ' + ${#authentication.name}">user</span>
+    <input type="submit" value="Sign out"/>
+</form>
 
 </body>
 </html>

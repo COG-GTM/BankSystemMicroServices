@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th ="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <title>Person</title>
@@ -33,7 +33,7 @@
 <form th:method="GET" th:action="@{/common/v1/update/people/{id}/edit(id=${person.getId()})}">
     <input type="submit" value="Edit"></form>
 </form>
-<form th:method="DELETE" th:action="@{/common/v1/delete/people/{id}(id=${person.getId()})}">
+<form sec:authorize="hasRole('ADMIN')" th:method="DELETE" th:action="@{/common/v1/delete/people/{id}(id=${person.getId()})}">
     <input type="submit" value="Delete"></form>
 </form>
 
@@ -60,7 +60,7 @@
                 <form th:method="GET" th:action="@{/common/v1/update/people/{personId}/accounts/{accountId}/edit(personId=${account.getPersonId()}, accountId=${account.getId()})}">
                     <input type="submit" value="Update"></form>
                 </form>
-                <form th:method="DELETE" th:action="@{/common/v1/delete/people/{personId}/accounts/{accountId}(personId=${account.getPersonId()}, accountId=${account.getId()})}">
+                <form sec:authorize="hasRole('ADMIN')" th:method="DELETE" th:action="@{/common/v1/delete/people/{personId}/accounts/{accountId}(personId=${account.getPersonId()}, accountId=${account.getId()})}">
                     <input type="submit" value="Delete"></form>
                 </form>
             </td>

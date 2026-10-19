@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -224,6 +225,7 @@ public class CommonController {
     }
 
     @DeleteMapping("/delete/people/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.FOUND)
     public String deletePerson(@PathVariable UUID id){
         commonService.deletePerson(id);
@@ -231,6 +233,7 @@ public class CommonController {
     }
 
     @DeleteMapping("/delete/people/{personId}/accounts/{accountId}")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.FOUND)
     public String deleteAccount(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId){
         commonService.deleteAccount(personId, accountId);
@@ -238,6 +241,7 @@ public class CommonController {
     }
 
     @DeleteMapping("/delete/people/{personId}/accounts/{accountId}/bills/{billId}")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.FOUND)
     public String deleteBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId){
         commonService.deleteBill(personId, accountId, billId);
