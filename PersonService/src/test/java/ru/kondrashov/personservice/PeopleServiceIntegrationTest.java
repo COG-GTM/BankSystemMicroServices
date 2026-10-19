@@ -10,12 +10,18 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import ru.kondrashov.personservice.audit.AuditActorProvider;
+import ru.kondrashov.personservice.audit.PersonAuditAction;
+import ru.kondrashov.personservice.audit.PersonAuditEvent;
+import ru.kondrashov.personservice.audit.PersonAuditRepository;
 import ru.kondrashov.personservice.controllers.dto.PersonRequestDTO;
 import ru.kondrashov.personservice.entities.Person;
 import ru.kondrashov.personservice.repositories.PeopleRepository;
 import ru.kondrashov.personservice.services.PeopleService;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -39,6 +45,9 @@ public class PeopleServiceIntegrationTest {
 
     @Autowired
     private PeopleService peopleService;
+
+    @Autowired
+    private PersonAuditRepository personAuditRepository;
 
     private void init() throws Exception{
 
@@ -122,5 +131,55 @@ public class PeopleServiceIntegrationTest {
                 MockMvcRequestBuilders.delete("/v1/people/{id}", person.getId())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void createUpdateAndDeleteAreAudited() throws Exception{
+        String email = "audit.subject@mail.com";
+        PersonRequestDTO created = new PersonRequestDTO("Ada", "Lovelace", LocalDate.of(1815, 12, 10), "+44 1234567890", email);
+        mockMvc.perform(
+                post("/v1/people")
+                        .header(AuditActorProvider.ACTOR_HEADER, "onboarding-clerk")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(created)))
+                .andExpect(status().isCreated());
+
+        Person person = peopleRepository.findAll().stream()
+                .filter(p -> email.equals(p.getEmail()))
+                .findFirst()
+                .orElseThrow(AssertionError::new);
+        UUID id = person.getId();
+        assertThat(person.getCreatedAt()).isNotNull();
+        assertThat(person.getCreatedBy()).isEqualTo("onboarding-clerk");
+
+        PersonRequestDTO changed = new PersonRequestDTO("Ada", "King", LocalDate.of(1815, 12, 10), "+44 1234567890", email);
+        mockMvc.perform(
+                put("/v1/people/{id}", id)
+                        .header(AuditActorProvider.ACTOR_HEADER, "kyc-officer")
+                        .content(objectMapper.writeValueAsString(changed))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isAccepted());
+
+        Person updated = peopleRepository.getPersonById(id).orElseThrow(AssertionError::new);
+        assertThat(updated.getLastModifiedBy()).isEqualTo("kyc-officer");
+        assertThat(updated.getCreatedBy()).isEqualTo("onboarding-clerk");
+
+        mockMvc.perform(
+                MockMvcRequestBuilders.delete("/v1/people/{id}", id)
+                        .header(AuditActorProvider.ACTOR_HEADER, "dpo")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNoContent());
+
+        assertThat(peopleRepository.getPersonById(id)).isEmpty();
+
+        List<PersonAuditEvent> events = personAuditRepository.findByPersonIdOrderByOccurredAtAscIdAsc(id);
+        assertThat(events).extracting(PersonAuditEvent::getAction)
+                .containsExactly(PersonAuditAction.CREATE, PersonAuditAction.UPDATE, PersonAuditAction.DELETE);
+        assertThat(events).extracting(PersonAuditEvent::getActor)
+                .containsExactly("onboarding-clerk", "kyc-officer", "dpo");
+        assertThat(events.get(1).getChangedFields()).isEqualTo("lastName");
+        assertThat(events.get(1).getChanges()).isEqualTo("lastName: L***e -> K***g");
+        assertThat(events.get(2).getChanges()).isNull();
+        assertThat(events).allSatisfy(e -> assertThat(e.getOccurredAt()).isNotNull());
     }
 }
