@@ -62,6 +62,7 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitAdjustment(UUID billId, Adjustment adjustment) {
 
         Bill bill = getBill(billId);
@@ -84,6 +85,7 @@ public class BillServiceImpl implements BillsService {
 
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
 
         Bill sourceBill = getBill(sourceBillId);

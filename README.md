@@ -61,6 +61,7 @@ Contains the general logic of working and validating account, bill and transacti
 | GET | /v1/people/{personId}/accounts | get all accounts by personId | 
 | GET | /v1/people/{personId}/accounts/{accountId}/bills | get all bills by accountId | 
 | GET | /v1/people/{personId}/accounts/{accountId}/bills/{id}/transactions | get all transactions by bill | 
+| GET | /v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events | get the audit trail of a bill | 
 | POST | /v1/people/{personId}/accounts | create account for exact person | 
 | POST | /v1/people/{personId}/accounts/{accountId}/bills | create bill for exact account | 
 | PUT | /v1/people/{personId}/accounts/{id} | update account by id |
@@ -70,6 +71,23 @@ Contains the general logic of working and validating account, bill and transacti
 | PUT | /v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId} | commit transfer between two bills | 
 | DELETE | /v1/people/{personId}/accounts/{id} | delete account by id |
 | DELETE | /v1/people/{personId}/accounts/{accountId}/bills/{id} | delete bill by id |
+
+#### Audit trail
+Every mutating bills request writes one append-only row to the `audit_events` table and one JSON line to
+`./logs/accountService-audit.log`. Each event records the actor, operation, person/account/bill ids (plus the
+beneficiary bill for transfers), the created transaction id, amount and currency, balance before and after,
+the outcome (`SUCCESS`, `REJECTED` or `FAILED`, with the reason) and a timestamp. Failed operations are recorded
+in a separate transaction, so the event survives the rollback.
+
+The service has no authentication yet, so callers identify the acting user with the `X-Actor-Id` header
+(1-128 characters `[A-Za-z0-9._@:-]`). Payments, adjustments, transfers, bill updates and bill deletions are
+rejected with 400 without it. An optional `X-Request-Id` header is stored for correlation.
+Adjustments also need an `approvedBy` user id in the body that differs from `X-Actor-Id` (maker-checker);
+self-approved adjustments are rejected with 403. Payments, adjustments and transfers store the actor in
+`initiatedBy`, and adjustments store the approver in `approvedBy`.
+
+Once authentication is added, `AuditContextResolver` should take the actor from the authenticated principal
+instead of the header.
 
 #### Sample JSON for Account Service
 ##### Create an account:
@@ -121,6 +139,7 @@ Contains the general logic of working and validating account, bill and transacti
   "currency": "USD",
   "message": "Adjustment of the account in the amount of 10 USD",
   "time": "2021-04-20T12:27:59.873Z",
+  "approvedBy": "checker-1",
   "bill": {
       "account": {
           "id": "58612097-bc0d-4de3-b32b-2221c81ec8e1",
