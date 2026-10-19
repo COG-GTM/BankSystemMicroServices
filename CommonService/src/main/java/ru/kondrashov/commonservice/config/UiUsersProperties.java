@@ -9,12 +9,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Staff accounts allowed to sign in to the web UI. Passwords must be stored pre-encoded
- * with a {@code {id}} prefix understood by the delegating password encoder (e.g. {@code {bcrypt}...});
- * plain-text and {@code {noop}} passwords are rejected at startup.
+ * Staff accounts allowed to sign in to the web UI. Passwords must be stored pre-encoded with a
+ * strong adaptive hash ({@code {bcrypt}} or {@code {pbkdf2}}); plain-text, {@code {noop}}, legacy
+ * digests ({@code {MD5}}, {@code {SHA-1}}, ...) and unknown encodings are rejected at startup.
  */
 @Data
 @ConfigurationProperties(prefix = "common.security")
@@ -23,7 +24,10 @@ public class UiUsersProperties {
     static final List<String> SUPPORTED_ROLES = Collections.unmodifiableList(
             Arrays.asList(SecurityConfig.ROLE_STAFF, SecurityConfig.ROLE_ADMIN));
 
-    private static final Pattern ENCODED_PASSWORD = Pattern.compile("^\\{(?!noop})[^{}]+}.+$");
+    static final List<String> ALLOWED_PASSWORD_ENCODINGS = Collections.unmodifiableList(
+            Arrays.asList("bcrypt", "pbkdf2"));
+
+    private static final Pattern ENCODED_PASSWORD = Pattern.compile("^\\{([^{}]+)}.+$");
 
     private List<UiUser> users = new ArrayList<>();
 
@@ -37,9 +41,10 @@ public class UiUsersProperties {
             if (username == null || username.trim().isEmpty()) {
                 throw new IllegalStateException("common.security.users[].username must not be blank");
             }
-            if (password == null || !ENCODED_PASSWORD.matcher(password).matches()) {
-                throw new IllegalStateException("Password for UI user '" + username
-                        + "' must be pre-encoded with an {id} prefix such as {bcrypt}; plain-text/{noop} passwords are not allowed");
+            Matcher encoded = password == null ? null : ENCODED_PASSWORD.matcher(password);
+            if (encoded == null || !encoded.matches() || !ALLOWED_PASSWORD_ENCODINGS.contains(encoded.group(1))) {
+                throw new IllegalStateException("Password for UI user '" + username + "' must be pre-encoded with one of "
+                        + ALLOWED_PASSWORD_ENCODINGS + " as an {id} prefix, e.g. {bcrypt}$2a$10$...");
             }
             if (roles == null || roles.isEmpty()) {
                 throw new IllegalStateException("UI user '" + username + "' must have at least one role of " + SUPPORTED_ROLES);

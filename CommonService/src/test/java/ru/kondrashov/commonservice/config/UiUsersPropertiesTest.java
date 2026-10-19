@@ -2,6 +2,7 @@ package ru.kondrashov.commonservice.config;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -40,6 +41,30 @@ class UiUsersPropertiesTest {
     void noopPasswordIsRejected() {
         assertThatThrownBy(() -> user("alice", "{noop}secret", "STAFF").toUserDetails())
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void weakOrUnknownPasswordEncodingsAreRejected() {
+        for (String password : Arrays.asList(
+                "{MD5}5f4dcc3b5aa765d61d8327deb882cf99",
+                "{SHA-1}5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8",
+                "{sha256}97cde38028ad898ebc02e690819fa220e88c62e0699403e94fff291cfffaf8410849f27605abeb0f",
+                "{ldap}{SSHA}abc",
+                "{unknown}digest",
+                "{}digest",
+                "{bcrypt}")) {
+            assertThatThrownBy(() -> user("alice", password, "STAFF").toUserDetails())
+                    .as(password)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("pre-encoded");
+        }
+    }
+
+    @Test
+    void pbkdf2PasswordIsAccepted() {
+        String encoded = "{pbkdf2}" + new Pbkdf2PasswordEncoder().encode("secret");
+        UserDetails details = user("alice", encoded, "STAFF").toUserDetails();
+        assertThat(new SecurityConfig().passwordEncoder().matches("secret", details.getPassword())).isTrue();
     }
 
     @Test
