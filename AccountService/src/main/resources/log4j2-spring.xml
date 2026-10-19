@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration>
+    <Properties>
+        <!-- Rolled log files hold customer/account identifiers; delete them after this ISO-8601 period -->
+        <Property name="LOG_RETENTION_PERIOD">${env:LOG_RETENTION_PERIOD:-P30D}</Property>
+        <!-- Set to debug only for local troubleshooting -->
+        <Property name="LOG_LEVEL_ORG_APACHE">${env:LOG_LEVEL_ORG_APACHE:-info}</Property>
+    </Properties>
     <Appenders>
         <RollingFile name="RollingFile"
                      fileName="./logs/accountService.log"
@@ -15,6 +21,13 @@
                         size="10 MB" />
                 <TimeBasedTriggeringPolicy />
             </Policies>
+            <DefaultRolloverStrategy fileIndex="nomax">
+                <Delete basePath="./logs" maxDepth="1">
+                    <IfFileName glob="accountService-*.log">
+                        <IfLastModified age="${LOG_RETENTION_PERIOD}" />
+                    </IfFileName>
+                </Delete>
+            </DefaultRolloverStrategy>
         </RollingFile>
     </Appenders>
 
@@ -23,7 +36,7 @@
         <Root level="info">
             <AppenderRef ref="RollingFile" />
         </Root>
-        <Logger name="org.apache" level="debug" additivity="false">
+        <Logger name="org.apache" level="${LOG_LEVEL_ORG_APACHE}" additivity="false">
             <AppenderRef ref="RollingFile" />
         </Logger>
         <Logger name="org.springframework" level="info" additivity="false">
