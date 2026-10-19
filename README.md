@@ -33,6 +33,8 @@ for accountService and commonService before starting them:
 export ACCOUNT_SERVICE_CLIENT_USERNAME=common-service   # optional, defaults to common-service
 export ACCOUNT_SERVICE_CLIENT_PASSWORD=<strong secret>  # required
 ```
+commonService sends these credentials only to requests under `account-service.URL`, which must use `https` unless it
+points to a loopback host.
 Bill operations are scoped to the `personId`/`accountId` in the path: a bill that does not belong to that account and
 person is reported as not found. Transfers may only debit a bill owned by the caller's `personId`/`accountId`.
 Postgre database initialized with some sample user.

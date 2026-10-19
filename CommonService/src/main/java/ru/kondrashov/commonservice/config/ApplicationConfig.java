@@ -18,11 +18,11 @@ import java.util.Objects;
 public class ApplicationConfig {
     @Bean
     public RestTemplate restTemplate(RestTemplateBuilder restTemplateBuilder,
-                                     @Value("${accounts.URL}") String accountsUrl,
+                                     @Value("${account-service.URL}") String accountServiceUrl,
                                      @Value("${account-service.client.username}") String accountServiceUsername,
                                      @Value("${account-service.client.password}") String accountServicePassword) {
         return restTemplateBuilder
-                .additionalInterceptors(accountServiceAuthentication(accountsUrl, accountServiceUsername, accountServicePassword))
+                .additionalInterceptors(accountServiceAuthentication(accountServiceUrl, accountServiceUsername, accountServicePassword))
                 .build();
     }
 
@@ -31,16 +31,31 @@ public class ApplicationConfig {
         return LogManager.getRootLogger();
     }
 
-    private ClientHttpRequestInterceptor accountServiceAuthentication(String accountsUrl, String username, String password) {
-        UriComponents accountService = UriComponentsBuilder.fromUriString(accountsUrl).build();
+    static ClientHttpRequestInterceptor accountServiceAuthentication(String accountServiceUrl, String username, String password) {
+        UriComponents accountService = UriComponentsBuilder.fromUriString(accountServiceUrl).build();
+        if (!"https".equalsIgnoreCase(accountService.getScheme()) && !isLoopback(accountService.getHost())) {
+            throw new IllegalStateException("account-service.URL must use https for non-local hosts, "
+                    + "otherwise AccountService credentials would be sent in clear text: " + accountServiceUrl);
+        }
+        String basePath = accountService.getPath() == null ? "" : accountService.getPath().replaceAll("/+$", "");
         return (request, body, execution) -> {
             URI uri = request.getURI();
+            String path = uri.getPath() == null ? "" : uri.getPath();
             if (Objects.equals(uri.getScheme(), accountService.getScheme())
                     && Objects.equals(uri.getHost(), accountService.getHost())
-                    && uri.getPort() == accountService.getPort()) {
+                    && uri.getPort() == accountService.getPort()
+                    && (path.equals(basePath) || path.startsWith(basePath + "/"))
+                    && !path.contains("/../")) {
                 request.getHeaders().setBasicAuth(username, password);
             }
             return execution.execute(request, body);
         };
+    }
+
+    private static boolean isLoopback(String host) {
+        return host != null
+                && (host.equalsIgnoreCase("localhost")
+                || host.matches("127(\\.\\d{1,3}){3}")
+                || host.equals("::1") || host.equals("[::1]"));
     }
 }

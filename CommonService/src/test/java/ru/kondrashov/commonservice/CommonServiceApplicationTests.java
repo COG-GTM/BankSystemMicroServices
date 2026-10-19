@@ -7,7 +7,7 @@ import org.springframework.context.ApplicationContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@SpringBootTest(properties = "account-service.client.password=test-client-password")
 class CommonServiceApplicationTests {
 
     @Autowired
