@@ -8,7 +8,7 @@ transactions.URL: http://localhost:8081/v1/people/%s/accounts/%s/bills/%s/transa
 
 # Web UI sign-in accounts. Nothing is configured by default: the service refuses to start until at
 # least one user is supplied, e.g. through COMMON_SECURITY_USERS_0_USERNAME / _PASSWORD / _ROLES.
-# Passwords must be pre-encoded ({bcrypt}...). Roles: STAFF (view/create/update), ADMIN (STAFF + delete).
+# Passwords must be pre-encoded with {bcrypt} or {pbkdf2}. Roles: STAFF (view/create/update), ADMIN (STAFF + delete).
 #
 # common:
 #   security:

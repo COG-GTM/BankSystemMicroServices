@@ -39,7 +39,7 @@ Thymeleaf `th:action` forms add the token automatically.
 | `ADMIN` | everything `STAFF` can do, plus delete people, accounts and bills |
 
 No users are built in. commonService refuses to start until at least one user is configured.
-Passwords must be stored pre-encoded (`{bcrypt}...`); plain-text and `{noop}` passwords are rejected:
+Passwords must be stored pre-encoded with `{bcrypt}` or `{pbkdf2}`; plain-text, `{noop}`, legacy digests (`{MD5}`, `{SHA-1}`, `{sha256}`, ...) and unknown encodings are rejected at startup:
 ```sh
 export COMMON_SECURITY_USERS_0_USERNAME=alice
 export COMMON_SECURITY_USERS_0_PASSWORD='{bcrypt}$2a$10$...'   # BCryptPasswordEncoder hash
