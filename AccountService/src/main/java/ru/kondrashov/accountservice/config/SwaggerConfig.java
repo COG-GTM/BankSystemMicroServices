@@ -70,10 +70,14 @@ public class SwaggerConfig {
             FilterRegistrationBean<Filter> registration = new FilterRegistrationBean<>(notFound);
             registration.addUrlPatterns(
                     "/swagger-ui.html",
+                    "/swagger-ui/*",
                     "/webjars/springfox-swagger-ui/*",
+                    "/webjars/swagger-ui/*",
                     "/swagger-resources",
                     "/swagger-resources/*",
-                    "/v2/api-docs"
+                    "/v2/api-docs",
+                    "/v3/api-docs",
+                    "/v3/api-docs/*"
             );
             return registration;
         }

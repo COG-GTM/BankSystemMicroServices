@@ -37,9 +37,12 @@ class SwaggerDisabledByDefaultTest {
                 "/v1",
                 "/swagger-ui.html",
                 "/webjars/springfox-swagger-ui/springfox.js",
+                "/webjars/swagger-ui/index.html",
+                "/swagger-ui/index.html",
                 "/swagger-resources",
                 "/swagger-resources/configuration/ui",
-                "/v2/api-docs"
+                "/v2/api-docs",
+                "/v3/api-docs"
         };
         for (String path : paths) {
             mockMvc.perform(get(path)).andExpect(status().isNotFound());
