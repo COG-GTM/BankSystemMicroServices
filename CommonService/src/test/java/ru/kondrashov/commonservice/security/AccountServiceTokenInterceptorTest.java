@@ -49,6 +49,25 @@ class AccountServiceTokenInterceptorTest {
     }
 
     @Test
+    void doesNotSendTokenToOtherPathsOnAccountServiceHost() throws Exception {
+        MockClientHttpRequest request = new MockClientHttpRequest(HttpMethod.GET, URI.create("http://localhost:8081/actuator/env"));
+
+        interceptor.intercept(request, new byte[0], (req, body) -> new MockClientHttpResponse(new byte[0], HttpStatus.OK));
+
+        assertThat(request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)).isFalse();
+    }
+
+    @Test
+    void sendsTokenToNestedBillEndpoints() throws Exception {
+        MockClientHttpRequest request = new MockClientHttpRequest(HttpMethod.PUT,
+                URI.create("http://localhost:8081/v1/people/1/accounts/2/bills/3/payments"));
+
+        interceptor.intercept(request, new byte[0], (req, body) -> new MockClientHttpResponse(new byte[0], HttpStatus.OK));
+
+        assertThat(request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION)).startsWith("Bearer ");
+    }
+
+    @Test
     void rejectsShortSecret() {
         assertThatThrownBy(() -> new AccountServiceTokenInterceptor(ACCOUNTS_URL, "short"))
                 .isInstanceOf(IllegalStateException.class);

@@ -40,8 +40,8 @@ Configure the same shared HS256 secret (at least 32 bytes) for AccountService an
 export ACCOUNT_SERVICE_SECURITY_JWT_HMAC_SECRET=<random 32+ byte secret>
 ```
 CommonService signs a 5-minute token (`aud=account-service`, `scope=accounts:admin`) for every call to AccountService.
-Instead of the shared secret, AccountService can validate tokens from an identity provider via the standard
-`spring.security.oauth2.resourceserver.jwt.issuer-uri` / `jwk-set-uri` properties. With neither configured, AccountService does not start.
+Both services refuse to start without the secret.
+Bill endpoints additionally require the account to belong to `{personId}` and the bill to belong to `{accountId}` (otherwise `404`).
 
 ## Functional Services
 BankSystem was decomposed into three core microservices. All of them are independently deployable applications, organized around certain business domains.

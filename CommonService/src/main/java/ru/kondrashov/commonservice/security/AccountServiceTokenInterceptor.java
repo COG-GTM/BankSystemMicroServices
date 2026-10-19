@@ -23,7 +23,7 @@ import java.util.UUID;
 
 /**
  * Attaches a short-lived HS256 service token (aud=account-service, scope=accounts:admin)
- * to every request sent to AccountService. Requests to other hosts are left untouched.
+ * to requests for AccountService's person/account API. Other hosts and paths are left untouched.
  */
 public class AccountServiceTokenInterceptor implements ClientHttpRequestInterceptor {
 
@@ -34,6 +34,7 @@ public class AccountServiceTokenInterceptor implements ClientHttpRequestIntercep
     private static final int MIN_SECRET_BYTES = 32;
 
     private final String accountServiceAuthority;
+    private final String accountServicePathPrefix;
     private final MACSigner signer;
     private final Clock clock;
 
@@ -51,13 +52,18 @@ public class AccountServiceTokenInterceptor implements ClientHttpRequestIntercep
         } catch (JOSEException e) {
             throw new IllegalStateException("Invalid account-service.security.jwt.hmac-secret", e);
         }
-        this.accountServiceAuthority = URI.create(accountServiceUrl.replace("%s", "x")).getAuthority();
+        int placeholder = accountServiceUrl.indexOf("%s");
+        URI accountServiceUri = URI.create(placeholder < 0 ? accountServiceUrl : accountServiceUrl.substring(0, placeholder));
+        this.accountServiceAuthority = accountServiceUri.getAuthority();
+        this.accountServicePathPrefix = accountServiceUri.getRawPath();
         this.clock = clock;
     }
 
     @Override
     public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws IOException {
-        if (accountServiceAuthority.equalsIgnoreCase(request.getURI().getAuthority())) {
+        if (accountServiceAuthority.equalsIgnoreCase(request.getURI().getAuthority())
+                && request.getURI().getRawPath() != null
+                && request.getURI().getRawPath().startsWith(accountServicePathPrefix)) {
             request.getHeaders().set(HttpHeaders.AUTHORIZATION, "Bearer " + createToken());
         }
         return execution.execute(request, body);

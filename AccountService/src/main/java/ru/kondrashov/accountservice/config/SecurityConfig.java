@@ -26,10 +26,8 @@ import java.util.List;
  * All {@code /v1/**} endpoints require a bearer JWT. Person-scoped paths additionally
  * require the caller to be authorized for the {@code personId} in the path (see PersonAccess).
  *
- * Tokens are verified either with a shared HS256 secret
- * ({@code account-service.security.jwt.hmac-secret}) or, when that is unset, with the standard
- * {@code spring.security.oauth2.resourceserver.jwt.*} issuer/JWK settings. With neither
- * configured the application refuses to start.
+ * Tokens are verified with the HS256 secret shared with CommonService
+ * ({@code account-service.security.jwt.hmac-secret}); without it the application refuses to start.
  */
 @Configuration
 @EnableWebSecurity
