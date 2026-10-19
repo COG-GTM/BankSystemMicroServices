@@ -104,7 +104,13 @@ public class ApplicationConfig {
     }
 
     static Resource resolveStore(ResourceLoader resourceLoader, String location) {
-        return ResourceUtils.isUrl(location) ? resourceLoader.getResource(location) : new FileSystemResource(location);
+        if (!ResourceUtils.isUrl(location)) {
+            Resource file = new FileSystemResource(location);
+            if (file.exists()) {
+                return file;
+            }
+        }
+        return resourceLoader.getResource(location);
     }
 
     private static char[] toChars(String password) {

@@ -90,9 +90,14 @@ class ApplicationConfigTest {
     }
 
     @Test
-    void loadsTrustStoreFromPrefixedLocations(@TempDir Path dir) throws Exception {
+    void loadsTrustStoreFromClasspathAndFileLocations(@TempDir Path dir) throws Exception {
         runner.withPropertyValues("downstream.auth-token=tok",
                         "downstream.trust-store=classpath:downstream-truststore.p12",
+                        "downstream.trust-store-password=changeit")
+                .run(context -> assertThat(context).hasNotFailed());
+
+        runner.withPropertyValues("downstream.auth-token=tok",
+                        "downstream.trust-store=downstream-truststore.p12",
                         "downstream.trust-store-password=changeit")
                 .run(context -> assertThat(context).hasNotFailed());
 
