@@ -1,5 +1,6 @@
 package ru.kondrashov.accountservice.exceptions.handler;
 
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -64,6 +65,17 @@ public class AccountServiceExceptionHandler {
                         exp.getMessage(),
                         409,
                         "AccountClosedException"),
+                HttpStatus.CONFLICT);
+
+    }
+
+    @ExceptionHandler(ConcurrencyFailureException.class)
+    public ResponseEntity<AccountServiceExceptionTemplate> concurrencyFailureExceptions(ConcurrencyFailureException exp) {
+        return new ResponseEntity<>(
+                new AccountServiceExceptionTemplate(
+                        exp.getMessage(),
+                        409,
+                        "ConcurrencyFailureException"),
                 HttpStatus.CONFLICT);
 
     }

@@ -163,20 +163,22 @@ public class BillServiceImpl implements BillsService {
     // re-read owners are all locked they cannot change; retry if a bill moved before its owner was locked.
     private void lockOpenBillOwners(Set<UUID> extraAccountIds, UUID... billIds) {
         Set<UUID> locked = new HashSet<>();
-        Set<UUID> wanted = new TreeSet<>(extraAccountIds);
-        for (int attempt = 0; attempt < MAX_LOCK_ATTEMPTS; attempt++) {
+        for (int attempt = 0; ; attempt++) {
+            Set<UUID> owners = new TreeSet<>(extraAccountIds);
             for (UUID billId : billIds) {
-                wanted.add(accountIdOfBill(billId));
+                owners.add(accountIdOfBill(billId));
             }
-            if (locked.containsAll(wanted)) {
+            if (locked.containsAll(owners)) {
                 return;
             }
-            for (UUID accountId : wanted) {
+            if (attempt == MAX_LOCK_ATTEMPTS) {
+                break;
+            }
+            for (UUID accountId : owners) {
                 if (locked.add(accountId)) {
                     lockOpenAccount(accountId);
                 }
             }
-            wanted = new TreeSet<>(extraAccountIds);
         }
         throw new ConcurrencyFailureException("Bill ownership changed concurrently; retry the request.");
     }

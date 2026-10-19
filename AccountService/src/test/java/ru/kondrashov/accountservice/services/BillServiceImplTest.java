@@ -132,4 +132,22 @@ class BillServiceImplTest {
         verify(billsRepository, times(2)).findAccountIdByBillId(bill.getId());
         verify(adjustmentsService).save(adjustment);
     }
+
+    @Test
+    void billMovedTwiceIsMutatedOnceFinalOwnerIsLocked() {
+        Account first = account(AccountStatus.OPEN);
+        Account second = account(AccountStatus.OPEN);
+        Bill bill = new Bill(USD, BigDecimal.ZERO, false, open);
+        bill.setId(UUID.randomUUID());
+        when(billsRepository.getBillById(bill.getId())).thenReturn(Optional.of(bill));
+        when(billsRepository.findAccountIdByBillId(bill.getId()))
+                .thenReturn(Optional.of(first.getId()), Optional.of(second.getId()), Optional.of(open.getId()));
+        Adjustment adjustment = new Adjustment(USD, BigDecimal.TEN, LocalDateTime.now(), "credit", bill);
+
+        service.commitAdjustment(bill.getId(), adjustment);
+
+        verify(accountsRepository).findByIdForUpdate(open.getId());
+        verify(billsRepository, times(4)).findAccountIdByBillId(bill.getId());
+        verify(adjustmentsService).save(adjustment);
+    }
 }
