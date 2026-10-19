@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.kondrashov.accountservice.entities.Adjustment;
 import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.entities.Payment;
+import ru.kondrashov.accountservice.entities.RetentionAuditRecord;
 import ru.kondrashov.accountservice.entities.Transfer;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
@@ -13,6 +14,7 @@ import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.interfaces.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.UUID;
 
@@ -25,20 +27,21 @@ public class BillServiceImpl implements BillsService {
     private final AdjustmentsService adjustmentsService;
     private final TransferService transferService;
     private final FinancialCurrencyExchange currencyConversion;
+    private final RetentionAuditService auditService;
 
     @Override
     public Collection<Bill> getBills() {
-        return billsRepository.findAll();
+        return billsRepository.findAllByClosedFalse();
     }
 
     @Override
     public Bill getBill(UUID id) {
-        return billsRepository.getBillById(id).orElseThrow(()->new BillNotFoundException("Bill with id = "+id+" not found."));
+        return billsRepository.getBillByIdAndClosedFalse(id).orElseThrow(()->new BillNotFoundException("Bill with id = "+id+" not found."));
     }
 
     @Override
     public Collection<Bill> getBillsByAccountId(UUID accountID) {
-        return billsRepository.getBillsByAccount_Id(accountID);
+        return billsRepository.getBillsByAccount_IdAndClosedFalse(accountID);
     }
 
     @Override
@@ -47,8 +50,14 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
-    public void delete(UUID id) {
-        billsRepository.delete(getBill(id));
+    @Transactional(rollbackFor = Exception.class)
+    public void close(UUID id) {
+        Bill bill = getBill(id);
+        bill.setClosed(true);
+        bill.setClosedAt(LocalDateTime.now());
+        billsRepository.save(bill);
+        auditService.record(RetentionAuditRecord.Action.BILL_CLOSED, "Bill", bill.getId(),
+                "account=" + bill.getAccount().getId() + " currency=" + bill.getCurrency() + " finalAmount=" + bill.getAmount());
     }
 
     @Override

@@ -1,8 +1,6 @@
 package ru.kondrashov.accountservice.entities;
 
 import lombok.Data;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
@@ -18,7 +16,6 @@ public class Adjustment extends FinancialTransaction{
     @ManyToOne(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
     @JoinColumn(name = "bill_id")
     @NotNull(message = "Bill should not be null")
-    @OnDelete(action = OnDeleteAction.CASCADE)
     private Bill bill;
 
     public Adjustment(Currency currency, BigDecimal amount, LocalDateTime time, String message, Bill bill){

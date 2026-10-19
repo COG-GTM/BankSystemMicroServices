@@ -1,11 +1,16 @@
 package ru.kondrashov.accountservice.services;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.kondrashov.accountservice.entities.Account;
+import ru.kondrashov.accountservice.entities.Bill;
+import ru.kondrashov.accountservice.entities.RetentionAuditRecord;
 import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.repositories.AccountsRepository;
 import ru.kondrashov.accountservice.services.interfaces.AccountsService;
+import ru.kondrashov.accountservice.services.interfaces.BillsService;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.UUID;
 
@@ -13,25 +18,29 @@ import java.util.UUID;
 public class AccountsServiceImpl implements AccountsService {
 
     private final AccountsRepository accountsRepository;
+    private final BillsService billsService;
+    private final RetentionAuditService auditService;
 
-    public AccountsServiceImpl(AccountsRepository accountsRepository) {
+    public AccountsServiceImpl(AccountsRepository accountsRepository, BillsService billsService, RetentionAuditService auditService) {
         this.accountsRepository = accountsRepository;
+        this.billsService = billsService;
+        this.auditService = auditService;
     }
 
 
     @Override
     public Collection<Account> getAccounts() {
-        return accountsRepository.findAll();
+        return accountsRepository.findAllByClosedFalse();
     }
 
     @Override
     public Collection<Account> getAccountsByPersonId(UUID id) {
-        return accountsRepository.getAccountsByPersonId(id);
+        return accountsRepository.getAccountsByPersonIdAndClosedFalse(id);
     }
 
     @Override
     public Account getAccount(UUID id) {
-        return accountsRepository.getAccountsById(id).orElseThrow(()-> new AccountNotFoundException("Account with id = "+id+" not found."));
+        return accountsRepository.getAccountsByIdAndClosedFalse(id).orElseThrow(()-> new AccountNotFoundException("Account with id = "+id+" not found."));
     }
 
     @Override
@@ -51,7 +60,15 @@ public class AccountsServiceImpl implements AccountsService {
     }
 
     @Override
-    public void delete(UUID id) {
-        accountsRepository.delete(getAccount(id));
+    @Transactional(rollbackFor = Exception.class)
+    public void close(UUID id) {
+        Account account = getAccount(id);
+        for (Bill bill : billsService.getBillsByAccountId(id)) {
+            billsService.close(bill.getId());
+        }
+        account.setClosed(true);
+        account.setClosedAt(LocalDateTime.now());
+        accountsRepository.save(account);
+        auditService.record(RetentionAuditRecord.Action.ACCOUNT_CLOSED, "Account", account.getId(), "person=" + account.getPersonId());
     }
 }
