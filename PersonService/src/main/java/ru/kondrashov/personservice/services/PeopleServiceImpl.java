@@ -1,6 +1,7 @@
 package ru.kondrashov.personservice.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import ru.kondrashov.personservice.entities.Person;
 import ru.kondrashov.personservice.exception.PersonNotFoundException;
@@ -18,8 +19,8 @@ public class PeopleServiceImpl implements PeopleService{
         this.peopleRepository = peopleRepository;
     }
 
-    public List<Person> getAll(){
-        return peopleRepository.findAll();
+    public List<Person> getAll(Pageable pageable){
+        return peopleRepository.findAll(pageable).getContent();
     }
 
     public Person get(UUID id){

@@ -5,11 +5,14 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.Logger;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import ru.kondrashov.personservice.controllers.dto.PersonRequestDTO;
 import ru.kondrashov.personservice.controllers.dto.PersonResponseDTO;
 import ru.kondrashov.personservice.services.PeopleService;
@@ -27,6 +30,9 @@ import java.util.stream.Collectors;
 @Api(description = "Controller which provides methods for operations with people", tags = {"PEOPLE"})
 public class PeopleController {
 
+    static final int DEFAULT_PAGE_SIZE = 50;
+    static final int MAX_PAGE_SIZE = 100;
+
     private final PeopleService peopleService;
     private final PeopleMapping peopleMapping;
     private final Logger logger;
@@ -34,9 +40,14 @@ public class PeopleController {
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     @ApiOperation("Find people")
-    public Collection<PersonResponseDTO> getPeople(@RequestHeader HttpHeaders header){
+    public Collection<PersonResponseDTO> getPeople(@ApiParam("Zero-based page index") @RequestParam(defaultValue = "0") int page,
+                                                   @ApiParam("Page size, 1.." + MAX_PAGE_SIZE) @RequestParam(defaultValue = "" + DEFAULT_PAGE_SIZE) int size,
+                                                   @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
-        return peopleService.getAll()
+        if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "page must be >= 0 and size must be between 1 and " + MAX_PAGE_SIZE);
+        }
+        return peopleService.getAll(PageRequest.of(page, size, Sort.by("lastName", "firstName", "id")))
                 .stream()
                 .map(peopleMapping::mapToPersonResponseDTO)
                 .collect(Collectors.toList());

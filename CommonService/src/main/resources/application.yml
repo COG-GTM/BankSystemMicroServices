@@ -14,3 +14,16 @@ spring:
 
 thymeleaf:
   prefix: classpath:/templates/
+
+# Credentials CommonService presents to PersonService (must match a PersonService API client).
+person-service:
+  client:
+    username: ${PERSON_SERVICE_CLIENT_USERNAME:common-service}
+    password: ${PERSON_SERVICE_CLIENT_PASSWORD:}
+
+# Operators allowed to sign in to the web UI. No default password: startup fails until one is set.
+common-service:
+  security:
+    users:
+      - username: ${COMMON_SERVICE_OPERATOR_USERNAME:operator}
+        password: ${COMMON_SERVICE_OPERATOR_PASSWORD:}
