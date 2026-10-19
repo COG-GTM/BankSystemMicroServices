@@ -8,12 +8,14 @@ import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.entities.Payment;
 import ru.kondrashov.accountservice.entities.Transfer;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
+import ru.kondrashov.accountservice.exceptions.InvalidAmountException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.interfaces.*;
 
 import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.Currency;
 import java.util.UUID;
 
 @Service
@@ -66,7 +68,7 @@ public class BillServiceImpl implements BillsService {
 
         Bill bill = getBill(billId);
 
-       increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
+       increaseBillsAmount(bill,convertToBillCurrency(adjustment.getCurrency(),bill,adjustment.getAmount()));
 
         adjustmentsService.save(adjustment);
     }
@@ -77,7 +79,7 @@ public class BillServiceImpl implements BillsService {
 
         Bill bill = getBill(billId);
 
-        decreaseBillsAmount(bill,currencyConversion.exchange(payment.getCurrency(),bill.getCurrency(),payment.getAmount()));
+        decreaseBillsAmount(bill,convertToBillCurrency(payment.getCurrency(),bill,payment.getAmount()));
 
         paymentsService.save(payment);
     }
@@ -89,8 +91,11 @@ public class BillServiceImpl implements BillsService {
         Bill sourceBill = getBill(sourceBillId);
         Bill beneficiaryBill = getBill(beneficiaryBillId);
 
-        decreaseBillsAmount(sourceBill, currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount()));
-        increaseBillsAmount(beneficiaryBill, currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount()));
+        BigDecimal sourceAmount = convertToBillCurrency(transfer.getCurrency(), sourceBill, transfer.getAmount());
+        BigDecimal beneficiaryAmount = convertToBillCurrency(transfer.getCurrency(), beneficiaryBill, transfer.getAmount());
+
+        decreaseBillsAmount(sourceBill, sourceAmount);
+        increaseBillsAmount(beneficiaryBill, beneficiaryAmount);
 
         transferService.save(transfer);
     }
@@ -115,6 +120,19 @@ public class BillServiceImpl implements BillsService {
         return transferService.getTransfersByBeneficiaryBill_Id(billId);
     }
 
+
+    private BigDecimal convertToBillCurrency(Currency currency, Bill bill, BigDecimal amount){
+        int fractionDigits = currency.getDefaultFractionDigits();
+        if (fractionDigits >= 0 && amount.stripTrailingZeros().scale() > fractionDigits) {
+            throw new InvalidAmountException("Amount " + amount.toPlainString() + " " + currency.getCurrencyCode() + " has more than " + fractionDigits + " fraction digits.");
+        }
+
+        BigDecimal converted = currencyConversion.exchange(currency, bill.getCurrency(), amount);
+        if (converted.signum() != amount.signum()) {
+            throw new InvalidAmountException("Amount " + amount.toPlainString() + " " + currency.getCurrencyCode() + " is too small to be applied to bill with ID: " + bill.getId());
+        }
+        return converted;
+    }
 
     private void decreaseBillsAmount(Bill bill, BigDecimal amount){
 
