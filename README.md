@@ -28,6 +28,20 @@ To launch classes Application.java in servecies customerService, accountService 
 Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
 Postgre database initialized with some sample user.
 
+### Downstream service URLs and TLS
+CommonService reaches PersonService and AccountService through `PERSON_SERVICE_URL` (default `http://localhost:8082`) and `ACCOUNT_SERVICE_URL` (default `http://localhost:8081`).
+Plain `http://` is accepted only for loopback hosts (`localhost`, `127.0.0.0/8`, `::1`); CommonService refuses to start if a non-loopback host is configured over `http://`, because person PII and balances would cross the network in cleartext.
+
+For any deployment where the services are on separate hosts, run all three services with `SPRING_PROFILES_ACTIVE=tls` (mutual TLS):
+
+| Service | Variables |
+| ------- | --------- |
+| PersonService / AccountService | `SERVER_SSL_KEY_STORE`, `SERVER_SSL_KEY_STORE_PASSWORD`, `SERVER_SSL_TRUST_STORE`, `SERVER_SSL_TRUST_STORE_PASSWORD` (client certificates are required) |
+| CommonService | `PERSON_SERVICE_URL` / `ACCOUNT_SERVICE_URL` as `https://...`, `SERVICES_TLS_KEY_STORE`, `SERVICES_TLS_KEY_STORE_PASSWORD` (client certificate), `SERVICES_TLS_TRUST_STORE`, `SERVICES_TLS_TRUST_STORE_PASSWORD` |
+
+Key stores default to PKCS12 (`*_KEY_STORE_TYPE` / `*_TRUST_STORE_TYPE` override) and accept `file:` or `classpath:` locations.
+If TLS is enforced outside the application (e.g. a service mesh with mTLS sidecars), set `SERVICES_ALLOW_INSECURE_HTTP=true` to allow `http://` to the sidecar.
+
 ## Functional Services
 BankSystem was decomposed into three core microservices. All of them are independently deployable applications, organized around certain business domains.
 

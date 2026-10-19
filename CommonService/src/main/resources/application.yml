@@ -1,10 +1,28 @@
-people.URL:       http://localhost:8082/v1/people
-person.URL:       http://localhost:8082/v1/people/%s
-accounts.URL:     http://localhost:8081/v1/people/%s/accounts
-account.URL:      http://localhost:8081/v1/people/%s/accounts/%s
-bills.URL:        http://localhost:8081/v1/people/%s/accounts/%s/bills
-bill.URL:         http://localhost:8081/v1/people/%s/accounts/%s/bills/%s
-transactions.URL: http://localhost:8081/v1/people/%s/accounts/%s/bills/%s/transactions
+# Downstream service base URLs. Override per environment with PERSON_SERVICE_URL / ACCOUNT_SERVICE_URL.
+# Plain http:// is only accepted for loopback hosts; any other host must use https:// (see services.transport).
+services:
+  person:
+    base-url: ${PERSON_SERVICE_URL:http://localhost:8082}
+  account:
+    base-url: ${ACCOUNT_SERVICE_URL:http://localhost:8081}
+  transport:
+    require-https: ${SERVICES_REQUIRE_HTTPS:false}
+    allow-insecure-non-loopback: ${SERVICES_ALLOW_INSECURE_HTTP:false}
+  tls:
+    key-store: ${SERVICES_TLS_KEY_STORE:}
+    key-store-password: ${SERVICES_TLS_KEY_STORE_PASSWORD:}
+    key-store-type: ${SERVICES_TLS_KEY_STORE_TYPE:PKCS12}
+    trust-store: ${SERVICES_TLS_TRUST_STORE:}
+    trust-store-password: ${SERVICES_TLS_TRUST_STORE_PASSWORD:}
+    trust-store-type: ${SERVICES_TLS_TRUST_STORE_TYPE:PKCS12}
+
+people.URL:       ${services.person.base-url}/v1/people
+person.URL:       ${services.person.base-url}/v1/people/%s
+accounts.URL:     ${services.account.base-url}/v1/people/%s/accounts
+account.URL:      ${services.account.base-url}/v1/people/%s/accounts/%s
+bills.URL:        ${services.account.base-url}/v1/people/%s/accounts/%s/bills
+bill.URL:         ${services.account.base-url}/v1/people/%s/accounts/%s/bills/%s
+transactions.URL: ${services.account.base-url}/v1/people/%s/accounts/%s/bills/%s/transactions
 
 spring:
   mvc:

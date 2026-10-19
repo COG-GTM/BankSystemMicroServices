@@ -1,0 +1,15 @@
+# Non-loopback deployments: activate with SPRING_PROFILES_ACTIVE=tls.
+# Requires https:// base URLs and a client key store for mutual TLS with PersonService/AccountService.
+services:
+  person:
+    base-url: ${PERSON_SERVICE_URL}
+  account:
+    base-url: ${ACCOUNT_SERVICE_URL}
+  transport:
+    require-https: true
+    allow-insecure-non-loopback: false
+  tls:
+    key-store: ${SERVICES_TLS_KEY_STORE}
+    key-store-password: ${SERVICES_TLS_KEY_STORE_PASSWORD}
+    trust-store: ${SERVICES_TLS_TRUST_STORE}
+    trust-store-password: ${SERVICES_TLS_TRUST_STORE_PASSWORD}
