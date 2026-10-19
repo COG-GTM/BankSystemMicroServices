@@ -72,11 +72,18 @@ public class AuditEvent {
     @Column(updatable = false, length = 3)
     private String currency;
 
+    /** Currency of the bill whose balances are recorded; may differ from the operation currency. */
+    @Column(updatable = false, length = 3)
+    private String balanceCurrency;
+
     @Column(updatable = false)
     private BigDecimal balanceBefore;
 
     @Column(updatable = false)
     private BigDecimal balanceAfter;
+
+    @Column(updatable = false, length = 3)
+    private String counterpartyBalanceCurrency;
 
     @Column(updatable = false)
     private BigDecimal counterpartyBalanceBefore;

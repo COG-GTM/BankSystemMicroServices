@@ -212,6 +212,30 @@ class BillsControllerTest {
     }
 
     @Test
+    void commitPayment_unexpectedFailure_doesNotStoreForeignExceptionMessage() throws Exception {
+        UUID billId = UUID.randomUUID();
+        Bill bill = new Bill();
+        bill.setAmount(new BigDecimal("10"));
+        when(billsService.getBill(billId)).thenReturn(bill);
+        when(paymentsMapping.mapToPayment(any())).thenReturn(new Payment());
+        doThrow(new IllegalStateException("jdbc:postgresql://db-host/secret-schema")).when(billsService).commitPayment(eq(billId), any());
+
+        try {
+            mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments", UUID.randomUUID(), UUID.randomUUID(), billId)
+                    .header(AuditContextResolver.ACTOR_HEADER, "alice")
+                    .contentType("application/json")
+                    .content(objectMapper.writeValueAsString(paymentRequest(bill))));
+        } catch (Exception ignored) {
+            // unhandled exceptions propagate out of MockMvc
+        }
+
+        ArgumentCaptor<AuditEvent> event = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(auditService).recordFailure(event.capture());
+        assertThat(event.getValue().getOutcome()).isEqualTo(AuditOutcome.FAILED);
+        assertThat(event.getValue().getFailureReason()).isEqualTo("IllegalStateException");
+    }
+
+    @Test
     void commitAdjustment_selfApproval_returns403() throws Exception {
         UUID billId = UUID.randomUUID();
         when(adjustmentMapping.mapToAdjustment(any())).thenReturn(new Adjustment());

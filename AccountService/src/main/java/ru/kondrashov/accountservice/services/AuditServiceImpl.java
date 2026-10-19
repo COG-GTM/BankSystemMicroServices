@@ -11,7 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import ru.kondrashov.accountservice.entities.AuditEvent;
+import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.repositories.AuditEventRepository;
+import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.interfaces.AuditService;
 
 import java.util.List;
@@ -25,6 +27,7 @@ public class AuditServiceImpl implements AuditService {
     private static final Logger AUDIT_LOG = LogManager.getLogger(AUDIT_LOGGER_NAME);
 
     private final AuditEventRepository auditEventRepository;
+    private final BillsRepository billsRepository;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -40,7 +43,16 @@ public class AuditServiceImpl implements AuditService {
     }
 
     @Override
-    public List<AuditEvent> getEventsByBillId(UUID billId) {
+    @Transactional(readOnly = true)
+    public List<AuditEvent> getEventsByBillId(UUID personId, UUID accountId, UUID billId) {
+        boolean owned = billsRepository.getBillById(billId)
+                .map(bill -> bill.getAccount() != null
+                        && accountId.equals(bill.getAccount().getId())
+                        && personId.equals(bill.getAccount().getPersonId()))
+                .orElseGet(() -> auditEventRepository.existsByBillIdAndPersonIdAndAccountId(billId, personId, accountId));
+        if (!owned) {
+            throw new BillNotFoundException("Bill with id = " + billId + " not found.");
+        }
         return auditEventRepository.findByBillIdOrCounterpartyBillIdOrderByOccurredAtAsc(billId, billId);
     }
 

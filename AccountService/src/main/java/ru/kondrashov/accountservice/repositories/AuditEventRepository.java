@@ -14,4 +14,6 @@ public interface AuditEventRepository extends Repository<AuditEvent, UUID> {
     AuditEvent save(AuditEvent auditEvent);
 
     List<AuditEvent> findByBillIdOrCounterpartyBillIdOrderByOccurredAtAsc(UUID billId, UUID counterpartyBillId);
+
+    boolean existsByBillIdAndPersonIdAndAccountId(UUID billId, UUID personId, UUID accountId);
 }

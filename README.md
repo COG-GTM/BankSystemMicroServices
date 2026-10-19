@@ -75,9 +75,10 @@ Contains the general logic of working and validating account, bill and transacti
 #### Audit trail
 Every mutating bills request writes one append-only row to the `audit_events` table and one JSON line to
 `./logs/accountService-audit.log`. Each event records the actor, operation, person/account/bill ids (plus the
-beneficiary bill for transfers), the created transaction id, amount and currency, balance before and after,
+beneficiary bill for transfers), the created transaction id, amount and currency, balance before and after (with the bill's currency),
 the outcome (`SUCCESS`, `REJECTED` or `FAILED`, with the reason) and a timestamp. Failed operations are recorded
-in a separate transaction, so the event survives the rollback.
+in a separate transaction, so the event survives the rollback. A bill's audit trail can only be read through the
+person and account that own (or owned) the bill.
 
 The service has no authentication yet, so callers identify the acting user with the `X-Actor-Id` header
 (1-128 characters `[A-Za-z0-9._@:-]`). Payments, adjustments, transfers, bill updates and bill deletions are

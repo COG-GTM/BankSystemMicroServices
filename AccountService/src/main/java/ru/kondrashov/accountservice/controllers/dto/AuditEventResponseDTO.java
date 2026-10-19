@@ -30,8 +30,10 @@ public class AuditEventResponseDTO {
     private UUID transactionId;
     private BigDecimal amount;
     private String currency;
+    private String balanceCurrency;
     private BigDecimal balanceBefore;
     private BigDecimal balanceAfter;
+    private String counterpartyBalanceCurrency;
     private BigDecimal counterpartyBalanceBefore;
     private BigDecimal counterpartyBalanceAfter;
     private String requestId;
@@ -52,8 +54,10 @@ public class AuditEventResponseDTO {
                 event.getTransactionId(),
                 event.getAmount(),
                 event.getCurrency(),
+                event.getBalanceCurrency(),
                 event.getBalanceBefore(),
                 event.getBalanceAfter(),
+                event.getCounterpartyBalanceCurrency(),
                 event.getCounterpartyBalanceBefore(),
                 event.getCounterpartyBalanceAfter(),
                 event.getRequestId()

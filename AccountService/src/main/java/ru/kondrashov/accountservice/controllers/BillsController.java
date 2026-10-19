@@ -192,7 +192,7 @@ public class BillsController {
                                                                     @ApiParam(value = "Id of the bill. Cannot be empty.") @PathVariable("id") UUID billId,
                                                                     @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
-        return auditService.getEventsByBillId(billId)
+        return auditService.getEventsByBillId(personId, accountId, billId)
                 .stream()
                 .map(AuditEventResponseDTO::from)
                 .collect(Collectors.toList());

@@ -614,8 +614,27 @@ public class BillControllerIntegrationTest {
         assertThat(event.getOutcome()).isEqualTo(AuditOutcome.SUCCESS);
         assertThat(event.getActor()).isEqualTo(MAKER);
         assertThat(event.getBalanceBefore()).isEqualByComparingTo("10");
+        assertThat(event.getBalanceCurrency()).isEqualTo("USD");
         assertThat(event.getBalanceAfter()).isNull();
         assertThat(lastAuditEvent(account, bill.getId(), AuditOperation.BILL_CREATED).getOutcome()).isEqualTo(AuditOutcome.SUCCESS);
+
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", account.getPersonId(), UUID.randomUUID(), bill.getId()))
+                .andExpect(status().isNotFound());
+
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void auditEvents_areNotReadableThroughAnotherPersonOrAccount() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        Bill bill = initBill(currency, new BigDecimal("10"), true, account);
+
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", account.getPersonId(), UUID.randomUUID(), bill.getId()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{id}/audit-events", UUID.randomUUID(), account.getId(), bill.getId()))
+                .andExpect(status().isNotFound());
+        assertThat(auditEvents(account, bill.getId())).isNotEmpty();
 
         accountsService.delete(account.getId());
     }

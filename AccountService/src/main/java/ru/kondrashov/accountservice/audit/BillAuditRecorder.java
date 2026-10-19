@@ -24,6 +24,7 @@ public class BillAuditRecorder {
 
     public static final String UNIDENTIFIED_ACTOR = "unidentified";
     private static final int MAX_REASON_LENGTH = 512;
+    private static final String APPLICATION_PACKAGE = "ru.kondrashov.accountservice.";
 
     private final BillsService billsService;
     private final AuditService auditService;
@@ -43,9 +44,14 @@ public class BillAuditRecorder {
                 .billId(billId)
                 .counterpartyBillId(counterpartyBillId);
 
-        BigDecimal balanceBefore = balanceOf(billId);
-        BigDecimal counterpartyBalanceBefore = balanceOf(counterpartyBillId);
-        event.balanceBefore(balanceBefore).counterpartyBalanceBefore(counterpartyBalanceBefore);
+        Bill bill = findBill(billId);
+        Bill counterpartyBill = findBill(counterpartyBillId);
+        BigDecimal balanceBefore = bill == null ? null : bill.getAmount();
+        BigDecimal counterpartyBalanceBefore = counterpartyBill == null ? null : counterpartyBill.getAmount();
+        event.balanceBefore(balanceBefore)
+                .balanceCurrency(currencyCode(bill))
+                .counterpartyBalanceBefore(counterpartyBalanceBefore)
+                .counterpartyBalanceCurrency(currencyCode(counterpartyBill));
 
         UUID transactionId;
         try {
@@ -75,19 +81,29 @@ public class BillAuditRecorder {
     }
 
     private BigDecimal balanceOf(UUID billId) {
+        Bill bill = findBill(billId);
+        return bill == null ? null : bill.getAmount();
+    }
+
+    private Bill findBill(UUID billId) {
         if (billId == null) {
             return null;
         }
         try {
-            Bill bill = billsService.getBill(billId);
-            return bill == null ? null : bill.getAmount();
+            return billsService.getBill(billId);
         } catch (BillNotFoundException e) {
             return null;
         }
     }
 
+    private static String currencyCode(Bill bill) {
+        return bill == null || bill.getCurrency() == null ? null : bill.getCurrency().getCurrencyCode();
+    }
+
+    /** Keeps messages of the service's own exceptions only; framework/driver messages may leak internals. */
     private static String reason(RuntimeException e) {
-        String reason = e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage());
+        boolean ownException = e.getClass().getName().startsWith(APPLICATION_PACKAGE);
+        String reason = e.getClass().getSimpleName() + (!ownException || e.getMessage() == null ? "" : ": " + e.getMessage());
         return reason.length() > MAX_REASON_LENGTH ? reason.substring(0, MAX_REASON_LENGTH) : reason;
     }
 }

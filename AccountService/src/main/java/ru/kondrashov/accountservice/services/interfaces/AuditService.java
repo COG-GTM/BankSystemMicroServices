@@ -13,5 +13,9 @@ public interface AuditService {
     /** Persists the event in its own transaction, so it survives the rollback of the failed operation. */
     AuditEvent recordFailure(AuditEvent auditEvent);
 
-    List<AuditEvent> getEventsByBillId(UUID billId);
+    /**
+     * Returns the audit trail of a bill owned by the given person and account, including after the bill
+     * has been deleted. Throws BillNotFoundException if the bill does not belong to them.
+     */
+    List<AuditEvent> getEventsByBillId(UUID personId, UUID accountId, UUID billId);
 }
