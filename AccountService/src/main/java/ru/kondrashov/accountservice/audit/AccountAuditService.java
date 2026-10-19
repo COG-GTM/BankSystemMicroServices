@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Writes a structured audit record (DB row + JSON line on the AUDIT logger) for every account mutation.
@@ -148,14 +149,21 @@ public class AccountAuditService {
                 .afterState(success.getAfterState())
                 .failureReason(ROLLED_BACK_REASON)
                 .build();
+        AtomicBoolean attempted = new AtomicBoolean(false);
         try {
             if (newTransaction == null) {
+                attempted.set(true);
                 persistFailure(failure, before, after);
             } else {
-                newTransaction.executeWithoutResult(status -> persistFailure(failure, before, after));
+                newTransaction.executeWithoutResult(status -> {
+                    attempted.set(true);
+                    persistFailure(failure, before, after);
+                });
             }
         } catch (RuntimeException e) {
-            AUDIT_LOG.error("Unable to persist audit record for rolled-back account mutation", e);
+            if (!attempted.get()) {
+                AUDIT_LOG.error(toLogLine(failure, before, after, AuditOutcome.FAILURE.name(), false));
+            }
         }
     }
 
