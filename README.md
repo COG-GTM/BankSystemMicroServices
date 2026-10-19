@@ -18,7 +18,7 @@ This is a prototype of a banking system, which demonstrates [Microservice Archit
 - jUnit
 - Log4j2
 - Thymeleaf
-- Swagger 2
+- OpenAPI 3 (springdoc-openapi)
 - Lombok
 
 ## How to run

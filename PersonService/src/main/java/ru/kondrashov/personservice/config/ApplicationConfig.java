@@ -1,46 +1,27 @@
 package ru.kondrashov.personservice.config;
 
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Contact;
+import io.swagger.v3.oas.models.info.Info;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import springfox.documentation.builders.RequestHandlerSelectors;
-import springfox.documentation.service.ApiInfo;
-import springfox.documentation.spi.DocumentationType;
-import springfox.documentation.spring.web.plugins.Docket;
-import springfox.documentation.swagger2.annotations.EnableSwagger2;
-
-import static springfox.documentation.builders.PathSelectors.regex;
 
 @Configuration
-@EnableSwagger2
 public class ApplicationConfig {
-    @Bean
-    public Docket api()
-    {
-        return new Docket(DocumentationType.SWAGGER_2)
-                .select()
-                .apis(RequestHandlerSelectors.any())
-                .paths(regex("/v1.*"))
-                .build().apiInfo(apiInfo());
-    }
-
-    private ApiInfo apiInfo()
-    {
-        ApiInfo apiInfo = new ApiInfo(
-                "Person service",
-                "",
-                "version-1",
-                "API TOS",
-                "mikhail.a.kondrashov@gmail.com",
-                "API License",
-                "API License URL"
-        );
-        return apiInfo;
-    }
 
     @Bean
     public Logger logger(){
         return LogManager.getRootLogger();
+    }
+
+    @Bean
+    public OpenAPI api()
+    {
+        return new OpenAPI().info(new Info()
+                .title("Person service")
+                .version("version-1")
+                .contact(new Contact().email("mikhail.a.kondrashov@gmail.com")));
     }
 }
