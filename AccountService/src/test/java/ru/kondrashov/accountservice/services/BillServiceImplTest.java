@@ -61,7 +61,7 @@ class BillServiceImplTest {
 
     @Test
     void update_rejectsAmountChange_andLeavesBalanceUntouched() {
-        when(billsRepository.getBillById(bill.getId())).thenReturn(Optional.of(bill));
+        when(billsRepository.findBillForUpdateById(bill.getId())).thenReturn(Optional.of(bill));
 
         Bill request = new Bill(USD, new BigDecimal("1000000"), false, account);
 
@@ -76,7 +76,7 @@ class BillServiceImplTest {
 
     @Test
     void update_rejectsMovingBillToAnotherAccount() {
-        when(billsRepository.getBillById(bill.getId())).thenReturn(Optional.of(bill));
+        when(billsRepository.findBillForUpdateById(bill.getId())).thenReturn(Optional.of(bill));
 
         Bill request = new Bill(USD, null, false, account());
 
@@ -90,7 +90,7 @@ class BillServiceImplTest {
 
     @Test
     void update_changesOverdraftOnly_whenAmountOmitted() {
-        when(billsRepository.getBillById(bill.getId())).thenReturn(Optional.of(bill));
+        when(billsRepository.findBillForUpdateById(bill.getId())).thenReturn(Optional.of(bill));
 
         billService.update(bill.getId(), new Bill(USD, null, true, account));
 
@@ -103,7 +103,7 @@ class BillServiceImplTest {
 
     @Test
     void update_acceptsUnchangedAmountEcho() {
-        when(billsRepository.getBillById(bill.getId())).thenReturn(Optional.of(bill));
+        when(billsRepository.findBillForUpdateById(bill.getId())).thenReturn(Optional.of(bill));
 
         billService.update(bill.getId(), new Bill(USD, new BigDecimal("100"), true, account));
 
@@ -113,7 +113,7 @@ class BillServiceImplTest {
 
     @Test
     void update_currencyChange_convertsStoredBalance_notRequestAmount() {
-        when(billsRepository.getBillById(bill.getId())).thenReturn(Optional.of(bill));
+        when(billsRepository.findBillForUpdateById(bill.getId())).thenReturn(Optional.of(bill));
         when(currencyConversion.exchange(USD, EUR, bill.getAmount())).thenReturn(new BigDecimal("90.00"));
 
         billService.update(bill.getId(), new Bill(EUR, new BigDecimal("100.00"), false, account));
@@ -126,7 +126,7 @@ class BillServiceImplTest {
 
     @Test
     void commitAdjustment_recordsLedgerEntryAgainstAdjustedBill() {
-        when(billsRepository.getBillById(bill.getId())).thenReturn(Optional.of(bill));
+        when(billsRepository.findBillForUpdateById(bill.getId())).thenReturn(Optional.of(bill));
         when(currencyConversion.exchange(USD, USD, new BigDecimal("5"))).thenReturn(new BigDecimal("5"));
         Bill otherBill = bill(USD, BigDecimal.ZERO, false, account);
         Adjustment adjustment = new Adjustment(USD, new BigDecimal("5"), LocalDateTime.now(), "Correction", otherBill);
@@ -140,7 +140,7 @@ class BillServiceImplTest {
 
     @Test
     void commitPayment_recordsLedgerEntryAgainstDebitedBill() {
-        when(billsRepository.getBillById(bill.getId())).thenReturn(Optional.of(bill));
+        when(billsRepository.findBillForUpdateById(bill.getId())).thenReturn(Optional.of(bill));
         when(currencyConversion.exchange(USD, USD, new BigDecimal("5"))).thenReturn(new BigDecimal("5"));
         Payment payment = new Payment(USD, new BigDecimal("5"), LocalDateTime.now(), "Order", bill(USD, BigDecimal.ZERO, false, account));
 
@@ -154,8 +154,8 @@ class BillServiceImplTest {
     @Test
     void commitTransfer_recordsLedgerEntryAgainstBothBills() {
         Bill beneficiary = bill(USD, BigDecimal.ZERO, false, account);
-        when(billsRepository.getBillById(bill.getId())).thenReturn(Optional.of(bill));
-        when(billsRepository.getBillById(beneficiary.getId())).thenReturn(Optional.of(beneficiary));
+        when(billsRepository.findBillForUpdateById(bill.getId())).thenReturn(Optional.of(bill));
+        when(billsRepository.findBillForUpdateById(beneficiary.getId())).thenReturn(Optional.of(beneficiary));
         when(currencyConversion.exchange(USD, USD, new BigDecimal("5"))).thenReturn(new BigDecimal("5"));
         Bill unrelated = bill(USD, BigDecimal.ZERO, false, account);
         Transfer transfer = new Transfer(USD, new BigDecimal("5"), LocalDateTime.now(), "Move", unrelated, unrelated);

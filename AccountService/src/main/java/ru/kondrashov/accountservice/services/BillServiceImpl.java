@@ -38,6 +38,14 @@ public class BillServiceImpl implements BillsService {
         return billsRepository.getBillById(id).orElseThrow(()->new BillNotFoundException("Bill with id = "+id+" not found."));
     }
 
+    /**
+     * Loads the bill with a row lock so balance checks and writes cannot interleave with another
+     * update or ledger operation on the same bill. Must be called inside a transaction.
+     */
+    private Bill getBillForUpdate(UUID id) {
+        return billsRepository.findBillForUpdateById(id).orElseThrow(()->new BillNotFoundException("Bill with id = "+id+" not found."));
+    }
+
     @Override
     public Collection<Bill> getBillsByAccountId(UUID accountID) {
         return billsRepository.getBillsByAccount_Id(accountID);
@@ -60,7 +68,7 @@ public class BillServiceImpl implements BillsService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(UUID id, Bill newBill) {
-        Bill oldBill = getBill(id);
+        Bill oldBill = getBillForUpdate(id);
 
         if(newBill.getAmount() != null && newBill.getAmount().compareTo(oldBill.getAmount()) != 0){
             throw new BillUpdateNotAllowedException("Amount of bill with ID: " + id + " cannot be changed by update. Commit an adjustment, payment or transfer instead.");
@@ -81,7 +89,7 @@ public class BillServiceImpl implements BillsService {
     @Transactional(rollbackFor = Exception.class)
     public void commitAdjustment(UUID billId, Adjustment adjustment) {
 
-        Bill bill = getBill(billId);
+        Bill bill = getBillForUpdate(billId);
 
         increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
 
@@ -93,7 +101,7 @@ public class BillServiceImpl implements BillsService {
     @Transactional(rollbackFor = Exception.class)
     public void commitPayment(UUID billId, Payment payment) {
 
-        Bill bill = getBill(billId);
+        Bill bill = getBillForUpdate(billId);
 
         decreaseBillsAmount(bill,currencyConversion.exchange(payment.getCurrency(),bill.getCurrency(),payment.getAmount()));
 
@@ -106,8 +114,16 @@ public class BillServiceImpl implements BillsService {
     @Transactional(rollbackFor = Exception.class)
     public void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
 
-        Bill sourceBill = getBill(sourceBillId);
-        Bill beneficiaryBill = getBill(beneficiaryBillId);
+        // Lock both rows in a stable order so concurrent opposite transfers cannot deadlock.
+        Bill sourceBill;
+        Bill beneficiaryBill;
+        if(sourceBillId.compareTo(beneficiaryBillId) <= 0){
+            sourceBill = getBillForUpdate(sourceBillId);
+            beneficiaryBill = getBillForUpdate(beneficiaryBillId);
+        } else {
+            beneficiaryBill = getBillForUpdate(beneficiaryBillId);
+            sourceBill = getBillForUpdate(sourceBillId);
+        }
 
         decreaseBillsAmount(sourceBill, currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount()));
         increaseBillsAmount(beneficiaryBill, currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount()));
