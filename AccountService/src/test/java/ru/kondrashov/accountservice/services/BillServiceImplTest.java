@@ -56,8 +56,8 @@ class BillServiceImplTest {
     }
 
     @Test
-    void moneyMovingMethodsAreTransactionalAndRollBackOnAnyException() throws Exception {
-        for (String name : new String[]{"commitAdjustment", "commitPayment", "commitTransfer"}) {
+    void balanceWritingMethodsAreTransactionalAndRollBackOnAnyException() throws Exception {
+        for (String name : new String[]{"update", "commitAdjustment", "commitPayment", "commitTransfer"}) {
             Transactional tx = java.util.Arrays.stream(BillServiceImpl.class.getMethods())
                     .filter(m -> m.getName().equals(name))
                     .findFirst().get()
@@ -65,6 +65,20 @@ class BillServiceImplTest {
             assertThat(tx).as(name + " must be @Transactional").isNotNull();
             assertThat(tx.rollbackFor()).as(name).contains(Exception.class);
         }
+    }
+
+    @Test
+    void update_readsTheBillUnderTheSameRowLockAsMoneyMovements() {
+        UUID id = UUID.randomUUID();
+        Bill existing = bill(id, BigDecimal.TEN);
+        Bill newBill = new Bill(USD, new BigDecimal(7), true, existing.getAccount());
+
+        billService.update(id, newBill);
+
+        verify(billsRepository).findByIdForUpdate(id);
+        verify(billsRepository, never()).getBillById(any());
+        verify(billsRepository).save(existing);
+        assertThat(existing.getAmount()).isEqualByComparingTo("7");
     }
 
     @Test
