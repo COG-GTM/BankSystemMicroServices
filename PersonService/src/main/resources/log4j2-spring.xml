@@ -21,7 +21,7 @@
                         size="10 MB" />
                 <TimeBasedTriggeringPolicy />
             </Policies>
-            <DefaultRolloverStrategy max="100">
+            <DefaultRolloverStrategy fileIndex="nomax">
                 <Delete basePath="./logs" maxDepth="1">
                     <IfFileName glob="peopleService-*.log">
                         <IfLastModified age="${LOG_RETENTION_PERIOD}" />
