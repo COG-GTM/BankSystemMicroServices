@@ -14,3 +14,13 @@ spring:
 
 thymeleaf:
   prefix: classpath:/templates/
+
+# Verbose framework logging only for local development: run with --spring.profiles.active=dev
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+logging:
+  level:
+    org.apache: debug

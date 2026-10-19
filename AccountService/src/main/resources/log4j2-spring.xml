@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration>
+    <Properties>
+        <!-- Log retention: rolled files older than LOG_RETENTION (default 30 days) or beyond
+             LOG_MAX_TOTAL_SIZE (default 1 GB, newest kept first) are deleted on rollover. -->
+        <Property name="LOG_RETENTION">${env:LOG_RETENTION:-30d}</Property>
+        <Property name="LOG_MAX_TOTAL_SIZE">${env:LOG_MAX_TOTAL_SIZE:-1 GB}</Property>
+    </Properties>
     <Appenders>
         <RollingFile name="RollingFile"
                      fileName="./logs/accountService.log"
@@ -15,15 +21,26 @@
                         size="10 MB" />
                 <TimeBasedTriggeringPolicy />
             </Policies>
+            <DefaultRolloverStrategy max="20">
+                <Delete basePath="./logs" maxDepth="1">
+                    <IfFileName glob="accountService-*.log">
+                        <IfAny>
+                            <IfLastModified age="${LOG_RETENTION}" />
+                            <IfAccumulatedFileSize exceeds="${LOG_MAX_TOTAL_SIZE}" />
+                        </IfAny>
+                    </IfFileName>
+                </Delete>
+            </DefaultRolloverStrategy>
         </RollingFile>
     </Appenders>
 
     <Loggers>
-        <!-- LOG everything at INFO level -->
+        <!-- LOG everything at INFO level. Debug/trace for framework loggers is enabled only
+             by the "dev" Spring profile (see application.yml). -->
         <Root level="info">
             <AppenderRef ref="RollingFile" />
         </Root>
-        <Logger name="org.apache" level="debug" additivity="false">
+        <Logger name="org.apache" level="warn" additivity="false">
             <AppenderRef ref="RollingFile" />
         </Logger>
         <Logger name="org.springframework" level="info" additivity="false">
@@ -32,10 +49,7 @@
         <Logger name="org.hibernate" level="info" additivity="false">
             <AppenderRef ref="RollingFile" />
         </Logger>
-        <Logger name="org.hibernate.SQL" level="debug" additivity="false">
-            <AppenderRef ref="RollingFile" />
-        </Logger>
-        <Logger name="org.hibernate.SQL" level="trace" additivity="false">
+        <Logger name="org.hibernate.SQL" level="info" additivity="false">
             <AppenderRef ref="RollingFile" />
         </Logger>
     </Loggers>
