@@ -20,6 +20,8 @@ import java.util.Currency;
 @RequiredArgsConstructor
 public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange {
 
+    public static final int STORAGE_SCALE = 4;
+
     private final Logger logger;
 
     @Override
@@ -48,18 +50,19 @@ public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange 
     }
 
     static void requireMinorUnitPrecision(BigDecimal amount, Currency currency) {
-        int fractionDigits = currency.getDefaultFractionDigits();
-        if (fractionDigits >= 0 && amount.stripTrailingZeros().scale() > fractionDigits) {
+        int fractionDigits = allowedFractionDigits(currency);
+        if (amount.stripTrailingZeros().scale() > fractionDigits) {
             throw new InvalidAmountException("Amount " + amount.toPlainString() + " has more than " + fractionDigits
                     + " fraction digits allowed for " + currency.getCurrencyCode());
         }
     }
 
     static BigDecimal roundToMinorUnits(BigDecimal amount, Currency currency) {
+        return amount.setScale(allowedFractionDigits(currency), RoundingMode.HALF_EVEN);
+    }
+
+    private static int allowedFractionDigits(Currency currency) {
         int fractionDigits = currency.getDefaultFractionDigits();
-        if (fractionDigits < 0) {
-            return amount;
-        }
-        return amount.setScale(fractionDigits, RoundingMode.HALF_EVEN);
+        return fractionDigits < 0 ? STORAGE_SCALE : Math.min(fractionDigits, STORAGE_SCALE);
     }
 }

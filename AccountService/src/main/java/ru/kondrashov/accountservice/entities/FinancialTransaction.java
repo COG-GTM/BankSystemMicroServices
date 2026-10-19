@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.springframework.format.annotation.DateTimeFormat;
 
+import ru.kondrashov.accountservice.services.JavaMonetaApiCurrencyExchange;
+
 import javax.persistence.Column;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
@@ -29,7 +31,7 @@ public abstract class FinancialTransaction {
     private Currency currency;
 
     @Min(message = "Amount should be more than zero", value = 0)
-    @Column(precision = 19, scale = 4)
+    @Column(precision = 21, scale = JavaMonetaApiCurrencyExchange.STORAGE_SCALE)
     private BigDecimal amount;
 
     @DateTimeFormat(pattern = "yyyy-MM-dd hh:mm:ss")

@@ -19,6 +19,10 @@ class JavaMonetaApiCurrencyExchangeTest {
     private static final Currency BHD = Currency.getInstance("BHD");
     private static final Currency XAU = Currency.getInstance("XAU");
 
+    private static StubRateExchange exchangeWithRate(BigDecimal rawResult) {
+        return new StubRateExchange(rawResult);
+    }
+
     private static class StubRateExchange extends JavaMonetaApiCurrencyExchange {
         private final BigDecimal rawResult;
         private boolean convertCalled;
@@ -85,7 +89,9 @@ class JavaMonetaApiCurrencyExchangeTest {
     }
 
     @Test
-    void currencyWithoutMinorUnitsIsNotRounded() {
-        assertEquals(new BigDecimal("1.23456"), JavaMonetaApiCurrencyExchange.roundToMinorUnits(new BigDecimal("1.23456"), XAU));
+    void currencyWithoutMinorUnitsUsesStorageScale() {
+        assertEquals(new BigDecimal("1.2346"), JavaMonetaApiCurrencyExchange.roundToMinorUnits(new BigDecimal("1.23456"), XAU));
+        assertEquals(new BigDecimal("1.1235"), exchangeWithRate(new BigDecimal("1.123456")).exchange(USD, XAU, BigDecimal.ONE));
+        assertThrows(InvalidAmountException.class, () -> exchangeWithRate(BigDecimal.ONE).exchange(XAU, XAU, new BigDecimal("1.123456")));
     }
 }

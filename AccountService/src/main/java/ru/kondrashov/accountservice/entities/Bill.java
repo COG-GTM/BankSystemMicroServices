@@ -5,6 +5,8 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
+import ru.kondrashov.accountservice.services.JavaMonetaApiCurrencyExchange;
+
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
@@ -26,7 +28,7 @@ public class Bill {
     @NotNull
     private Currency currency;
 
-    @Column(precision = 19, scale = 4)
+    @Column(precision = 21, scale = JavaMonetaApiCurrencyExchange.STORAGE_SCALE)
     private BigDecimal amount = BigDecimal.ZERO;
 
     @NotNull
