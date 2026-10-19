@@ -1,0 +1,4 @@
+# Single-host development only: plain http on localhost.
+server:
+  ssl:
+    enabled: false

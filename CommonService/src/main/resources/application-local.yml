@@ -1,0 +1,6 @@
+# Single-host development only: plain http to services on localhost.
+person-service.base-url:  ${PERSON_SERVICE_URL:http://localhost:8082}
+account-service.base-url: ${ACCOUNT_SERVICE_URL:http://localhost:8081}
+
+downstream:
+  require-tls: false

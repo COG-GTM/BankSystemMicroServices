@@ -1,10 +1,23 @@
-people.URL:       http://localhost:8082/v1/people
-person.URL:       http://localhost:8082/v1/people/%s
-accounts.URL:     http://localhost:8081/v1/people/%s/accounts
-account.URL:      http://localhost:8081/v1/people/%s/accounts/%s
-bills.URL:        http://localhost:8081/v1/people/%s/accounts/%s/bills
-bill.URL:         http://localhost:8081/v1/people/%s/accounts/%s/bills/%s
-transactions.URL: http://localhost:8081/v1/people/%s/accounts/%s/bills/%s/transactions
+person-service.base-url:  ${PERSON_SERVICE_URL:https://localhost:8082}
+account-service.base-url: ${ACCOUNT_SERVICE_URL:https://localhost:8081}
+
+people.URL:       ${person-service.base-url}/v1/people
+person.URL:       ${person-service.base-url}/v1/people/%s
+accounts.URL:     ${account-service.base-url}/v1/people/%s/accounts
+account.URL:      ${account-service.base-url}/v1/people/%s/accounts/%s
+bills.URL:        ${account-service.base-url}/v1/people/%s/accounts/%s/bills
+bill.URL:         ${account-service.base-url}/v1/people/%s/accounts/%s/bills/%s
+transactions.URL: ${account-service.base-url}/v1/people/%s/accounts/%s/bills/%s/transactions
+
+downstream:
+  require-tls: true
+  connect-timeout: 2s
+  read-timeout: 10s
+  auth-token: ${SERVICE_AUTH_TOKEN:}
+  trust-store: ${DOWNSTREAM_TRUST_STORE:}
+  trust-store-password: ${DOWNSTREAM_TRUST_STORE_PASSWORD:}
+  key-store: ${DOWNSTREAM_KEY_STORE:}
+  key-store-password: ${DOWNSTREAM_KEY_STORE_PASSWORD:}
 
 spring:
   mvc:

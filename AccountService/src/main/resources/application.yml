@@ -7,3 +7,12 @@ spring:
 
 server:
   port: 8081
+  # TLS is on by default; supply the key store via SERVER_SSL_KEY_STORE / SERVER_SSL_KEY_STORE_PASSWORD
+  # (and SERVER_SSL_CLIENT_AUTH=need + SERVER_SSL_TRUST_STORE for mutual TLS).
+  ssl:
+    enabled: ${SERVER_SSL_ENABLED:true}
+    key-store-type: ${SERVER_SSL_KEY_STORE_TYPE:PKCS12}
+
+service:
+  auth:
+    token: ${SERVICE_AUTH_TOKEN:}

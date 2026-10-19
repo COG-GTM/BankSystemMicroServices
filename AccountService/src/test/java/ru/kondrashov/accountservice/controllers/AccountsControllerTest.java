@@ -6,6 +6,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.kondrashov.accountservice.controllers.dto.AccountRequestDTO;
@@ -70,6 +71,15 @@ class AccountsControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void whenServiceTokenInvalid_thenReturns401() throws Exception {
 
+        AccountRequestDTO account = new AccountRequestDTO("name",LocalDate.now(), UUID.randomUUID());
 
+        mockMvc.perform(post("/v1/people/{personId}/accounts", UUID.randomUUID())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer not-the-service-token")
+                .content(objectMapper.writeValueAsString(account))
+                .contentType("application/json"))
+                .andExpect(status().isUnauthorized());
+    }
 }
