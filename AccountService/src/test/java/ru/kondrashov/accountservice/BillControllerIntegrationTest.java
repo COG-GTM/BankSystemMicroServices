@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import ru.kondrashov.accountservice.controllers.dto.*;
 import ru.kondrashov.accountservice.entities.*;
+import ru.kondrashov.accountservice.repositories.AccountsRepository;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.JavaMonetaApiCurrencyExchange;
 import ru.kondrashov.accountservice.services.interfaces.AccountsService;
@@ -51,6 +52,9 @@ public class BillControllerIntegrationTest {
     private AccountsService accountsService;
 
     @Autowired
+    private AccountsRepository accountsRepository;
+
+    @Autowired
     private BillsService billsService;
 
     @Autowired
@@ -69,7 +73,12 @@ public class BillControllerIntegrationTest {
         UUID personId = UUID.randomUUID();
         Account account = new Account("account", LocalDate.now(), personId);
         accountsService.save(account);
-        return accountsService.getAccounts().stream().findFirst().get();
+        return accountsService.getAccountsByPersonId(personId).stream().findFirst().get();
+    }
+
+    // Test fixture teardown only: the API no longer hard-deletes accounts.
+    void removeFixture(Account account) {
+        accountsRepository.deleteById(account.getId());
     }
 
     @Test
@@ -90,7 +99,7 @@ public class BillControllerIntegrationTest {
 
         assertThat(bill).isNotNull();
 
-        accountsService.delete(account.getId());
+        removeFixture(account);
     }
 
     @Test
@@ -122,7 +131,7 @@ public class BillControllerIntegrationTest {
         assertThat(newBill.getIsOverdraft()).isEqualTo(newOverdraft);
         assertThat(newBill.getCurrency()).isEqualTo(newCurrency);
         assertThat(newBill.getAmount().compareTo(newAmount)).isEqualTo(0);
-        accountsService.delete(account.getId());
+        removeFixture(account);
     }
 
     @Test
@@ -194,7 +203,7 @@ public class BillControllerIntegrationTest {
         assertThat(financialTransaction.getAmount().compareTo(paymentAmount.negate())).isEqualTo(0);
         assertThat(financialTransaction.getMessage()).isEqualToIgnoringCase("Payment for order #1");
 
-        accountsService.delete(account.getId());
+        removeFixture(account);
     }
 
     @Test
@@ -273,7 +282,7 @@ public class BillControllerIntegrationTest {
         assertThat(financialTransaction.getCurrency()).isEqualTo(currency);
         assertThat(financialTransaction.getAmount().compareTo(adjustmentAmount)).isEqualTo(0);
         assertThat(financialTransaction.getMessage()).isEqualToIgnoringCase("Adjustment");
-        accountsService.delete(account.getId());
+        removeFixture(account);
     }
 
     @Test
@@ -366,6 +375,6 @@ public class BillControllerIntegrationTest {
         assertThat(targetTransfer.getSourceBill()).isEqualTo(newSourceBill);
         assertThat(targetTransfer.getBeneficiaryBill()).isEqualTo(newTargetBill);
 
-        accountsService.delete(account.getId());
+        removeFixture(account);
     }
 }

@@ -3,12 +3,17 @@ package ru.kondrashov.accountservice.services;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.kondrashov.accountservice.entities.Account;
+import ru.kondrashov.accountservice.entities.AccountStatus;
 import ru.kondrashov.accountservice.entities.Adjustment;
 import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.entities.Payment;
 import ru.kondrashov.accountservice.entities.Transfer;
+import ru.kondrashov.accountservice.exceptions.AccountClosedException;
+import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
+import ru.kondrashov.accountservice.repositories.AccountsRepository;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.interfaces.*;
 
@@ -21,6 +26,7 @@ import java.util.UUID;
 public class BillServiceImpl implements BillsService {
 
     private final BillsRepository billsRepository;
+    private final AccountsRepository accountsRepository;
     private final PaymentsService paymentsService;
     private final AdjustmentsService adjustmentsService;
     private final TransferService transferService;
@@ -43,6 +49,7 @@ public class BillServiceImpl implements BillsService {
 
     @Override
     public void save(Bill bill) {
+        bill.setAccount(requireOpenAccount(bill.getAccount()));
         billsRepository.save(bill);
     }
 
@@ -57,14 +64,15 @@ public class BillServiceImpl implements BillsService {
         oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
         oldBill.setCurrency(newBill.getCurrency());
         oldBill.setIsOverdraft(newBill.getIsOverdraft());
-        oldBill.setAccount(newBill.getAccount());
+        oldBill.setAccount(requireOpenAccount(newBill.getAccount()));
         billsRepository.save(oldBill);
     }
 
     @Override
     public void commitAdjustment(UUID billId, Adjustment adjustment) {
 
-        Bill bill = getBill(billId);
+        Bill bill = getOpenBill(billId);
+        adjustment.setBill(bill);
 
        increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
 
@@ -75,7 +83,8 @@ public class BillServiceImpl implements BillsService {
     @Transactional(rollbackFor = Exception.class)
     public void commitPayment(UUID billId, Payment payment) {
 
-        Bill bill = getBill(billId);
+        Bill bill = getOpenBill(billId);
+        payment.setBill(bill);
 
         decreaseBillsAmount(bill,currencyConversion.exchange(payment.getCurrency(),bill.getCurrency(),payment.getAmount()));
 
@@ -86,8 +95,10 @@ public class BillServiceImpl implements BillsService {
     @Override
     public void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
 
-        Bill sourceBill = getBill(sourceBillId);
-        Bill beneficiaryBill = getBill(beneficiaryBillId);
+        Bill sourceBill = getOpenBill(sourceBillId);
+        Bill beneficiaryBill = getOpenBill(beneficiaryBillId);
+        transfer.setSourceBill(sourceBill);
+        transfer.setBeneficiaryBill(beneficiaryBill);
 
         decreaseBillsAmount(sourceBill, currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount()));
         increaseBillsAmount(beneficiaryBill, currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount()));
@@ -115,6 +126,26 @@ public class BillServiceImpl implements BillsService {
         return transferService.getTransfersByBeneficiaryBill_Id(billId);
     }
 
+
+    private Bill getOpenBill(UUID id) {
+        Bill bill = getBill(id);
+        if (bill.getAccount() != null && bill.getAccount().getStatus() == AccountStatus.CLOSED) {
+            throw new AccountClosedException("Account with id = "+bill.getAccount().getId()+" is closed.");
+        }
+        return bill;
+    }
+
+    private Account requireOpenAccount(Account reference) {
+        if (reference == null || reference.getId() == null) {
+            throw new AccountNotFoundException("Bill must reference an existing account.");
+        }
+        Account account = accountsRepository.getAccountsById(reference.getId())
+                .orElseThrow(() -> new AccountNotFoundException("Account with id = "+reference.getId()+" not found."));
+        if (account.getStatus() == AccountStatus.CLOSED) {
+            throw new AccountClosedException("Account with id = "+account.getId()+" is closed.");
+        }
+        return account;
+    }
 
     private void decreaseBillsAmount(Bill bill, BigDecimal amount){
 

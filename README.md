@@ -68,7 +68,7 @@ Contains the general logic of working and validating account, bill and transacti
 | PUT | /v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments | commit payment by bill | 
 | PUT | /v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments | commit adjustment by bill | 
 | PUT | /v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId} | commit transfer between two bills | 
-| DELETE | /v1/people/{personId}/accounts/{id} | delete account by id |
+| DELETE | /v1/people/{personId}/accounts/{id} | close account by id (soft-close: status set to CLOSED, bills and transactions retained, audit record written; 409 if any bill has a non-zero amount; optional `X-Actor` header identifies the caller) |
 | DELETE | /v1/people/{personId}/accounts/{accountId}/bills/{id} | delete bill by id |
 
 #### Sample JSON for Account Service

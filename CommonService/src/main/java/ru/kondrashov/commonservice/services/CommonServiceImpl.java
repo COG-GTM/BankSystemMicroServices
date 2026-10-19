@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,9 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class CommonServiceImpl implements CommonService{
+
+    static final String ACTOR_HEADER = "X-Actor";
+    static final String ACTOR = "common-service";
 
     private final RestTemplate restTemplate;
     private final Logger logger;
@@ -153,6 +157,7 @@ public class CommonServiceImpl implements CommonService{
         logger.info("Send PUT request to "+String.format(accountUrl, personId, accountId));
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.put("id", Collections.singletonList(accountId.toString()));
+        params.put(ACTOR_HEADER, Collections.singletonList(ACTOR));
         HttpEntity<AccountResponseDTO> accountResponseDTOHttpEntity = new HttpEntity<>(accountResponseDTO, params);
         ResponseEntity<AccountResponseDTO> responseEntity = restTemplate.exchange(String.format(accountUrl, personId, accountId),HttpMethod.PUT, accountResponseDTOHttpEntity, AccountResponseDTO.class);
         logger.info("Got response with status code "+responseEntity.getStatusCode());
@@ -189,7 +194,9 @@ public class CommonServiceImpl implements CommonService{
 
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.put("id", Collections.singletonList(accountId.toString()));
-        ResponseEntity<Object> responseEntity = restTemplate.exchange(String.format(accountUrl, personId, accountId), HttpMethod.DELETE, null, Object.class);
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(ACTOR_HEADER, ACTOR);
+        ResponseEntity<Object> responseEntity = restTemplate.exchange(String.format(accountUrl, personId, accountId), HttpMethod.DELETE, new HttpEntity<>(headers), Object.class);
         logger.info("Got response with status code "+responseEntity.getStatusCode());
     }
 
