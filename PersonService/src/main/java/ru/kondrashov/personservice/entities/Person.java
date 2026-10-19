@@ -8,6 +8,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import javax.persistence.*;
 import javax.validation.constraints.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.Date;
 import java.util.UUID;
@@ -43,5 +44,19 @@ public class Person {
     @NotEmpty(message = "Email should not be empty")
     @Email(message = "Email should be valid")
     private String email;
+
+    @Column(nullable = false)
+    private boolean erased = false;
+
+    private LocalDateTime erasedAt;
+
+    public Person(UUID id, String firstName, String lastName, LocalDate birthdate, String phoneNumber, String email) {
+        this.id = id;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.birthdate = birthdate;
+        this.phoneNumber = phoneNumber;
+        this.email = email;
+    }
 
 }

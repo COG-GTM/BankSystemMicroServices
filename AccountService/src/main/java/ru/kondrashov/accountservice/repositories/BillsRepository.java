@@ -12,4 +12,8 @@ public interface BillsRepository extends JpaRepository<Bill, UUID> {
 
     Collection<Bill> getBillsByAccount_Id(UUID accountId);
     Optional<Bill> getBillById(UUID id);
+
+    Collection<Bill> findAllByClosedFalse();
+
+    Collection<Bill> getBillsByAccount_IdAndClosedFalse(UUID accountId);
 }

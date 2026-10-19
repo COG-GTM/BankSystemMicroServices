@@ -173,6 +173,7 @@ public class CommonServiceImpl implements CommonService{
     @Override
     public void deletePerson(UUID id) {
         logger.info("Send DELETE request to "+String.format(personUrl,id));
+        // AccountService closes accounts (ledger retained); PersonService anonymises the person.
         for (AccountRequestDTO account:getAccountsByPerson(id)) {
             deleteAccount(id,account.getId());
         }

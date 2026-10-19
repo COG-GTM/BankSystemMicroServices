@@ -6,11 +6,16 @@ import ru.kondrashov.personservice.entities.Person;
 import ru.kondrashov.personservice.exception.PersonNotFoundException;
 import ru.kondrashov.personservice.repositories.PeopleRepository;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class PeopleServiceImpl implements PeopleService{
+    static final String ERASED = "ERASED";
+    static final LocalDate ERASED_BIRTHDATE = LocalDate.of(1900, 1, 1);
+
     private final PeopleRepository peopleRepository;
 
     @Autowired
@@ -19,12 +24,12 @@ public class PeopleServiceImpl implements PeopleService{
     }
 
     public List<Person> getAll(){
-        return peopleRepository.findAll();
+        return peopleRepository.findAllByErasedFalse();
     }
 
     public Person get(UUID id){
         return peopleRepository.
-                getPersonById(id).
+                getPersonByIdAndErasedFalse(id).
                 orElseThrow( () -> new PersonNotFoundException("Person with id = "+id+" not found"));
     }
 
@@ -44,8 +49,20 @@ public class PeopleServiceImpl implements PeopleService{
 
     }
 
+    /**
+     * GDPR erasure: the record is kept as an anonymised tombstone so that retained
+     * ledger data in AccountService still references a valid (but unidentifiable) owner.
+     */
     public void delete(UUID id){
-        peopleRepository.delete(get(id));
+        Person person = get(id);
+        person.setFirstName(ERASED);
+        person.setLastName(ERASED);
+        person.setBirthdate(ERASED_BIRTHDATE);
+        person.setPhoneNumber(ERASED);
+        person.setEmail("erased-" + id + "@erased.invalid");
+        person.setErased(true);
+        person.setErasedAt(LocalDateTime.now());
+        peopleRepository.save(person);
     }
 
 }

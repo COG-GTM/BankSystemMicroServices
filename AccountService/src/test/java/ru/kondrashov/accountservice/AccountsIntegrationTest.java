@@ -91,6 +91,9 @@ public class AccountsIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNoContent());
 
-        assertThat(accountsRepository.getAccountsByPersonId(personId).stream().findFirst().isPresent()).isFalse();
+        Account closedAccount = accountsRepository.getAccountsById(account.getId()).get();
+        assertThat(closedAccount.isClosed()).isTrue();
+        assertThat(closedAccount.getClosedAt()).isNotNull();
+        assertThat(accountsRepository.getAccountsByPersonIdAndClosedFalse(personId)).isEmpty();
     }
 }
