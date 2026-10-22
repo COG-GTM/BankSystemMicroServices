@@ -1,5 +1,10 @@
 package ru.kondrashov.accountservice.controllers;
 
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.TestPropertySource;
+import ru.kondrashov.accountservice.config.ApplicationSpringConfig;
+import ru.kondrashov.accountservice.config.SecurityConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,6 +31,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @ExtendWith(SpringExtension.class)
 @WebMvcTest(controllers = BillsController.class)
+@Import({SecurityConfig.class, ApplicationSpringConfig.class})
+@TestPropertySource(properties = {"app.security.username=test-user", "app.security.password=test-password"})
+@WithMockUser
 class BillsControllerTest {
 
     @Autowired

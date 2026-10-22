@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import ru.kondrashov.commonservice.controllers.dto.*;
 import ru.kondrashov.commonservice.services.CommonService;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 import java.util.Collection;
 import java.util.Currency;
 import java.util.UUID;

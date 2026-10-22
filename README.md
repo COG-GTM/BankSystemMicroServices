@@ -11,22 +11,61 @@
 <br>
 This is a prototype of a banking system, which demonstrates [Microservice Architecture Pattern](http://martinfowler.com/microservices/) using Spring Boot.
 ## Technologies
-- Java 8
-- Spring Boot
+- Java 17
+- Spring Boot 3.5
+- Spring Security (HTTP Basic)
 - PostgreSQL
 - Hibernate
 - jUnit
 - Log4j2
 - Thymeleaf
-- Swagger 2
+- springdoc-openapi (OpenAPI 3 / Swagger UI)
 - Lombok
 
 ## How to run
+Requirements: JDK 17+, Maven 3.6.3+, PostgreSQL with the `account-service-db` and `person-service-db` databases.
+
+Export the required environment variables, then launch the `*Application.java` classes of PersonService, AccountService and CommonService (or `mvn spring-boot:run` in each module):
 ```sh
-To launch classes Application.java in servecies customerService, accountService and commonService
+export DB_USERNAME=<postgres user>
+export DB_PASSWORD=<postgres password>
+export API_USERNAME=<REST API user>
+export API_PASSWORD=<REST API password>
 ```
-Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
-Postgre database initialized with some sample user.
+Services commonService, accountService and personService start on localhost ports 8080, 8081 and 8082 respectively.
+
+### Environment variables
+No credentials are stored in the repository; they are resolved from the environment at startup. A missing required variable makes the service fail to start.
+
+| Variable | Used by | Required | Description |
+| -------- | ------- | -------- | ----------- |
+| `DB_USERNAME` | AccountService, PersonService | yes | PostgreSQL user |
+| `DB_PASSWORD` | AccountService, PersonService | yes | PostgreSQL password |
+| `DB_URL` | AccountService, PersonService | no | JDBC URL. Defaults to `jdbc:postgresql://localhost:5432/account-service-db` / `.../person-service-db` |
+| `API_USERNAME` | AccountService, PersonService, CommonService | yes | User accepted by the REST API (HTTP Basic). CommonService sends it to the downstream services |
+| `API_PASSWORD` | AccountService, PersonService, CommonService | yes | Password for `API_USERNAME` |
+| `TEST_DB_URL` | AccountService, PersonService tests | no | JDBC URL of the test database. Defaults to `jdbc:postgresql://localhost:5432/<service>-db-test` |
+
+### Security
+The REST APIs of AccountService and PersonService are protected with **HTTP Basic authentication** (Spring Security, stateless, CSRF disabled because no browser session/cookies are used). Every `/v1/**` endpoint requires the credentials configured through `API_USERNAME` / `API_PASSWORD`; unauthenticated requests get `401 Unauthorized`.
+
+```sh
+curl -u "$API_USERNAME:$API_PASSWORD" http://localhost:8082/v1/people
+```
+
+The password is hashed in memory with the delegating (bcrypt) `PasswordEncoder`. The API documentation (`/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**`) and the `/v1` redirect are public; Swagger UI exposes an **Authorize** button to send Basic credentials when trying out endpoints. Use HTTPS in front of the services in any non-local environment, since Basic credentials are only base64-encoded.
+
+CommonService (the Thymeleaf UI) calls the downstream services through a `RestTemplate` configured with the same `API_USERNAME` / `API_PASSWORD`.
+
+### API documentation
+- AccountService: http://localhost:8081/swagger-ui.html (OpenAPI JSON at `/v3/api-docs`)
+- PersonService: http://localhost:8082/swagger-ui.html (OpenAPI JSON at `/v3/api-docs`)
+
+### Build and tests
+```sh
+cd AccountService && mvn clean verify
+```
+Integration tests need a reachable PostgreSQL (`account-service-db-test` / `person-service-db-test`, override with `TEST_DB_URL`) and `DB_USERNAME` / `DB_PASSWORD` exported.
 
 ## Functional Services
 BankSystem was decomposed into three core microservices. All of them are independently deployable applications, organized around certain business domains.
