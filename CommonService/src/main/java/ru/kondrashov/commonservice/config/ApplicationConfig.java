@@ -6,6 +6,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.core.Ordered;
+import org.springframework.web.filter.UrlHandlerFilter;
 import org.springframework.web.client.RestTemplate;
 
 @Configuration
@@ -20,5 +23,13 @@ public class ApplicationConfig {
     @Bean
     public Logger logger(){
         return LogManager.getRootLogger();
+    }
+
+    @Bean
+    public FilterRegistrationBean<UrlHandlerFilter> trailingSlashFilter() {
+        FilterRegistrationBean<UrlHandlerFilter> registration = new FilterRegistrationBean<>(
+                UrlHandlerFilter.trailingSlashHandler("/**").wrapRequest().build());
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return registration;
     }
 }

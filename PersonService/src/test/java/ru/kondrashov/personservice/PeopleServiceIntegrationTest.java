@@ -149,4 +149,13 @@ public class PeopleServiceIntegrationTest {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @WithAnonymousUser
+    void whenTrailingSlash_thenStillMatchesEndpoint() throws Exception {
+        mockMvc.perform(get("/v1/people/").with(httpBasic("test-user", "test-password")))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/v1/people/"))
+                .andExpect(status().isUnauthorized());
+    }
 }
