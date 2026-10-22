@@ -1,9 +1,14 @@
 spring:
   datasource:
     driverClassName: org.postgresql.Driver
-    url: jdbc:postgresql://localhost/person-service-db-test
-    username: postgres
-    password: 12345
+    url: ${TEST_DB_URL:jdbc:postgresql://localhost:5432/person-service-db-test}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+app:
+  security:
+    username: test-user
+    password: test-password
 
 server:
   port: 8081

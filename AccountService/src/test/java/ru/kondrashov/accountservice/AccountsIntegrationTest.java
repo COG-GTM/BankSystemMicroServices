@@ -1,5 +1,6 @@
 package ru.kondrashov.accountservice;
 
+import org.springframework.security.test.context.support.WithMockUser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@WithMockUser
 @TestPropertySource(locations = "/hibernate.properties")
 public class AccountsIntegrationTest {
 

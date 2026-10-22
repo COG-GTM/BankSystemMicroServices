@@ -1,8 +1,8 @@
 package ru.kondrashov.accountservice.controllers;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpHeaders;
@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.kondrashov.accountservice.utils.interfaces.PaymentsMapping;
 import ru.kondrashov.accountservice.utils.interfaces.TransferMapping;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.UUID;
@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping(value = "/v1/people/{personId}/accounts/{accountId}/bills",produces = MediaType.APPLICATION_JSON_VALUE)
-@Api(description= "Controller which provides methods for operations with bills", tags = {"BILLS"})
+@Tag(name = "BILLS", description = "Controller which provides methods for operations with bills")
 @RequiredArgsConstructor
 public class BillsController {
 
@@ -37,11 +37,11 @@ public class BillsController {
     private final Logger logger;
 
     @GetMapping
-    @ApiOperation(value = "Get all bills by account ID", tags = { "BILLS" })
+    @Operation(summary = "Get all bills by account ID", tags = { "BILLS" })
     @ResponseStatus(HttpStatus.OK)
     public Collection<BillResponseDTO> getBillsByAccountId(
-            @ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
-            @ApiParam(value = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
+            @Parameter(description = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
+            @Parameter(description = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
             @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
         return billsService.getBillsByAccountId(accountId)
@@ -52,12 +52,12 @@ public class BillsController {
 
     @Transactional(rollbackFor = Exception.class)
     @PostMapping
-    @ApiOperation(value = "Save bill", tags = { "BILLS" })
+    @Operation(summary = "Save bill", tags = { "BILLS" })
     @ResponseStatus(HttpStatus.CREATED)
     public void save(
-            @ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
-            @ApiParam(value = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
-            @ApiParam("Bill to add. Cannot null or empty.") @RequestBody @Valid BillRequestDTO billRequestDTO,
+            @Parameter(description = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
+            @Parameter(description = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
+            @Parameter(description = "Bill to add. Cannot null or empty.") @RequestBody @Valid BillRequestDTO billRequestDTO,
             @RequestHeader HttpHeaders header){
 
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills\""+" received a POST request from the server "+header.getHost()+" with content type "+header.getContentType());
@@ -66,13 +66,13 @@ public class BillsController {
 
     @Transactional(rollbackFor = Exception.class)
     @PutMapping("/{id}")
-    @ApiOperation(value = "Update bill", tags = { "BILLS" })
+    @Operation(summary = "Update bill", tags = { "BILLS" })
     @ResponseStatus(HttpStatus.ACCEPTED)
     public void update(
-            @ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
-            @ApiParam(value = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
-            @ApiParam(value = "Id of the bill to be update. Cannot be empty.") @PathVariable("id") UUID id,
-            @ApiParam("Bill to update. Cannot null or empty.") @RequestBody @Valid BillRequestDTO bill,
+            @Parameter(description = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
+            @Parameter(description = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
+            @Parameter(description = "Id of the bill to be update. Cannot be empty.") @PathVariable("id") UUID id,
+            @Parameter(description = "Bill to update. Cannot null or empty.") @RequestBody @Valid BillRequestDTO bill,
             @RequestHeader HttpHeaders header){
 
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
@@ -81,11 +81,11 @@ public class BillsController {
 
     @Transactional(rollbackFor = Exception.class)
     @DeleteMapping("/{id}")
-    @ApiOperation(value = "Delete bill", tags = { "BILLS" })
+    @Operation(summary = "Delete bill", tags = { "BILLS" })
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
-                       @ApiParam(value = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
-                       @ApiParam(value = "Id of the bill to be delete. Cannot be empty.") @PathVariable("id") UUID id,
+    public void delete(@Parameter(description = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
+                       @Parameter(description = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
+                       @Parameter(description = "Id of the bill to be delete. Cannot be empty.") @PathVariable("id") UUID id,
                        @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
         billsService.delete(id);
@@ -93,12 +93,12 @@ public class BillsController {
 
 
     @PutMapping("/{billId}/payments")
-    @ApiOperation(value = "Commit payment for bill", tags = { "BILLS" })
+    @Operation(summary = "Commit payment for bill", tags = { "BILLS" })
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public void commitPayment(@ApiParam(value = "Id of the person. Cannot be empty.")  @PathVariable("personId") UUID personId,
-                              @ApiParam(value = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
-                              @ApiParam(value = "Id of the bill. Cannot be empty.") @PathVariable("billId") UUID billId,
-                              @ApiParam("Payment to commit. Cannot null or empty.") @RequestBody @Valid PaymentRequestDTO paymentRequestDTO,
+    public void commitPayment(@Parameter(description = "Id of the person. Cannot be empty.")  @PathVariable("personId") UUID personId,
+                              @Parameter(description = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
+                              @Parameter(description = "Id of the bill. Cannot be empty.") @PathVariable("billId") UUID billId,
+                              @Parameter(description = "Payment to commit. Cannot null or empty.") @RequestBody @Valid PaymentRequestDTO paymentRequestDTO,
                               @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
         billsService.commitPayment(billId,paymentsMapping.mapToPayment(paymentRequestDTO));
@@ -106,11 +106,11 @@ public class BillsController {
 
     @PutMapping("/{id}/adjustments")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    @ApiOperation(value = "Commit adjustment for bill", tags = { "BILLS" })
-    public void commitAdjustment(@ApiParam(value = "Id of the person. Cannot be empty.")  @PathVariable("personId") UUID personId,
-                                 @ApiParam(value = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
-                                 @ApiParam(value = "Id of the bill. Cannot be empty.") @PathVariable("id") UUID billId,
-                                 @ApiParam("Adjustment to commit. Cannot null or empty.") @RequestBody @Valid AdjustmentRequestDTO adjustmentRequestDTO,
+    @Operation(summary = "Commit adjustment for bill", tags = { "BILLS" })
+    public void commitAdjustment(@Parameter(description = "Id of the person. Cannot be empty.")  @PathVariable("personId") UUID personId,
+                                 @Parameter(description = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
+                                 @Parameter(description = "Id of the bill. Cannot be empty.") @PathVariable("id") UUID billId,
+                                 @Parameter(description = "Adjustment to commit. Cannot null or empty.") @RequestBody @Valid AdjustmentRequestDTO adjustmentRequestDTO,
                                  @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
         billsService.commitAdjustment(billId,adjustmentMapping.mapToAdjustment(adjustmentRequestDTO));
@@ -118,12 +118,12 @@ public class BillsController {
 
     @PutMapping("/{sourceId}/transfer/{beneficiaryBillId}")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    @ApiOperation(value = "Commit transfer for bills", tags = { "BILLS" })
-    public void commitTransfer(@ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
-                               @ApiParam(value = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
-                               @ApiParam(value = "Id of the source bill. Cannot be empty.") @PathVariable("sourceId") UUID sourceId,
-                               @ApiParam(value = "Id of the beneficiary bill. Cannot be empty.") @PathVariable("beneficiaryBillId") UUID beneficiaryBillId,
-                               @ApiParam("Transfer to commit. Cannot null or empty.") @RequestBody @Valid TransferRequestDTO transferRequestDTO,
+    @Operation(summary = "Commit transfer for bills", tags = { "BILLS" })
+    public void commitTransfer(@Parameter(description = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
+                               @Parameter(description = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
+                               @Parameter(description = "Id of the source bill. Cannot be empty.") @PathVariable("sourceId") UUID sourceId,
+                               @Parameter(description = "Id of the beneficiary bill. Cannot be empty.") @PathVariable("beneficiaryBillId") UUID beneficiaryBillId,
+                               @Parameter(description = "Transfer to commit. Cannot null or empty.") @RequestBody @Valid TransferRequestDTO transferRequestDTO,
                                @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
         billsService.commitTransfer(sourceId,beneficiaryBillId,transferMapping.mapToTransfer(transferRequestDTO));
@@ -131,10 +131,10 @@ public class BillsController {
 
     @GetMapping("/{id}/transactions")
     @ResponseStatus(HttpStatus.OK)
-    @ApiOperation(value = "Get all financial transactions of bill", tags = { "BILLS" })
-    public Collection<FinancialTransactionResponseDTO> getFinancialTransactionsByBillId(@ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
-                                                                                        @ApiParam(value = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
-                                                                                        @ApiParam(value = "Id of the bill. Cannot be empty.") @PathVariable("id") UUID billId,
+    @Operation(summary = "Get all financial transactions of bill", tags = { "BILLS" })
+    public Collection<FinancialTransactionResponseDTO> getFinancialTransactionsByBillId(@Parameter(description = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
+                                                                                        @Parameter(description = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
+                                                                                        @Parameter(description = "Id of the bill. Cannot be empty.") @PathVariable("id") UUID billId,
                                                                                         @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}/transactions\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
         Collection<FinancialTransactionResponseDTO> financialTransactionResponseDTOS = new ArrayList<>();

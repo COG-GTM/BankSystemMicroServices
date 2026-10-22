@@ -5,8 +5,8 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import javax.persistence.EntityListeners;
-import javax.validation.constraints.NotEmpty;
+import jakarta.persistence.EntityListeners;
+import jakarta.validation.constraints.NotEmpty;
 import java.time.LocalDate;
 import java.util.Date;
 import java.util.UUID;

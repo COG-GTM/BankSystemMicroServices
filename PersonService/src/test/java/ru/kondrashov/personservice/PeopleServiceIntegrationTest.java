@@ -1,5 +1,7 @@
 package ru.kondrashov.personservice;
 
+import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.security.test.context.support.WithMockUser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +20,8 @@ import ru.kondrashov.personservice.services.PeopleService;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -25,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@WithMockUser
 @TestPropertySource(locations = "/hibernate.properties")
 public class PeopleServiceIntegrationTest {
 
@@ -122,5 +127,35 @@ public class PeopleServiceIntegrationTest {
                 MockMvcRequestBuilders.delete("/v1/people/{id}", person.getId())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithAnonymousUser
+    void whenNoCredentials_thenReturns401() throws Exception {
+        mockMvc.perform(get("/v1/people"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithAnonymousUser
+    void whenValidBasicCredentials_thenReturns200() throws Exception {
+        mockMvc.perform(get("/v1/people").with(httpBasic("test-user", "test-password")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithAnonymousUser
+    void whenAnonymous_thenApiDocsArePublic() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithAnonymousUser
+    void whenTrailingSlash_thenStillMatchesEndpoint() throws Exception {
+        mockMvc.perform(get("/v1/people/").with(httpBasic("test-user", "test-password")))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/v1/people/"))
+                .andExpect(status().isUnauthorized());
     }
 }

@@ -1,5 +1,11 @@
 package ru.kondrashov.accountservice.controllers;
 
+import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.TestPropertySource;
+import ru.kondrashov.accountservice.config.ApplicationSpringConfig;
+import ru.kondrashov.accountservice.config.SecurityConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,11 +21,15 @@ import ru.kondrashov.accountservice.utils.interfaces.AccountMapping;
 import java.time.LocalDate;
 import java.util.UUID;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(SpringExtension.class)
 @WebMvcTest(controllers = AccountsController.class)
+@Import({SecurityConfig.class, ApplicationSpringConfig.class})
+@TestPropertySource(properties = {"app.security.username=test-user", "app.security.password=test-password"})
+@WithMockUser
 class AccountsControllerTest {
 
     @Autowired
@@ -70,6 +80,41 @@ class AccountsControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    @WithAnonymousUser
+    void whenNoCredentials_thenReturns401() throws Exception {
 
+        AccountRequestDTO account = new AccountRequestDTO("name",LocalDate.now(), UUID.randomUUID());
 
+        mockMvc.perform(post("/v1/people/{personId}/accounts", UUID.randomUUID())
+                .content(objectMapper.writeValueAsString(account))
+                .contentType("application/json"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithAnonymousUser
+    void whenWrongBasicCredentials_thenReturns401() throws Exception {
+
+        AccountRequestDTO account = new AccountRequestDTO("name",LocalDate.now(), UUID.randomUUID());
+
+        mockMvc.perform(post("/v1/people/{personId}/accounts", UUID.randomUUID())
+                .with(httpBasic("test-user", "wrong-password"))
+                .content(objectMapper.writeValueAsString(account))
+                .contentType("application/json"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithAnonymousUser
+    void whenValidBasicCredentials_thenReturns201() throws Exception {
+
+        AccountRequestDTO account = new AccountRequestDTO("name",LocalDate.now(), UUID.randomUUID());
+
+        mockMvc.perform(post("/v1/people/{personId}/accounts", UUID.randomUUID())
+                .with(httpBasic("test-user", "test-password"))
+                .content(objectMapper.writeValueAsString(account))
+                .contentType("application/json"))
+                .andExpect(status().isCreated());
+    }
 }

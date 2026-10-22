@@ -2,7 +2,7 @@ package ru.kondrashov.commonservice.controllers.dto;
 
 import lombok.Data;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.util.Currency;
 import java.util.UUID;
