@@ -8,7 +8,6 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import ru.kondrashov.personservice.controllers.dto.PersonRequestDTO;
 import ru.kondrashov.personservice.controllers.dto.PersonResponseDTO;
@@ -50,7 +49,6 @@ public class PeopleController {
         return peopleMapping.mapToPersonResponseDTO(peopleService.get(id));
     }
 
-    @Transactional(rollbackFor = Exception.class)
     @PostMapping()
     @ResponseStatus(HttpStatus.CREATED)
     @ApiOperation("Save a new person")
@@ -59,7 +57,6 @@ public class PeopleController {
         peopleService.save(peopleMapping.mapToPerson(personRequestDTO));
     }
 
-    @Transactional(rollbackFor = Exception.class)
     @PutMapping("/{id}")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @ApiOperation("Update a person")
@@ -69,7 +66,6 @@ public class PeopleController {
         peopleService.update(id, peopleMapping.mapToPerson(personRequestDTO));
     }
 
-    @Transactional(rollbackFor = Exception.class)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @ApiOperation("Delete a person")

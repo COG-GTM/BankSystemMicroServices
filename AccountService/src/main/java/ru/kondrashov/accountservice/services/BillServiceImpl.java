@@ -27,31 +27,37 @@ public class BillServiceImpl implements BillsService {
     private final FinancialCurrencyExchange currencyConversion;
 
     @Override
+    @Transactional(readOnly = true)
     public Collection<Bill> getBills() {
         return billsRepository.findAll();
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Bill getBill(UUID id) {
         return billsRepository.getBillById(id).orElseThrow(()->new BillNotFoundException("Bill with id = "+id+" not found."));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Collection<Bill> getBillsByAccountId(UUID accountID) {
         return billsRepository.getBillsByAccount_Id(accountID);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void save(Bill bill) {
         billsRepository.save(bill);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(UUID id) {
         billsRepository.delete(getBill(id));
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(UUID id, Bill newBill) {
         Bill oldBill = getBill(id);
         oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
@@ -96,21 +102,25 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Collection<Payment> getPaymentsByBillId(UUID billId) {
         return paymentsService.getPaymentsByBillId(billId);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Collection<Adjustment> getAdjustmentsByBillId(UUID billId) {
         return adjustmentsService.getAdjustmentsByBillId(billId);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Collection<Transfer> getTransfersBySourceBillId(UUID billId) {
         return transferService.getTransfersBySourceBill_Id(billId);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Collection<Transfer> getTransfersByBeneficiaryBillId(UUID billId) {
         return transferService.getTransfersByBeneficiaryBill_Id(billId);
     }

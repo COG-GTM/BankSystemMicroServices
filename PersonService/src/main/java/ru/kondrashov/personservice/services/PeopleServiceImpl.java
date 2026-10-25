@@ -2,6 +2,7 @@ package ru.kondrashov.personservice.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.kondrashov.personservice.entities.Person;
 import ru.kondrashov.personservice.exception.PersonNotFoundException;
 import ru.kondrashov.personservice.repositories.PeopleRepository;
@@ -18,20 +19,24 @@ public class PeopleServiceImpl implements PeopleService{
         this.peopleRepository = peopleRepository;
     }
 
+    @Transactional(readOnly = true)
     public List<Person> getAll(){
         return peopleRepository.findAll();
     }
 
+    @Transactional(readOnly = true)
     public Person get(UUID id){
         return peopleRepository.
                 getPersonById(id).
                 orElseThrow( () -> new PersonNotFoundException("Person with id = "+id+" not found"));
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void save(Person person){
         peopleRepository.save(person);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void update(UUID id, Person changedPerson) {
         Person originPerson = get(id);
         originPerson.setFirstName(changedPerson.getFirstName());
@@ -44,6 +49,7 @@ public class PeopleServiceImpl implements PeopleService{
 
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void delete(UUID id){
         peopleRepository.delete(get(id));
     }
