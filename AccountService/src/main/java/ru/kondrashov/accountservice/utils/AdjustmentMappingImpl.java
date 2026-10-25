@@ -34,12 +34,6 @@ public class AdjustmentMappingImpl implements AdjustmentMapping {
 
     @Override
     public FinancialTransactionResponseDTO mapToFinancialTransactionResponseDTO(Adjustment adjustment) {
-        return new FinancialTransactionResponseDTO(
-                adjustment.getId(),
-                adjustment.getCurrency(),
-                adjustment.getAmount(),
-                adjustment.getTime(),
-                adjustment.getMessage()
-        );
+        return FinancialTransactionMapping.mapToFinancialTransactionResponseDTO(adjustment);
     }
 }

@@ -32,12 +32,6 @@ public class PaymentsMappingImpl implements PaymentsMapping {
 
     @Override
     public FinancialTransactionResponseDTO mapToFinancialTransactionResponseDTO(Payment payment) {
-        return new FinancialTransactionResponseDTO(
-                payment.getId(),
-                payment.getCurrency(),
-                payment.getAmount(),
-                payment.getTime(),
-                payment.getMessage()
-        );
+        return FinancialTransactionMapping.mapToFinancialTransactionResponseDTO(payment);
     }
 }
