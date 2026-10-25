@@ -54,7 +54,10 @@ public class BillServiceImpl implements BillsService {
     @Override
     public void update(UUID id, Bill newBill) {
         Bill oldBill = getBill(id);
-        oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
+        boolean amountUnchanged = newBill.getAmount().compareTo(oldBill.getAmount()) == 0;
+        oldBill.setAmount(amountUnchanged
+                ? currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount())
+                : currencyConversion.exchangeValidated(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
         oldBill.setCurrency(newBill.getCurrency());
         oldBill.setIsOverdraft(newBill.getIsOverdraft());
         oldBill.setAccount(newBill.getAccount());
@@ -66,7 +69,7 @@ public class BillServiceImpl implements BillsService {
 
         Bill bill = getBill(billId);
 
-       increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
+       increaseBillsAmount(bill,currencyConversion.exchangeValidated(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
 
         adjustmentsService.save(adjustment);
     }
@@ -77,7 +80,7 @@ public class BillServiceImpl implements BillsService {
 
         Bill bill = getBill(billId);
 
-        decreaseBillsAmount(bill,currencyConversion.exchange(payment.getCurrency(),bill.getCurrency(),payment.getAmount()));
+        decreaseBillsAmount(bill,currencyConversion.exchangeValidated(payment.getCurrency(),bill.getCurrency(),payment.getAmount()));
 
         paymentsService.save(payment);
     }
@@ -89,8 +92,11 @@ public class BillServiceImpl implements BillsService {
         Bill sourceBill = getBill(sourceBillId);
         Bill beneficiaryBill = getBill(beneficiaryBillId);
 
-        decreaseBillsAmount(sourceBill, currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount()));
-        increaseBillsAmount(beneficiaryBill, currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount()));
+        BigDecimal debit = currencyConversion.exchangeValidated(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount());
+        BigDecimal credit = currencyConversion.exchangeValidated(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount());
+
+        decreaseBillsAmount(sourceBill, debit);
+        increaseBillsAmount(beneficiaryBill, credit);
 
         transferService.save(transfer);
     }

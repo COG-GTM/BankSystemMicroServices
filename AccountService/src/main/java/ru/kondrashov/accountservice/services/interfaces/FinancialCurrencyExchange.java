@@ -7,4 +7,6 @@ public interface FinancialCurrencyExchange {
 
 
     BigDecimal exchange(Currency originalCurrency, Currency targetCurrency, BigDecimal amount);
+
+    BigDecimal exchangeValidated(Currency originalCurrency, Currency targetCurrency, BigDecimal amount);
 }
