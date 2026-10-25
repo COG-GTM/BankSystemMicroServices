@@ -1,18 +1,21 @@
 package ru.kondrashov.commonservice.controllers.dto;
 
 import lombok.Data;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import javax.persistence.EntityListeners;
-import javax.validation.constraints.NotEmpty;
 import java.time.LocalDate;
 import java.util.Date;
 import java.util.UUID;
 
-@Data
+@NoArgsConstructor
+@Getter
+@Setter
 public class AccountResponseDTO {
+
+    private UUID id;
 
     private String name;
 
@@ -20,4 +23,5 @@ public class AccountResponseDTO {
     private LocalDate creationDate;
 
     private UUID personId;
+
 }
