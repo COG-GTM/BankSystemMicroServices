@@ -8,6 +8,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.RequestBuilder;
+import org.springframework.test.web.servlet.ResultActions;
 import ru.kondrashov.commonservice.controllers.dto.AccountRequestDTO;
 import ru.kondrashov.commonservice.controllers.dto.BillRequestDTO;
 import ru.kondrashov.commonservice.exceptions.ResourceNotFoundException;
@@ -20,14 +21,19 @@ import java.util.Currency;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasProperty;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -161,15 +167,22 @@ class CommonControllerTest {
 
     @Test
     void newBillUsesRelativeViewName() throws Exception {
-        mockMvc.perform(get(String.format(ACCOUNT_BASE, "create") + ACCOUNT_ID + "/bills/new"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("bills/new"));
+        expectBillForm(mockMvc.perform(get(String.format(ACCOUNT_BASE, "create") + ACCOUNT_ID + "/bills/new")))
+                .andExpect(status().isOk());
     }
 
     @Test
-    void createBillWithValidationErrorsUsesRelativeViewName() throws Exception {
-        mockMvc.perform(post(String.format(ACCOUNT_BASE, "create") + ACCOUNT_ID + "/bills"))
-                .andExpect(view().name("bills/new"));
+    void createBillWithValidationErrorsRendersUsableForm() throws Exception {
+        expectBillForm(mockMvc.perform(post(String.format(ACCOUNT_BASE, "create") + ACCOUNT_ID + "/bills")))
+                .andExpect(model().attributeHasFieldErrors("bill", "currency"));
+        verify(commonService, never()).createBill(any(), any(), any());
+    }
+
+    @Test
+    void createBillServiceFailureRendersUsableForm() throws Exception {
+        doThrow(new IllegalStateException("downstream")).when(commonService).createBill(any(), any(), any());
+        expectBillForm(mockMvc.perform(post(String.format(ACCOUNT_BASE, "create") + ACCOUNT_ID + "/bills").param("currency", "USD")))
+                .andExpect(model().attribute("bill", hasProperty("currency", is(Currency.getInstance("USD")))));
     }
 
     @Test
@@ -177,6 +190,16 @@ class CommonControllerTest {
         mockMvc.perform(get(String.format(ACCOUNT_BASE, "create") + ACCOUNT_ID + "/bills/" + BILL_ID + "/transfers/new"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("bills/transfers/new"));
+    }
+
+    private ResultActions expectBillForm(ResultActions result) throws Exception {
+        String action = "/common/v1/create/people/" + PERSON_ID + "/accounts/" + ACCOUNT_ID + "/bills";
+        return result
+                .andExpect(view().name("bills/new"))
+                .andExpect(model().attribute("personId", PERSON_ID))
+                .andExpect(model().attribute("accountId", ACCOUNT_ID))
+                .andExpect(content().string(containsString("action=\"" + action + "\"")))
+                .andExpect(content().string(containsString("<option value=\"USD\"")));
     }
 
     private void expectAccountNotFound(RequestBuilder request) throws Exception {

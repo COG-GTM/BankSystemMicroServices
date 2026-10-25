@@ -79,10 +79,7 @@ public class CommonController {
     @ResponseStatus(HttpStatus.OK)
     public String newBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, Model model){
         model.addAttribute("bill", new BillResponseDTO());
-        model.addAttribute("currencies", Currency.getAvailableCurrencies());
-        model.addAttribute("accountId", accountId);
-        model.addAttribute("personId", personId);
-        return "bills/new";
+        return billForm(personId, accountId, model);
     }
 
     @GetMapping("/create/people/{personId}/accounts/{accountId}/bills/{billId}/transfers/new")
@@ -128,17 +125,17 @@ public class CommonController {
 
     @PostMapping("/create/people/{personId}/accounts/{accountId}/bills")
     @ResponseStatus(HttpStatus.FOUND)
-    public String createBill(@ModelAttribute("bill") @Valid BillResponseDTO bill, BindingResult bindingResult, @PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId){
+    public String createBill(@ModelAttribute("bill") @Valid BillResponseDTO bill, BindingResult bindingResult, @PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, Model model){
         if(bindingResult.hasErrors()){
             bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
-            return "bills/new";
+            return billForm(personId, accountId, model);
         }
         AccountRequestDTO accountRequestDTO = findAccount(personId, accountId);
         bill.setAccount(accountRequestDTO);
         try {
             commonService.createBill(personId,accountId,bill);
         } catch (Exception e) {
-            return "bills/new";
+            return billForm(personId, accountId, model);
         }
         return String.format("redirect:/common/v1/info/people/%s/accounts/%s",accountRequestDTO.getPersonId(),accountRequestDTO.getId());
     }
@@ -229,6 +226,13 @@ public class CommonController {
     public String deleteBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId){
         commonService.deleteBill(personId, accountId, billId);
         return String.format("redirect:/common/v1/info/people/%s/accounts/%s", personId, accountId);
+    }
+
+    private String billForm(UUID personId, UUID accountId, Model model) {
+        model.addAttribute("currencies", Currency.getAvailableCurrencies());
+        model.addAttribute("accountId", accountId);
+        model.addAttribute("personId", personId);
+        return "bills/new";
     }
 
     private AccountRequestDTO findAccount(UUID personId, UUID accountId) {
