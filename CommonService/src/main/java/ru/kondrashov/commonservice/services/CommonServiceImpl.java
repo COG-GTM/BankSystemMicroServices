@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import ru.kondrashov.commonservice.controllers.dto.*;
 
@@ -153,6 +154,10 @@ public class CommonServiceImpl implements CommonService{
         } catch (HttpStatusCodeException e) {
             logger.error("Transfer rejected with status code "+e.getStatusCode());
             throw new TransferRejectedException(e.getStatusCode(), extractErrorMessage(e));
+        } catch (ResourceAccessException e) {
+            logger.error("Account service unreachable during transfer: "+e.getMessage());
+            throw new TransferRejectedException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Account service is unavailable, so the transfer outcome could not be confirmed. Check the bill balance before trying again.");
         }
     }
 

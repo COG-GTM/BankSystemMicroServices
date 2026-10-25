@@ -15,7 +15,7 @@
     <p>All fields are required. You can review the transfer before it is sent.</p>
 
     <div role="alert" style="color:#b00020" th:if="${transferError}">
-        <strong>Transfer was not completed:</strong> <span th:text="${transferError}">error</span>
+        <strong th:text="${transferErrorTitle}">Transfer was not completed:</strong> <span th:text="${transferError}">error</span>
     </div>
 
     <form method="post" th:action="@{/common/v1/create/people/{personId}/accounts/{accountId}/bills/{billId}/transfers(personId=${personId},accountId=${accountId},billId=${billId})}" th:object="${transfer}">

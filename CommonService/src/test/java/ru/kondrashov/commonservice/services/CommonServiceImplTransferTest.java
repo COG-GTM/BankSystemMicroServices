@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import ru.kondrashov.commonservice.controllers.dto.TransferResponseDTO;
 
@@ -88,5 +89,17 @@ class CommonServiceImplTransferTest {
         transfer.setMessage("Rent");
         transfer.setBeneficiaryBillId(beneficiaryBillId);
         return transfer;
+    }
+
+    @Test
+    void unreachableAccountServiceBecomesTransferRejectedWithUnknownOutcome() {
+        server.expect(requestTo(String.format(TRANSFER_URL, personId, accountId, sourceBillId, beneficiaryBillId)))
+                .andRespond(request -> { throw new ResourceAccessException("Connection refused"); });
+
+        TransferRejectedException e = catchThrowableOfType(
+                () -> commonService.createTransfer(personId, accountId, sourceBillId, transfer()), TransferRejectedException.class);
+
+        assertThat(e.getStatus()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(e.getMessage()).contains("outcome could not be confirmed");
     }
 }

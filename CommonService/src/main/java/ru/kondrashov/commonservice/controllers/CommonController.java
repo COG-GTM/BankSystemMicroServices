@@ -180,6 +180,8 @@ public class CommonController {
         try {
             commonService.createTransfer(personId, accountId, billId, transfer);
         } catch (TransferRejectedException e) {
+            model.addAttribute("transferErrorTitle", e.getStatus() == HttpStatus.SERVICE_UNAVAILABLE
+                    ? "Transfer status unknown:" : "Transfer was not completed:");
             model.addAttribute("transferError", e.getMessage());
             return "bills/transfers/new";
         }

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.entities.Transfer;
+import ru.kondrashov.accountservice.exceptions.SameBillTransferException;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.interfaces.AdjustmentsService;
 import ru.kondrashov.accountservice.services.interfaces.FinancialCurrencyExchange;
@@ -17,6 +18,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -65,6 +68,17 @@ class BillServiceImplTransferTest {
         verify(transferService).save(saved.capture());
         assertThat(saved.getValue().getSourceBill().getId()).isEqualTo(source.getId());
         assertThat(saved.getValue().getBeneficiaryBill().getId()).isEqualTo(beneficiary.getId());
+    }
+
+    @Test
+    void transferToTheSameBillIsRejectedWithoutTouchingBalances() {
+        Bill source = bill(new BigDecimal("100"));
+        Transfer transfer = new Transfer(Currency.getInstance("USD"), new BigDecimal("40"), LocalDateTime.now(), "Rent", null, null);
+
+        assertThatThrownBy(() -> billService.commitTransfer(source.getId(), source.getId(), transfer))
+                .isInstanceOf(SameBillTransferException.class);
+        verifyNoInteractions(billsRepository, transferService);
+        assertThat(source.getAmount()).isEqualByComparingTo("100");
     }
 
     private Bill bill(BigDecimal amount) {
