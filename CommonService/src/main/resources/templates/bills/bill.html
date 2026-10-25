@@ -24,7 +24,7 @@
 <body>
 <h2>Bill</h2>
 <p th:text="'ID: '+${bill.getId()}"></p>
-<a th:href="@{/common/v1/info/people/{personId}/accounts/{accountId}(personId=${personId},accountId=${bill.getAccount().getId()})}" th:text="'Account: '+${bill.getAccount().getId()}"></a>
+<a th:href="@{/common/v1/info/people/{personId}/accounts/{accountId}(personId=${personId},accountId=${bill.getAccountId()})}" th:text="'Account: '+${bill.getAccountId()}"></a>
 <p th:text="'Amount: '+${bill.getAmount()}+' '+${bill.getCurrency().getCurrencyCode()}"></p>
 <p th:text="'Is overdraft: '+${bill.isOverdraft()}"></p>
 

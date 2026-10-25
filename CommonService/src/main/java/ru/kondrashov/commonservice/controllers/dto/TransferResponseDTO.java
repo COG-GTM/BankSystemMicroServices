@@ -9,6 +9,7 @@ import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Currency;
+import java.util.UUID;
 
 @Data
 public class TransferResponseDTO {
@@ -26,8 +27,8 @@ public class TransferResponseDTO {
     private String message;
 
     @NotNull(message = "Bill should not be null")
-    private BillRequestDTO sourceBill;
+    private UUID sourceBillId;
 
     @NotNull(message = "Bill should not be null")
-    private BillRequestDTO beneficiaryBill;
+    private UUID beneficiaryBillId;
 }

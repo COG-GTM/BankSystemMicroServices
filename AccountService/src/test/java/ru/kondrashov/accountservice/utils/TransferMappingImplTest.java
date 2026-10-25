@@ -10,6 +10,7 @@ import ru.kondrashov.accountservice.entities.Transfer;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Currency;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -20,16 +21,11 @@ class TransferMappingImplTest {
     @Test
     void mapToTransfer() {
 
-        Bill sourceBill = new Bill();
-        Bill beneficiaryBill = new Bill();
-
         TransferRequestDTO transferRequestDTO = new TransferRequestDTO(
                 Currency.getInstance("USD"),
                 BigDecimal.TEN,
                 LocalDateTime.now(),
-                "Transfer",
-                sourceBill,
-                beneficiaryBill
+                "Transfer"
         );
 
         Transfer transfer = transferMapping.mapToTransfer(transferRequestDTO);
@@ -37,15 +33,17 @@ class TransferMappingImplTest {
         assertEquals(transfer.getCurrency(),        transferRequestDTO.getCurrency());
         assertEquals(transfer.getAmount(),          transferRequestDTO.getAmount());
         assertEquals(transfer.getMessage(),         transferRequestDTO.getMessage());
-        assertEquals(transfer.getSourceBill(),      transferRequestDTO.getSourceBill());
-        assertEquals(transfer.getBeneficiaryBill(), transferRequestDTO.getBeneficiaryBill());
+        assertNull(transfer.getSourceBill());
+        assertNull(transfer.getBeneficiaryBill());
         assertEquals(transfer.getTime(),            transferRequestDTO.getTime());
     }
 
     @Test
     void mapToTransferResponseDTO() {
         Bill sourceBill = new Bill();
+        sourceBill.setId(UUID.randomUUID());
         Bill beneficiaryBill = new Bill();
+        beneficiaryBill.setId(UUID.randomUUID());
 
         Transfer transfer = new Transfer(
                 Currency.getInstance("USD"),
@@ -61,8 +59,8 @@ class TransferMappingImplTest {
         assertEquals(transfer.getCurrency(),        transferResponseDTO.getCurrency());
         assertEquals(transfer.getAmount(),          transferResponseDTO.getAmount());
         assertEquals(transfer.getMessage(),         transferResponseDTO.getMessage());
-        assertEquals(transfer.getSourceBill(),      transferResponseDTO.getSourceBill());
-        assertEquals(transfer.getBeneficiaryBill(), transferResponseDTO.getBeneficiaryBill());
+        assertEquals(sourceBill.getId(),            transferResponseDTO.getSourceBillId());
+        assertEquals(beneficiaryBill.getId(),       transferResponseDTO.getBeneficiaryBillId());
         assertEquals(transfer.getTime(),            transferResponseDTO.getTime());
     }
 

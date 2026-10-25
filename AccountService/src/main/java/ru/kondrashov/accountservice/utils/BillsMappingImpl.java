@@ -12,12 +12,12 @@ public class BillsMappingImpl implements BillsMapping {
     @Override
     public Bill mapToBill(BillRequestDTO billRequestDTO) {
 
-        return new Bill(billRequestDTO.getCurrency(),billRequestDTO.getAmount(),billRequestDTO.getIsOverdraft(),billRequestDTO.getAccount());
+        return new Bill(billRequestDTO.getCurrency(),billRequestDTO.getAmount(),billRequestDTO.getIsOverdraft(),null);
     }
 
     @Override
     public BillResponseDTO mapToBillResponseDTO(Bill bill) {
 
-        return new BillResponseDTO(bill.getId(),bill.getCurrency(),bill.getAmount(),bill.getIsOverdraft(),bill.getAccount());
+        return new BillResponseDTO(bill.getId(),bill.getCurrency(),bill.getAmount(),bill.getIsOverdraft(),bill.getAccount().getId());
     }
 }

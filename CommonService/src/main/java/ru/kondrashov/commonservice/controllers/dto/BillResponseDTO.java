@@ -20,7 +20,6 @@ public class BillResponseDTO {
 
     private Boolean isOverdraft;
 
-    private AccountRequestDTO account;
 
     public Boolean isOverdraft(){
         return isOverdraft;
