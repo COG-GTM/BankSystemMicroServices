@@ -13,7 +13,6 @@ import ru.kondrashov.accountservice.controllers.dto.*;
 import ru.kondrashov.accountservice.services.interfaces.BillsService;
 import ru.kondrashov.accountservice.utils.interfaces.AdjustmentMapping;
 import ru.kondrashov.accountservice.utils.interfaces.BillsMapping;
-import org.springframework.transaction.annotation.Transactional;
 import ru.kondrashov.accountservice.utils.interfaces.PaymentsMapping;
 import ru.kondrashov.accountservice.utils.interfaces.TransferMapping;
 
@@ -50,7 +49,6 @@ public class BillsController {
                 .collect(Collectors.toList());
     }
 
-    @Transactional(rollbackFor = Exception.class)
     @PostMapping
     @ApiOperation(value = "Save bill", tags = { "BILLS" })
     @ResponseStatus(HttpStatus.CREATED)
@@ -64,7 +62,6 @@ public class BillsController {
         billsService.save(billsMapping.mapToBill(billRequestDTO));
     }
 
-    @Transactional(rollbackFor = Exception.class)
     @PutMapping("/{id}")
     @ApiOperation(value = "Update bill", tags = { "BILLS" })
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -79,7 +76,6 @@ public class BillsController {
         billsService.update(id,billsMapping.mapToBill(bill));
     }
 
-    @Transactional(rollbackFor = Exception.class)
     @DeleteMapping("/{id}")
     @ApiOperation(value = "Delete bill", tags = { "BILLS" })
     @ResponseStatus(HttpStatus.NO_CONTENT)

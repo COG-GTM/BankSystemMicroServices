@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.UUID;
 
 @Service
+@Transactional(readOnly = true)
 public class AdjustmentsServiceImpl implements AdjustmentsService {
 
     private final AdjustmentsRepository adjustmentsRepository;
