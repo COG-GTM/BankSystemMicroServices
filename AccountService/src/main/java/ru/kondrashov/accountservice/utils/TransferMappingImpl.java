@@ -38,13 +38,6 @@ public class TransferMappingImpl implements TransferMapping {
 
     @Override
     public FinancialTransactionResponseDTO mapToFinancialTransactionResponseDTO(Transfer transfer){
-        return new FinancialTransactionResponseDTO(
-          transfer.getId(),
-          transfer.getCurrency(),
-          transfer.getAmount(),
-          transfer.getTime(),
-          transfer.getMessage()
-
-        );
+        return FinancialTransactionMapping.mapToFinancialTransactionResponseDTO(transfer);
     }
 }
