@@ -32,7 +32,8 @@ public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange 
     public BigDecimal exchange(Currency originalCurrency, Currency targetCurrency, BigDecimal amount) {
 
         if (originalCurrency.equals(targetCurrency)) {
-            return roundForStorage(amount, targetCurrency);
+            // The request amount is also persisted as the transaction, so only round to the shared column scale.
+            return amount.setScale(PERSISTED_AMOUNT_SCALE, RoundingMode.HALF_EVEN);
         }
 
         MonetaryAmount originalMonetaryAmount = Monetary.getDefaultAmountFactory()
