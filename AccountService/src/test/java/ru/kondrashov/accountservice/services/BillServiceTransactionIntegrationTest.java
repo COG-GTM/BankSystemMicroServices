@@ -30,6 +30,12 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Currency;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -126,6 +132,26 @@ class BillServiceTransactionIntegrationTest {
     }
 
     @Test
+    void opposingConcurrentTransfersBothCommit() throws Exception {
+        int rounds = 20;
+        CyclicBarrier barrier = new CyclicBarrier(2);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> forward = pool.submit(transfers(rounds, barrier, source, beneficiary));
+            Future<?> backward = pool.submit(transfers(rounds, barrier, beneficiary, source));
+            forward.get(60, TimeUnit.SECONDS);
+            backward.get(60, TimeUnit.SECONDS);
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertThat(amountOf(source)).isEqualByComparingTo("100.00");
+        assertThat(amountOf(beneficiary)).isEqualByComparingTo("10.00");
+        assertThat(transferService.getTransfersBySourceBill_Id(source.getId())).hasSize(rounds);
+        assertThat(transferService.getTransfersBySourceBill_Id(beneficiary.getId())).hasSize(rounds);
+    }
+
+    @Test
     void controllersDoNotDeclareTransactions() {
         for (Class<?> controller : Arrays.asList(BillsController.class, AccountsController.class)) {
             assertThat(controller.isAnnotationPresent(Transactional.class)).as(controller.getSimpleName()).isFalse();
@@ -135,6 +161,17 @@ class BillServiceTransactionIntegrationTest {
                         .isFalse();
             }
         }
+    }
+
+    private Callable<Void> transfers(int rounds, CyclicBarrier barrier, Bill from, Bill to) {
+        return () -> {
+            for (int i = 0; i < rounds; i++) {
+                barrier.await(30, TimeUnit.SECONDS);
+                billsService.commitTransfer(from.getId(), to.getId(),
+                        new Transfer(USD, new BigDecimal("1.00"), LocalDateTime.now(), "transfer", from, to));
+            }
+            return null;
+        };
     }
 
     private Transfer transfer(String amount) {
