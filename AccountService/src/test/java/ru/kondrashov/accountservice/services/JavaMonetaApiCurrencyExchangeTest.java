@@ -78,6 +78,11 @@ class JavaMonetaApiCurrencyExchangeTest {
         assertThat(fixedRate.exchangeValidated(BHD, USD, new BigDecimal("1.234"))).isEqualTo(new BigDecimal("3.27"));
     }
 
+    @Test
+    void plainExchangeAcceptsStoredBalancesFinerThanMinorUnit() {
+        assertThat(exchange.exchange(JPY, JPY, new BigDecimal("100.50"))).isEqualTo(new BigDecimal("100"));
+    }
+
     private static JavaMonetaApiCurrencyExchange withConvertedValue(BigDecimal converted) {
         return new JavaMonetaApiCurrencyExchange(LogManager.getLogger()) {
             @Override

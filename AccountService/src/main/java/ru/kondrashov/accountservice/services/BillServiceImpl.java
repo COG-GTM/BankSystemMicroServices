@@ -54,7 +54,7 @@ public class BillServiceImpl implements BillsService {
     @Override
     public void update(UUID id, Bill newBill) {
         Bill oldBill = getBill(id);
-        oldBill.setAmount(currencyConversion.exchangeValidated(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
+        oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
         oldBill.setCurrency(newBill.getCurrency());
         oldBill.setIsOverdraft(newBill.getIsOverdraft());
         oldBill.setAccount(newBill.getAccount());
