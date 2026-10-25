@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Confirm transfer</title>
+</head>
+<body>
+<main>
+    <h1>Confirm transfer</h1>
+    <p>Check the details below. The transfer is sent only when you select "Confirm transfer".</p>
+    <dl>
+        <dt>From bill</dt>
+        <dd th:text="${billId}+' (balance '+${sourceBill.getAmount()}+' '+${sourceBill.getCurrency().getCurrencyCode()}+')'">source</dd>
+        <dt>To bill</dt>
+        <dd th:text="${transfer.getBeneficiaryBillId()}">beneficiary</dd>
+        <dt>Amount</dt>
+        <dd th:text="${transfer.getAmount().toPlainString()}+' '+${transfer.getCurrency().getCurrencyCode()}">amount</dd>
+        <dt>Fee</dt>
+        <dd>None</dd>
+        <dt>Total debited</dt>
+        <dd th:text="${transfer.getCurrency().equals(sourceBill.getCurrency())} ? ${transfer.getAmount().toPlainString()}+' '+${sourceBill.getCurrency().getCurrencyCode()} : ${transfer.getAmount().toPlainString()}+' '+${transfer.getCurrency().getCurrencyCode()}+', converted to '+${sourceBill.getCurrency().getCurrencyCode()}+' at the current exchange rate'">total</dd>
+        <dt>Message</dt>
+        <dd th:text="${transfer.getMessage()}">message</dd>
+    </dl>
+    <form method="post" th:action="@{/common/v1/create/people/{personId}/accounts/{accountId}/bills/{billId}/transfers(personId=${personId},accountId=${accountId},billId=${billId})}" th:object="${transfer}">
+        <input type="hidden" th:field="*{beneficiaryBillId}"/>
+        <input type="hidden" th:field="*{currency}"/>
+        <input type="hidden" th:field="*{amount}"/>
+        <input type="hidden" th:field="*{message}"/>
+        <button type="submit" name="action" value="confirm">Confirm transfer</button>
+        <button type="submit" name="action" value="edit">Edit</button>
+    </form>
+</main>
+</body>
+</html>

@@ -20,7 +20,7 @@ public class FinancialTransactionResponseDTO {
 
     private UUID id;
 
-    @NotNull(message = "Message should not null")
+    @NotNull(message = "Currency should not be null")
     private Currency currency;
 
     private BigDecimal amount;
@@ -28,7 +28,7 @@ public class FinancialTransactionResponseDTO {
     @DateTimeFormat(pattern = "yyyy-MM-dd hh:mm:ss")
     private LocalDateTime time = LocalDateTime.now();
 
-    @NotEmpty(message = "Message should not empty")
+    @NotEmpty(message = "Message should not be empty")
     private String message;
 
 }

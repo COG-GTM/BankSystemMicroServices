@@ -2,15 +2,55 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Create new transfer</title>
+    <title>Transfer money</title>
 </head>
 <body>
-    <form method="post" th:action="@{/common/v1/create/accounts/{accountId}/bills/{billId}/transfers(accountId=${accountId},billId=${billId})}" th:object="${transfer}" >
-        <label>Select person</label>
-        <select th:field="*{currency}">
+<main>
+    <h1>Transfer money</h1>
+    <p>
+        From bill
+        <a th:href="@{/common/v1/info/people/{personId}/accounts/{accountId}/bills/{billId}(personId=${personId},accountId=${accountId},billId=${billId})}" th:text="${billId}">source bill</a>,
+        balance <span th:text="${sourceBill.getAmount()}+' '+${sourceBill.getCurrency().getCurrencyCode()}">0 USD</span>.
+    </p>
+    <p>All fields are required. You can review the transfer before it is sent.</p>
+
+    <div role="alert" style="color:#b00020" th:if="${transferError}">
+        <strong>Transfer was not completed:</strong> <span th:text="${transferError}">error</span>
+    </div>
+
+    <form method="post" th:action="@{/common/v1/create/people/{personId}/accounts/{accountId}/bills/{billId}/transfers(personId=${personId},accountId=${accountId},billId=${billId})}" th:object="${transfer}">
+        <div role="alert" style="color:#b00020" th:if="${#fields.hasErrors('*')}">
+            <strong>Please fix the following:</strong>
+            <ul>
+                <li th:each="err : ${#fields.errors('*')}" th:text="${err}">error</li>
+            </ul>
+        </div>
+
+        <label for="beneficiaryBillId">Beneficiary bill ID</label>
+        <span id="beneficiaryBillId-hint">(UUID, for example 123e4567-e89b-12d3-a456-426614174000)</span>
+        <input type="text" th:field="*{beneficiaryBillId}" id="beneficiaryBillId" required aria-describedby="beneficiaryBillId-hint"
+               th:attr="aria-invalid=${#fields.hasErrors('beneficiaryBillId')}"/>
+        <div style="color:#b00020" th:if="${#fields.hasErrors('beneficiaryBillId')}" th:errors="*{beneficiaryBillId}">Beneficiary error</div>
+        <br/>
+        <label for="currency">Currency</label>
+        <select th:field="*{currency}" id="currency" required>
             <option th:each="currency : ${currencies}" th:value="${currency}" th:text="${currency.getCurrencyCode()}"></option>
         </select>
-        <br>
+        <div style="color:#b00020" th:if="${#fields.hasErrors('currency')}" th:errors="*{currency}">Currency error</div>
+        <br/>
+        <label for="amount">Amount</label>
+        <span id="amount-hint">(greater than zero)</span>
+        <input type="number" step="0.01" min="0.01" th:field="*{amount}" id="amount" required aria-describedby="amount-hint"
+               th:attr="aria-invalid=${#fields.hasErrors('amount')}"/>
+        <div style="color:#b00020" th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}">Amount error</div>
+        <br/>
+        <label for="message">Message</label>
+        <input type="text" th:field="*{message}" id="message" required
+               th:attr="aria-invalid=${#fields.hasErrors('message')}"/>
+        <div style="color:#b00020" th:if="${#fields.hasErrors('message')}" th:errors="*{message}">Message error</div>
+        <br/>
+        <button type="submit" name="action" value="review">Review transfer</button>
     </form>
+</main>
 </body>
 </html>

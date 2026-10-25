@@ -23,6 +23,8 @@ public interface CommonService {
 
     void createBill(UUID personId, UUID accountId, BillResponseDTO bill) throws Exception;
 
+    void createTransfer(UUID personId, UUID accountId, UUID sourceBillId, TransferResponseDTO transfer);
+
 
     void updatePerson(UUID id, PersonResponseDTO personResponseDTO);
 

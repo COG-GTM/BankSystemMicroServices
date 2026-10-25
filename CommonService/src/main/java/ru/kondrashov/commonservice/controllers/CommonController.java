@@ -8,8 +8,10 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import ru.kondrashov.commonservice.controllers.dto.*;
 import ru.kondrashov.commonservice.services.CommonService;
+import ru.kondrashov.commonservice.services.TransferRejectedException;
 
 import javax.validation.Valid;
 import java.util.Collection;
@@ -98,14 +100,14 @@ public class CommonController {
         return "/bills/new";
     }
 
-    @GetMapping("create/people/{personId}/accounts/{accountId}/bills/{billId}/transfers/new")
+    @GetMapping("/create/people/{personId}/accounts/{accountId}/bills/{billId}/transfers/new")
     @ResponseStatus(HttpStatus.OK)
-    public String newTransfer (@PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId, Model model){
-        model.addAttribute("accountId", accountId);
-        model.addAttribute("billId",billId);
-        model.addAttribute("transfer", new TransferResponseDTO());
-        model.addAttribute("people", commonService.getPeople());
-        return "/bills/transfers/new";
+    public String newTransfer(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId, Model model){
+        BillRequestDTO sourceBill = populateTransferForm(model, personId, accountId, billId);
+        TransferResponseDTO transfer = new TransferResponseDTO();
+        transfer.setCurrency(sourceBill.getCurrency());
+        model.addAttribute("transfer", transfer);
+        return "bills/transfers/new";
     }
 
     @PostMapping("/create/people")
@@ -154,6 +156,36 @@ public class CommonController {
             return "/bills/new";
         }
         return String.format("redirect:/common/v1/info/people/%s/accounts/%s",accountRequestDTO.getPersonId(),accountRequestDTO.getId());
+    }
+
+    @PostMapping("/create/people/{personId}/accounts/{accountId}/bills/{billId}/transfers")
+    public String createTransfer(@ModelAttribute("transfer") @Valid TransferResponseDTO transfer, BindingResult bindingResult,
+                                 @PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId,
+                                 @RequestParam(value = "action", defaultValue = "review") String action,
+                                 Model model, RedirectAttributes redirectAttributes){
+        populateTransferForm(model, personId, accountId, billId);
+        if(billId.equals(transfer.getBeneficiaryBillId())){
+            bindingResult.rejectValue("beneficiaryBillId", "transfer.sameBill", "Beneficiary bill should differ from the source bill");
+        }
+        if(bindingResult.hasErrors()){
+            bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
+            return "bills/transfers/new";
+        }
+        if("edit".equals(action)){
+            return "bills/transfers/new";
+        }
+        if(!"confirm".equals(action)){
+            return "bills/transfers/confirm";
+        }
+        try {
+            commonService.createTransfer(personId, accountId, billId, transfer);
+        } catch (TransferRejectedException e) {
+            model.addAttribute("transferError", e.getMessage());
+            return "bills/transfers/new";
+        }
+        redirectAttributes.addFlashAttribute("transferSuccess",
+                String.format("Transferred %s %s to bill %s.", transfer.getAmount().toPlainString(), transfer.getCurrency().getCurrencyCode(), transfer.getBeneficiaryBillId()));
+        return String.format("redirect:/common/v1/info/people/%s/accounts/%s/bills/%s", personId, accountId, billId);
     }
 
     @GetMapping("/update/people/{id}/edit")
@@ -242,5 +274,18 @@ public class CommonController {
     public String deleteBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId){
         commonService.deleteBill(personId, accountId, billId);
         return String.format("redirect:/common/v1/info/people/%s/accounts/%s", personId, accountId);
+    }
+
+    private BillRequestDTO populateTransferForm(Model model, UUID personId, UUID accountId, UUID billId){
+        BillRequestDTO sourceBill = commonService.getBillsByAccountId(personId, accountId)
+                .stream()
+                .filter(bill -> bill.getId().equals(billId))
+                .findFirst().orElseThrow(() -> new RuntimeException("Account with id " + accountId+" dont have bill with id "+billId));
+        model.addAttribute("personId", personId);
+        model.addAttribute("accountId", accountId);
+        model.addAttribute("billId", billId);
+        model.addAttribute("sourceBill", sourceBill);
+        model.addAttribute("currencies", Currency.getAvailableCurrencies());
+        return sourceBill;
     }
 }
