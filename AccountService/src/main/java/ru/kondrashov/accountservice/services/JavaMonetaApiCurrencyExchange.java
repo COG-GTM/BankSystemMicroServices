@@ -12,7 +12,6 @@ import javax.money.MonetaryAmount;
 import javax.money.convert.CurrencyConversion;
 import javax.money.convert.MonetaryConversions;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.Currency;
 
@@ -20,10 +19,19 @@ import java.util.Currency;
 @RequiredArgsConstructor
 public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange {
 
+    static final int FALLBACK_FRACTION_DIGITS = 2;
+
     private final Logger logger;
 
     @Override
     public BigDecimal exchange(Currency originalCurrency, Currency targetCurrency, BigDecimal amount) {
+
+        BigDecimal result = roundToMinorUnits(convert(originalCurrency, targetCurrency, amount), targetCurrency);
+        logger.info("Currency conversion from " + originalCurrency.getCurrencyCode() + " to " + targetCurrency.getCurrencyCode() + " in the amount of " + amount + " " + originalCurrency.getCurrencyCode() + " is performed");
+        return result;
+    }
+
+    protected BigDecimal convert(Currency originalCurrency, Currency targetCurrency, BigDecimal amount) {
 
         CurrencyUnit targetCurrencyUnit = Monetary.getCurrency(targetCurrency.getCurrencyCode());
         CurrencyUnit originalCurrencyUnit = Monetary.getCurrency(originalCurrency.getCurrencyCode());
@@ -31,8 +39,11 @@ public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange 
 
         CurrencyConversion toTargetCurrency = MonetaryConversions.getConversion(targetCurrencyUnit);
 
-        BigDecimal result = MoneyUtils.getBigDecimal(originalMonetaryAmount.with(toTargetCurrency).getNumber()).round(new MathContext(2, RoundingMode.HALF_EVEN));
-        logger.info("Currency conversion from"+originalCurrency.getCurrencyCode()+" to "+ targetCurrency.getCurrencyCode()+" in the amount of "+amount+" "+originalCurrency.getCurrencyCode()+" is performed");
-        return result;
+        return MoneyUtils.getBigDecimal(originalMonetaryAmount.with(toTargetCurrency).getNumber());
+    }
+
+    static BigDecimal roundToMinorUnits(BigDecimal amount, Currency currency) {
+        int fractionDigits = currency.getDefaultFractionDigits();
+        return amount.setScale(fractionDigits < 0 ? FALLBACK_FRACTION_DIGITS : fractionDigits, RoundingMode.HALF_EVEN);
     }
 }

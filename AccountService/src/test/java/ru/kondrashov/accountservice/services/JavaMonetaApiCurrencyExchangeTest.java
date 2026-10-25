@@ -1,0 +1,56 @@
+package ru.kondrashov.accountservice.services;
+
+import org.apache.logging.log4j.LogManager;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.util.Currency;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class JavaMonetaApiCurrencyExchangeTest {
+
+    private static final Currency USD = Currency.getInstance("USD");
+    private static final Currency JPY = Currency.getInstance("JPY");
+    private static final Currency BHD = Currency.getInstance("BHD");
+    private static final Currency XAU = Currency.getInstance("XAU");
+
+    private final JavaMonetaApiCurrencyExchange exchange = new JavaMonetaApiCurrencyExchange(LogManager.getLogger());
+
+    @Test
+    void sameCurrencyKeepsAmountsWithMoreThanTwoSignificantDigits() {
+        assertThat(exchange.exchange(USD, USD, new BigDecimal("1234.56"))).isEqualTo(new BigDecimal("1234.56"));
+        assertThat(exchange.exchange(USD, USD, new BigDecimal("98765432.10"))).isEqualTo(new BigDecimal("98765432.10"));
+    }
+
+    @Test
+    void sameCurrencyKeepsSmallAmounts() {
+        assertThat(exchange.exchange(USD, USD, new BigDecimal("5.75"))).isEqualTo(new BigDecimal("5.75"));
+        assertThat(exchange.exchange(USD, USD, BigDecimal.TEN)).isEqualTo(new BigDecimal("10.00"));
+    }
+
+    @Test
+    void roundsToTargetCurrencyMinorUnitsHalfEven() {
+        JavaMonetaApiCurrencyExchange fixedRate = withConvertedValue(new BigDecimal("1234.5650"));
+
+        assertThat(fixedRate.exchange(USD, USD, BigDecimal.ONE)).isEqualTo(new BigDecimal("1234.56"));
+        assertThat(fixedRate.exchange(USD, JPY, BigDecimal.ONE)).isEqualTo(new BigDecimal("1235"));
+        assertThat(fixedRate.exchange(USD, BHD, BigDecimal.ONE)).isEqualTo(new BigDecimal("1234.565"));
+    }
+
+    @Test
+    void currencyWithoutMinorUnitsFallsBackToTwoDecimals() {
+        JavaMonetaApiCurrencyExchange fixedRate = withConvertedValue(new BigDecimal("1234.5678"));
+
+        assertThat(fixedRate.exchange(USD, XAU, BigDecimal.ONE)).isEqualTo(new BigDecimal("1234.57"));
+    }
+
+    private static JavaMonetaApiCurrencyExchange withConvertedValue(BigDecimal converted) {
+        return new JavaMonetaApiCurrencyExchange(LogManager.getLogger()) {
+            @Override
+            protected BigDecimal convert(Currency originalCurrency, Currency targetCurrency, BigDecimal amount) {
+                return converted;
+            }
+        };
+    }
+}
