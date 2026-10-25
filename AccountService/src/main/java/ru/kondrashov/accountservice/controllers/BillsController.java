@@ -61,7 +61,7 @@ public class BillsController {
             @RequestHeader HttpHeaders header){
 
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills\""+" received a POST request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.save(billsMapping.mapToBill(billRequestDTO));
+        billsService.save(personId, accountId, billsMapping.mapToBill(billRequestDTO));
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -76,7 +76,7 @@ public class BillsController {
             @RequestHeader HttpHeaders header){
 
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.update(id,billsMapping.mapToBill(bill));
+        billsService.update(personId, accountId, id, billsMapping.mapToBill(bill));
     }
 
     @Transactional(rollbackFor = Exception.class)

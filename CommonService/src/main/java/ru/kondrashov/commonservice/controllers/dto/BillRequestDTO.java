@@ -19,8 +19,7 @@ public class BillRequestDTO {
 
     private Boolean isOverdraft;
 
-    @NotNull
-    private AccountRequestDTO account;
+    private UUID accountId;
 
     public Boolean isOverdraft(){
         return isOverdraft;

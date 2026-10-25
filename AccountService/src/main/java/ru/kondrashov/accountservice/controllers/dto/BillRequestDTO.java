@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import ru.kondrashov.accountservice.entities.Account;
 
 import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
@@ -22,7 +21,4 @@ public class BillRequestDTO {
     private BigDecimal amount ;
     @NotNull
     private Boolean isOverdraft;
-
-    @NotNull
-    private Account account;
 }

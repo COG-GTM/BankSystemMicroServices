@@ -3,10 +3,12 @@ package ru.kondrashov.accountservice.services;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.kondrashov.accountservice.entities.Account;
 import ru.kondrashov.accountservice.entities.Adjustment;
 import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.entities.Payment;
 import ru.kondrashov.accountservice.entities.Transfer;
+import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
@@ -25,6 +27,7 @@ public class BillServiceImpl implements BillsService {
     private final AdjustmentsService adjustmentsService;
     private final TransferService transferService;
     private final FinancialCurrencyExchange currencyConversion;
+    private final AccountsService accountsService;
 
     @Override
     public Collection<Bill> getBills() {
@@ -42,7 +45,8 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
-    public void save(Bill bill) {
+    public void save(UUID personId, UUID accountId, Bill bill) {
+        bill.setAccount(getPersonAccount(personId, accountId));
         billsRepository.save(bill);
     }
 
@@ -52,12 +56,15 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
-    public void update(UUID id, Bill newBill) {
+    public void update(UUID personId, UUID accountId, UUID id, Bill newBill) {
+        Account account = getPersonAccount(personId, accountId);
         Bill oldBill = getBill(id);
+        if (!oldBill.getAccount().getId().equals(account.getId())) {
+            throw new BillNotFoundException("Bill with id = "+id+" not found.");
+        }
         oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
         oldBill.setCurrency(newBill.getCurrency());
         oldBill.setIsOverdraft(newBill.getIsOverdraft());
-        oldBill.setAccount(newBill.getAccount());
         billsRepository.save(oldBill);
     }
 
@@ -65,6 +72,7 @@ public class BillServiceImpl implements BillsService {
     public void commitAdjustment(UUID billId, Adjustment adjustment) {
 
         Bill bill = getBill(billId);
+        adjustment.setBill(bill);
 
        increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
 
@@ -76,6 +84,7 @@ public class BillServiceImpl implements BillsService {
     public void commitPayment(UUID billId, Payment payment) {
 
         Bill bill = getBill(billId);
+        payment.setBill(bill);
 
         decreaseBillsAmount(bill,currencyConversion.exchange(payment.getCurrency(),bill.getCurrency(),payment.getAmount()));
 
@@ -88,6 +97,8 @@ public class BillServiceImpl implements BillsService {
 
         Bill sourceBill = getBill(sourceBillId);
         Bill beneficiaryBill = getBill(beneficiaryBillId);
+        transfer.setSourceBill(sourceBill);
+        transfer.setBeneficiaryBill(beneficiaryBill);
 
         decreaseBillsAmount(sourceBill, currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount()));
         increaseBillsAmount(beneficiaryBill, currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount()));
@@ -115,6 +126,14 @@ public class BillServiceImpl implements BillsService {
         return transferService.getTransfersByBeneficiaryBill_Id(billId);
     }
 
+
+    private Account getPersonAccount(UUID personId, UUID accountId) {
+        Account account = accountsService.getAccount(accountId);
+        if (!account.getPersonId().equals(personId)) {
+            throw new AccountNotFoundException("Account with id = "+accountId+" not found.");
+        }
+        return account;
+    }
 
     private void decreaseBillsAmount(Bill bill, BigDecimal amount){
 

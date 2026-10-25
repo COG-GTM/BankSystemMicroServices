@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
-import ru.kondrashov.accountservice.entities.Bill;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotEmpty;
@@ -34,8 +33,8 @@ public class TransferResponseDTO {
     private String message;
 
     @NotNull(message = "Bill should not be null")
-    private Bill sourceBill;
+    private UUID sourceBillId;
 
     @NotNull(message = "Bill should not be null")
-    private Bill beneficiaryBill;
+    private UUID beneficiaryBillId;
 }

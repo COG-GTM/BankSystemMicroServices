@@ -18,8 +18,8 @@ public class TransferMappingImpl implements TransferMapping {
                 transferRequestDTO.getAmount(),
                 transferRequestDTO.getTime(),
                 transferRequestDTO.getMessage(),
-                transferRequestDTO.getSourceBill(),
-                transferRequestDTO.getBeneficiaryBill()
+                null,
+                null
         );
     }
 
@@ -31,8 +31,8 @@ public class TransferMappingImpl implements TransferMapping {
                 transfer.getAmount(),
                 transfer.getTime(),
                 transfer.getMessage(),
-                transfer.getSourceBill(),
-                transfer.getBeneficiaryBill()
+                transfer.getSourceBill().getId(),
+                transfer.getBeneficiaryBill().getId()
         );
     }
 
