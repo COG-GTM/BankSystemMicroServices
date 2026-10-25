@@ -163,7 +163,7 @@ public class BillControllerIntegrationTest {
                 .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
                 .findFirst().get();
 
-        PaymentRequestDTO requestDTO = new PaymentRequestDTO(currency, paymentAmount, time,"Payment for order #1", bill);
+        PaymentRequestDTO requestDTO = new PaymentRequestDTO(currency, paymentAmount, time,"Payment for order #1");
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments",account.getPersonId(), account.getId(), bill.getId())
@@ -214,7 +214,7 @@ public class BillControllerIntegrationTest {
                 .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
                 .findFirst().get();
 
-        PaymentRequestDTO requestDTO = new PaymentRequestDTO(currency, paymentAmount, time,"Payment for order #1", bill);
+        PaymentRequestDTO requestDTO = new PaymentRequestDTO(currency, paymentAmount, time,"Payment for order #1");
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments",account.getPersonId(), account.getId(), bill.getId())
@@ -242,7 +242,7 @@ public class BillControllerIntegrationTest {
                 .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
                 .findFirst().get();
 
-        AdjustmentRequestDTO requestDTO = new AdjustmentRequestDTO(currency, adjustmentAmount, time,"Adjustment", bill);
+        AdjustmentRequestDTO requestDTO = new AdjustmentRequestDTO(currency, adjustmentAmount, time,"Adjustment");
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments",account.getPersonId(), account.getId(), bill.getId())
@@ -305,7 +305,7 @@ public class BillControllerIntegrationTest {
                 .filter(bill1 -> bill1.getCurrency().equals(targetBIllCurrency) && bill1.getIsOverdraft().equals(targetBillOverdraft) && bill1.getAmount().compareTo(targetBillAmount)==0 && bill1.getAccount().equals(account))
                 .findFirst().get();
 
-        TransferRequestDTO transferRequestDTO = new TransferRequestDTO(transferBIllCurrency,transferAmount, LocalDateTime.now(), "Transfer", sourceBill, targetBill);
+        TransferRequestDTO transferRequestDTO = new TransferRequestDTO(transferBIllCurrency,transferAmount, LocalDateTime.now(), "Transfer");
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}", account.getPersonId(), account.getId(), sourceBill.getId(), targetBill.getId())
@@ -366,6 +366,111 @@ public class BillControllerIntegrationTest {
         assertThat(targetTransfer.getSourceBill()).isEqualTo(newSourceBill);
         assertThat(targetTransfer.getBeneficiaryBill()).isEqualTo(newTargetBill);
 
+        accountsService.delete(account.getId());
+    }
+
+    private Bill findBill(Account account, Currency currency) {
+        return billsRepository.getBillsByAccount_Id(account.getId())
+                .stream()
+                .filter(b -> b.getCurrency().equals(currency))
+                .findFirst().get();
+    }
+
+    private String bodyWithoutAmount(Currency currency, String message) throws Exception {
+        java.util.Map<String, Object> body = new java.util.HashMap<>();
+        body.put("currency", currency.getCurrencyCode());
+        body.put("message", message);
+        return objectMapper.writeValueAsString(body);
+    }
+
+    @Test
+    void commitPayment_withoutAmount_isRejected() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        init(currency, BigDecimal.TEN, true, account);
+        Bill bill = findBill(account, currency);
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments", account.getPersonId(), account.getId(), bill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(bodyWithoutAmount(currency, "Payment")))
+                .andExpect(status().isBadRequest());
+
+        assertThat(billsService.getPaymentsByBillId(bill.getId())).isEmpty();
+        assertThat(billsRepository.getBillById(bill.getId()).get().getAmount().compareTo(BigDecimal.TEN)).isEqualTo(0);
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void commitAdjustment_withoutAmount_isRejected() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Account account = initAccount();
+        init(currency, BigDecimal.TEN, true, account);
+        Bill bill = findBill(account, currency);
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments", account.getPersonId(), account.getId(), bill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(bodyWithoutAmount(currency, "Adjustment")))
+                .andExpect(status().isBadRequest());
+
+        assertThat(billsService.getAdjustmentsByBillId(bill.getId())).isEmpty();
+        assertThat(billsRepository.getBillById(bill.getId()).get().getAmount().compareTo(BigDecimal.TEN)).isEqualTo(0);
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void commitTransfer_withoutAmount_isRejected() throws Exception {
+        Currency sourceCurrency = Currency.getInstance("USD");
+        Currency targetCurrency = Currency.getInstance("EUR");
+        Account account = initAccount();
+        init(sourceCurrency, BigDecimal.TEN, false, account);
+        init(targetCurrency, BigDecimal.ZERO, false, account);
+        Bill sourceBill = findBill(account, sourceCurrency);
+        Bill targetBill = findBill(account, targetCurrency);
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}", account.getPersonId(), account.getId(), sourceBill.getId(), targetBill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(bodyWithoutAmount(sourceCurrency, "Transfer")))
+                .andExpect(status().isBadRequest());
+
+        assertThat(billsService.getTransfersBySourceBillId(sourceBill.getId())).isEmpty();
+        assertThat(billsRepository.getBillById(sourceBill.getId()).get().getAmount().compareTo(BigDecimal.TEN)).isEqualTo(0);
+        assertThat(billsRepository.getBillById(targetBill.getId()).get().getAmount().compareTo(BigDecimal.ZERO)).isEqualTo(0);
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void commitPayment_attributesToPathBill_andIgnoresLegacyBodyBill() throws Exception {
+        Currency currency = Currency.getInstance("USD");
+        Currency otherCurrency = Currency.getInstance("EUR");
+        Account account = initAccount();
+        init(currency, BigDecimal.TEN, false, account);
+        init(otherCurrency, BigDecimal.TEN, false, account);
+        Bill pathBill = findBill(account, currency);
+        Bill otherBill = findBill(account, otherCurrency);
+
+        java.util.Map<String, Object> legacyBill = new java.util.HashMap<>();
+        legacyBill.put("id", otherBill.getId().toString());
+        legacyBill.put("currency", otherCurrency.getCurrencyCode());
+        legacyBill.put("amount", 1000000);
+        legacyBill.put("isOverdraft", true);
+        java.util.Map<String, Object> body = new java.util.HashMap<>();
+        body.put("currency", currency.getCurrencyCode());
+        body.put("amount", 4);
+        body.put("message", "Payment");
+        body.put("bill", legacyBill);
+
+        mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments", account.getPersonId(), account.getId(), pathBill.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isAccepted());
+
+        Payment payment = billsService.getPaymentsByBillId(pathBill.getId()).stream().findFirst().get();
+        assertThat(payment.getBill().getId()).isEqualTo(pathBill.getId());
+        assertThat(billsService.getPaymentsByBillId(otherBill.getId())).isEmpty();
+        Bill reloadedOther = billsRepository.getBillById(otherBill.getId()).get();
+        assertThat(reloadedOther.getAmount().compareTo(BigDecimal.TEN)).isEqualTo(0);
+        assertThat(reloadedOther.getIsOverdraft()).isFalse();
+        assertThat(billsRepository.getBillById(pathBill.getId()).get().getAmount().compareTo(new BigDecimal(6))).isEqualTo(0);
         accountsService.delete(account.getId());
     }
 }

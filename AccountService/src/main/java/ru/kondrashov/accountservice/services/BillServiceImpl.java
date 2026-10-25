@@ -65,6 +65,7 @@ public class BillServiceImpl implements BillsService {
     public void commitAdjustment(UUID billId, Adjustment adjustment) {
 
         Bill bill = getBill(billId);
+        adjustment.setBill(bill);
 
        increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
 
@@ -76,6 +77,7 @@ public class BillServiceImpl implements BillsService {
     public void commitPayment(UUID billId, Payment payment) {
 
         Bill bill = getBill(billId);
+        payment.setBill(bill);
 
         decreaseBillsAmount(bill,currencyConversion.exchange(payment.getCurrency(),bill.getCurrency(),payment.getAmount()));
 
@@ -88,6 +90,8 @@ public class BillServiceImpl implements BillsService {
 
         Bill sourceBill = getBill(sourceBillId);
         Bill beneficiaryBill = getBill(beneficiaryBillId);
+        transfer.setSourceBill(sourceBill);
+        transfer.setBeneficiaryBill(beneficiaryBill);
 
         decreaseBillsAmount(sourceBill, currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount()));
         increaseBillsAmount(beneficiaryBill, currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount()));
