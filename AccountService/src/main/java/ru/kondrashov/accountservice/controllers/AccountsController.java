@@ -36,7 +36,7 @@ public class AccountsController {
     public Collection<AccountResponseDTO> getAccountsByPersonId(
             @ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID id,
             @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
+        logger.info("The controller \"/v1/people/{personId}/accounts\" received a GET request from the server {} with content type {}", header.getHost(), header.getContentType());
         return accountsService
                 .getAccountsByPersonId(id)
                 .stream()
@@ -51,7 +51,7 @@ public class AccountsController {
     public void save(@ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID id,
                      @ApiParam("Account to add. Cannot null or empty.") @RequestBody @Valid AccountRequestDTO account,
                      @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts\""+" received a POST request from the server "+header.getHost()+" with content type "+header.getContentType());
+        logger.info("The controller \"/v1/people/{personId}/accounts\" received a POST request from the server {} with content type {}", header.getHost(), header.getContentType());
         accountsService.save(accountMapping.mapToAccount(account));
     }
 
@@ -63,7 +63,7 @@ public class AccountsController {
                        @ApiParam("Id of the account to be obtained. Cannot be empty.") @PathVariable("id") UUID id,
                        @ApiParam("Account to update. Cannot null or empty.") @RequestBody @Valid AccountRequestDTO account,
                        @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{id}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
+        logger.info("The controller \"/v1/people/{personId}/accounts/{id}\" received a PUT request from the server {} with content type {}", header.getHost(), header.getContentType());
         accountsService.update(id,accountMapping.mapToAccount(account));
     }
 
@@ -74,7 +74,7 @@ public class AccountsController {
     public void delete(@ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID personId,
                        @ApiParam("Id of the account to be obtained. Cannot be empty.") @PathVariable("id") UUID id,
                        @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
+        logger.info("The controller \"/v1/people/{personId}/accounts/{id}\" received a DELETE request from the server {} with content type {}", header.getHost(), header.getContentType());
         accountsService.delete(id);
     }
 }

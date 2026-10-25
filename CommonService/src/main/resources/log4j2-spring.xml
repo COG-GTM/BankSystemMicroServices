@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration>
+    <Properties>
+        <!-- Raise to debug/trace via environment only while troubleshooting -->
+        <Property name="orgApacheLevel">${env:LOG_LEVEL_ORG_APACHE:-warn}</Property>
+    </Properties>
     <Appenders>
         <RollingFile name="RollingFile"
                      fileName="./logs/commonService.log"
-                     filePattern="./logs/commonService-%d{-dd-MMMM-yyyy}-%i.log">
+                     filePattern="./logs/commonService-%d{-dd-MMMM-yyyy}-%i.log"
+                     immediateFlush="false">
             <PatternLayout>
                 <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n</pattern>
             </PatternLayout>
@@ -16,18 +21,22 @@
                 <TimeBasedTriggeringPolicy />
             </Policies>
         </RollingFile>
+        <!-- Moves file I/O off request threads; the file is flushed at the end of each batch -->
+        <Async name="AsyncRollingFile" includeLocation="false">
+            <AppenderRef ref="RollingFile" />
+        </Async>
     </Appenders>
 
     <Loggers>
         <!-- LOG everything at INFO level -->
         <Root level="info">
-            <AppenderRef ref="RollingFile" />
+            <AppenderRef ref="AsyncRollingFile" />
         </Root>
-        <Logger name="org.apache" level="debug" additivity="false">
-            <AppenderRef ref="RollingFile" />
+        <Logger name="org.apache" level="${orgApacheLevel}" additivity="false">
+            <AppenderRef ref="AsyncRollingFile" />
         </Logger>
         <Logger name="org.springframework" level="info" additivity="false">
-            <AppenderRef ref="RollingFile" />
+            <AppenderRef ref="AsyncRollingFile" />
         </Logger>
     </Loggers>
 </Configuration>

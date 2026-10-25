@@ -35,7 +35,7 @@ public class PeopleController {
     @ResponseStatus(HttpStatus.OK)
     @ApiOperation("Find people")
     public Collection<PersonResponseDTO> getPeople(@RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
+        logger.info("The controller \"/v1/people\" received a GET request from the server {} with content type {}", header.getHost(), header.getContentType());
         return peopleService.getAll()
                 .stream()
                 .map(peopleMapping::mapToPersonResponseDTO)
@@ -46,7 +46,7 @@ public class PeopleController {
     @ResponseStatus(HttpStatus.OK)
     @ApiOperation("Find person by ID")
     public PersonResponseDTO getPerson(@ApiParam("ID of the person. Cannot to be null or empty") @PathVariable UUID id, @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{id}\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
+        logger.info("The controller \"/v1/people/{id}\" received a GET request from the server {} with content type {}", header.getHost(), header.getContentType());
         return peopleMapping.mapToPersonResponseDTO(peopleService.get(id));
     }
 
@@ -55,7 +55,7 @@ public class PeopleController {
     @ResponseStatus(HttpStatus.CREATED)
     @ApiOperation("Save a new person")
     public void createPerson(@ApiParam("new person to be save") @RequestBody @Valid PersonRequestDTO personRequestDTO, @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people\""+" received a POST request from the server "+header.getHost()+" with content type "+header.getContentType());
+        logger.info("The controller \"/v1/people\" received a POST request from the server {} with content type {}", header.getHost(), header.getContentType());
         peopleService.save(peopleMapping.mapToPerson(personRequestDTO));
     }
 
@@ -65,7 +65,7 @@ public class PeopleController {
     @ApiOperation("Update a person")
     public void updatePerson(@ApiParam("new person to be update") @RequestBody @Valid PersonRequestDTO personRequestDTO,
                              @ApiParam("ID of the person. Cannot to be null or empty") @PathVariable("id") UUID id, @RequestHeader HttpHeaders header) {
-        logger.info("The controller "+"\"/v1/people/{id}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
+        logger.info("The controller \"/v1/people/{id}\" received a PUT request from the server {} with content type {}", header.getHost(), header.getContentType());
         peopleService.update(id, peopleMapping.mapToPerson(personRequestDTO));
     }
 
@@ -74,7 +74,7 @@ public class PeopleController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @ApiOperation("Delete a person")
     public void deletePerson(@ApiParam("ID of the person. Cannot to be null or empty") @PathVariable("id") UUID id, @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
+        logger.info("The controller \"/v1/people/{id}\" received a DELETE request from the server {} with content type {}", header.getHost(), header.getContentType());
         peopleService.delete(id);
 
     }
