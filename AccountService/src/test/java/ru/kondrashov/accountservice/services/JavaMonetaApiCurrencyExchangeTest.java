@@ -49,32 +49,33 @@ class JavaMonetaApiCurrencyExchangeTest {
     }
 
     @Test
-    void transactionAmountFinerThanItsCurrencyMinorUnitIsRejected() {
-        assertThatThrownBy(() -> exchange.exchangeTransactionAmount(USD, USD, new BigDecimal("0.004")))
+    void validatedAmountFinerThanSourceMinorUnitIsRejected() {
+        assertThatThrownBy(() -> exchange.exchangeValidated(USD, USD, new BigDecimal("0.004")))
                 .isInstanceOf(InvalidAmountException.class);
-        assertThatThrownBy(() -> exchange.exchangeTransactionAmount(JPY, JPY, new BigDecimal("100.5")))
+        assertThatThrownBy(() -> exchange.exchangeValidated(JPY, JPY, new BigDecimal("100.5")))
                 .isInstanceOf(InvalidAmountException.class);
     }
 
     @Test
-    void transactionAmountWithTrailingZerosIsAccepted() {
-        assertThat(exchange.exchangeTransactionAmount(USD, USD, new BigDecimal("10.0100"))).isEqualTo(new BigDecimal("10.01"));
+    void validatedAmountWithTrailingZerosIsAccepted() {
+        assertThat(exchange.exchangeValidated(USD, USD, new BigDecimal("10.0100"))).isEqualTo(new BigDecimal("10.01"));
     }
 
     @Test
-    void transactionAmountThatConvertsToZeroIsRejected() {
+    void validatedAmountThatConvertsToZeroIsRejected() {
         JavaMonetaApiCurrencyExchange tinyRate = withConvertedValue(new BigDecimal("0.0032"));
 
-        assertThatThrownBy(() -> tinyRate.exchangeTransactionAmount(BHD, USD, new BigDecimal("0.001")))
+        assertThatThrownBy(() -> tinyRate.exchangeValidated(BHD, USD, new BigDecimal("0.001")))
                 .isInstanceOf(InvalidAmountException.class);
     }
 
     @Test
-    void exchangeDoesNotValidatePrecisionAgainstSourceCurrency() {
-        JavaMonetaApiCurrencyExchange fixedRate = withConvertedValue(new BigDecimal("1.234"));
+    void validatedExchangeChecksPrecisionAgainstSourceCurrency() {
+        JavaMonetaApiCurrencyExchange fixedRate = withConvertedValue(new BigDecimal("3.2741"));
 
-        assertThat(fixedRate.exchange(USD, BHD, new BigDecimal("1.234"))).isEqualTo(new BigDecimal("1.234"));
-        assertThat(exchange.exchange(USD, USD, new BigDecimal("0.004"))).isEqualTo(new BigDecimal("0.00"));
+        assertThatThrownBy(() -> fixedRate.exchangeValidated(USD, BHD, new BigDecimal("1.234")))
+                .isInstanceOf(InvalidAmountException.class);
+        assertThat(fixedRate.exchangeValidated(BHD, USD, new BigDecimal("1.234"))).isEqualTo(new BigDecimal("3.27"));
     }
 
     private static JavaMonetaApiCurrencyExchange withConvertedValue(BigDecimal converted) {
