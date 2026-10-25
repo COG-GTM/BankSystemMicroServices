@@ -24,10 +24,19 @@ public class CommonController {
     private final CommonService commonService;
     private final Logger logger;
 
+    static final int DEFAULT_PEOPLE_PAGE_SIZE = 50;
+    static final int MAX_PEOPLE_PAGE_SIZE = 200;
+
     @GetMapping("/info/people")
     @ResponseStatus (HttpStatus.OK)
-    public String getPeople(Model model){
-        model.addAttribute("people",commonService.getPeople());
+    public String getPeople(@RequestParam(defaultValue = "0") int page,
+                            @RequestParam(defaultValue = "" + DEFAULT_PEOPLE_PAGE_SIZE) int size,
+                            Model model){
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PEOPLE_PAGE_SIZE);
+        PeoplePageDTO peoplePage = commonService.getPeople(safePage, safeSize);
+        model.addAttribute("people", peoplePage.getPeople());
+        model.addAttribute("peoplePage", peoplePage);
         return "people/people";
     }
 
@@ -104,7 +113,6 @@ public class CommonController {
         model.addAttribute("accountId", accountId);
         model.addAttribute("billId",billId);
         model.addAttribute("transfer", new TransferResponseDTO());
-        model.addAttribute("people", commonService.getPeople());
         return "/bills/transfers/new";
     }
 

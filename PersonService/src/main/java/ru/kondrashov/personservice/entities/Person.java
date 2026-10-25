@@ -15,7 +15,8 @@ import java.util.UUID;
 import static javax.persistence.TemporalType.TIMESTAMP;
 
 @Entity
-@Table(name = "people", schema = "public")
+@Table(name = "people", schema = "public",
+        indexes = @Index(name = "idx_people_last_first_id", columnList = "lastName, firstName, id"))
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

@@ -9,7 +9,7 @@ public interface CommonService {
 
     PersonRequestDTO getPersonById(UUID uuid);
 
-    Collection<PersonRequestDTO> getPeople();
+    PeoplePageDTO getPeople(int page, int size);
 
     Collection<AccountRequestDTO> getAccountsByPerson(UUID id);
 

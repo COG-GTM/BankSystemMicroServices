@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import ru.kondrashov.personservice.exception.InvalidPageRequestException;
 import ru.kondrashov.personservice.exception.PersonNotFoundException;
 
 
@@ -19,5 +20,15 @@ public class PersonExceptionHandler extends ResponseEntityExceptionHandler {
                 404,
                 "PersonNotFoundException"),
                 HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(InvalidPageRequestException.class)
+    public ResponseEntity<NotFoundExceptionTemplate> invalidPageRequest(InvalidPageRequestException exp){
+        return new ResponseEntity<>(
+                new NotFoundExceptionTemplate(
+                        exp.getMessage(),
+                400,
+                "InvalidPageRequestException"),
+                HttpStatus.BAD_REQUEST);
     }
 }
