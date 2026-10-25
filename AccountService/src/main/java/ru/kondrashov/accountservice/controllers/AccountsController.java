@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import ru.kondrashov.accountservice.controllers.dto.AccountRequestDTO;
 import ru.kondrashov.accountservice.controllers.dto.AccountResponseDTO;
+import ru.kondrashov.accountservice.entities.Account;
+import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.services.interfaces.AccountsService;
 import ru.kondrashov.accountservice.utils.interfaces.AccountMapping;
 
@@ -42,6 +44,21 @@ public class AccountsController {
                 .stream()
                 .map(account -> accountMapping.mapToAccountResponseDTO(account))
                 .collect(Collectors.toList());
+    }
+
+    @GetMapping("/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    @ApiOperation(value = "Find account by ID", tags = { "ACCOUNTS" })
+    public AccountResponseDTO getAccount(
+            @ApiParam("Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
+            @ApiParam("Id of the account to be obtained. Cannot be empty.") @PathVariable("id") UUID id,
+            @RequestHeader HttpHeaders header){
+        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{id}\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
+        Account account = accountsService.getAccount(id);
+        if (!personId.equals(account.getPersonId())) {
+            throw new AccountNotFoundException("Account with id = "+id+" not found.");
+        }
+        return accountMapping.mapToAccountResponseDTO(account);
     }
 
     @Transactional(rollbackFor = Exception.class)

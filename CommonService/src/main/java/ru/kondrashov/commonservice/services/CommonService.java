@@ -15,6 +15,10 @@ public interface CommonService {
 
     Collection<BillRequestDTO> getBillsByAccountId(UUID personId, UUID accountId);
 
+    AccountRequestDTO getAccount(UUID personId, UUID accountId);
+
+    BillRequestDTO getBill(UUID personId, UUID accountId, UUID billId);
+
 
 
     void createPerson(PersonResponseDTO person) throws Exception;
