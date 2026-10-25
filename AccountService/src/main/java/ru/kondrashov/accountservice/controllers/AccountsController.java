@@ -4,8 +4,6 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
-import org.apache.logging.log4j.Logger;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,15 +26,12 @@ public class AccountsController {
 
     private final AccountsService accountsService;
     private final AccountMapping accountMapping;
-    private final Logger logger;
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     @ApiOperation(value = "Find accounts by person ID", tags = { "ACCOUNTS" })
     public Collection<AccountResponseDTO> getAccountsByPersonId(
-            @ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID id,
-            @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
+            @ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID id){
         return accountsService
                 .getAccountsByPersonId(id)
                 .stream()
@@ -49,9 +44,7 @@ public class AccountsController {
     @ResponseStatus(HttpStatus.CREATED)
     @ApiOperation(value = "Add a new account", tags = { "ACCOUNTS" })
     public void save(@ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID id,
-                     @ApiParam("Account to add. Cannot null or empty.") @RequestBody @Valid AccountRequestDTO account,
-                     @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts\""+" received a POST request from the server "+header.getHost()+" with content type "+header.getContentType());
+                     @ApiParam("Account to add. Cannot null or empty.") @RequestBody @Valid AccountRequestDTO account){
         accountsService.save(accountMapping.mapToAccount(account));
     }
 
@@ -61,9 +54,7 @@ public class AccountsController {
     @ApiOperation(value = "Update a account", tags = { "ACCOUNTS" })
     public void update(@ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID personId,
                        @ApiParam("Id of the account to be obtained. Cannot be empty.") @PathVariable("id") UUID id,
-                       @ApiParam("Account to update. Cannot null or empty.") @RequestBody @Valid AccountRequestDTO account,
-                       @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{id}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
+                       @ApiParam("Account to update. Cannot null or empty.") @RequestBody @Valid AccountRequestDTO account){
         accountsService.update(id,accountMapping.mapToAccount(account));
     }
 
@@ -72,9 +63,7 @@ public class AccountsController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @ApiOperation(value = "Delete a account", tags = { "ACCOUNTS" })
     public void delete(@ApiParam("Id of the person to be obtained. Cannot be empty.") @PathVariable("personId") UUID personId,
-                       @ApiParam("Id of the account to be obtained. Cannot be empty.") @PathVariable("id") UUID id,
-                       @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
+                       @ApiParam("Id of the account to be obtained. Cannot be empty.") @PathVariable("id") UUID id){
         accountsService.delete(id);
     }
 }

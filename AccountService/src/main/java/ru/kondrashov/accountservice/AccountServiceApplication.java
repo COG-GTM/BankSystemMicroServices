@@ -10,7 +10,7 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 @EnableSwagger2
 public class AccountServiceApplication {
 
-    static final Logger LOGGER = LogManager.getRootLogger();
+    static final Logger LOGGER = LogManager.getLogger(AccountServiceApplication.class);
 
     public static void main(String[] args) {
         SpringApplication.run(AccountServiceApplication.class, args);

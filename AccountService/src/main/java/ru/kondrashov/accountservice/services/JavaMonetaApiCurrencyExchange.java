@@ -1,6 +1,6 @@
 package ru.kondrashov.accountservice.services;
 
-import lombok.RequiredArgsConstructor;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.javamoney.moneta.spi.MoneyUtils;
 import org.springframework.stereotype.Service;
@@ -17,10 +17,9 @@ import java.math.RoundingMode;
 import java.util.Currency;
 
 @Service
-@RequiredArgsConstructor
 public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange {
 
-    private final Logger logger;
+    private static final Logger LOGGER = LogManager.getLogger(JavaMonetaApiCurrencyExchange.class);
 
     @Override
     public BigDecimal exchange(Currency originalCurrency, Currency targetCurrency, BigDecimal amount) {
@@ -32,7 +31,8 @@ public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange 
         CurrencyConversion toTargetCurrency = MonetaryConversions.getConversion(targetCurrencyUnit);
 
         BigDecimal result = MoneyUtils.getBigDecimal(originalMonetaryAmount.with(toTargetCurrency).getNumber()).round(new MathContext(2, RoundingMode.HALF_EVEN));
-        logger.info("Currency conversion from"+originalCurrency.getCurrencyCode()+" to "+ targetCurrency.getCurrencyCode()+" in the amount of "+amount+" "+originalCurrency.getCurrencyCode()+" is performed");
+        LOGGER.info("Currency conversion from {} to {} in the amount of {} {} is performed",
+                originalCurrency.getCurrencyCode(), targetCurrency.getCurrencyCode(), amount, originalCurrency.getCurrencyCode());
         return result;
     }
 }
