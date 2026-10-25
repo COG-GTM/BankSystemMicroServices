@@ -57,7 +57,7 @@ public class BillControllerIntegrationTest {
     private JavaMonetaApiCurrencyExchange currencyExchange;
 
     void init(Currency currency, BigDecimal amount, boolean over, Account account) throws Exception {
-        BillRequestDTO billRequestDTO = new BillRequestDTO(currency, amount , over, account);
+        BillRequestDTO billRequestDTO = new BillRequestDTO(currency, amount , over);
 
         mockMvc.perform(post("/v1/people/{personId}/accounts/{accountId}/bills",account.getPersonId(), account.getId())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -109,7 +109,7 @@ public class BillControllerIntegrationTest {
 
         Currency newCurrency = Currency.getInstance("RUB");
         boolean newOverdraft = false;
-        BillRequestDTO billRequestDTO = new BillRequestDTO(newCurrency, amount , newOverdraft, account);
+        BillRequestDTO billRequestDTO = new BillRequestDTO(newCurrency, amount , newOverdraft);
 
         mockMvc.perform(put("/v1/people/{personId}/accounts/{accountId}/bills/{id}",account.getPersonId(), account.getId(), bill.getId())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -163,7 +163,7 @@ public class BillControllerIntegrationTest {
                 .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
                 .findFirst().get();
 
-        PaymentRequestDTO requestDTO = new PaymentRequestDTO(currency, paymentAmount, time,"Payment for order #1", bill);
+        PaymentRequestDTO requestDTO = new PaymentRequestDTO(currency, paymentAmount, time,"Payment for order #1");
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments",account.getPersonId(), account.getId(), bill.getId())
@@ -214,7 +214,7 @@ public class BillControllerIntegrationTest {
                 .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
                 .findFirst().get();
 
-        PaymentRequestDTO requestDTO = new PaymentRequestDTO(currency, paymentAmount, time,"Payment for order #1", bill);
+        PaymentRequestDTO requestDTO = new PaymentRequestDTO(currency, paymentAmount, time,"Payment for order #1");
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments",account.getPersonId(), account.getId(), bill.getId())
@@ -242,7 +242,7 @@ public class BillControllerIntegrationTest {
                 .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
                 .findFirst().get();
 
-        AdjustmentRequestDTO requestDTO = new AdjustmentRequestDTO(currency, adjustmentAmount, time,"Adjustment", bill);
+        AdjustmentRequestDTO requestDTO = new AdjustmentRequestDTO(currency, adjustmentAmount, time,"Adjustment");
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments",account.getPersonId(), account.getId(), bill.getId())
@@ -305,7 +305,7 @@ public class BillControllerIntegrationTest {
                 .filter(bill1 -> bill1.getCurrency().equals(targetBIllCurrency) && bill1.getIsOverdraft().equals(targetBillOverdraft) && bill1.getAmount().compareTo(targetBillAmount)==0 && bill1.getAccount().equals(account))
                 .findFirst().get();
 
-        TransferRequestDTO transferRequestDTO = new TransferRequestDTO(transferBIllCurrency,transferAmount, LocalDateTime.now(), "Transfer", sourceBill, targetBill);
+        TransferRequestDTO transferRequestDTO = new TransferRequestDTO(transferBIllCurrency,transferAmount, LocalDateTime.now(), "Transfer");
 
         mockMvc.perform(
                 put("/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}", account.getPersonId(), account.getId(), sourceBill.getId(), targetBill.getId())

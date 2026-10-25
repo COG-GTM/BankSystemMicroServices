@@ -16,7 +16,7 @@ public class AdjustmentMappingImpl implements AdjustmentMapping {
                 adjustmentRequestDTO.getAmount(),
                 adjustmentRequestDTO.getTime(),
                 adjustmentRequestDTO.getMessage(),
-                adjustmentRequestDTO.getBill()
+                null
         );
     }
 
