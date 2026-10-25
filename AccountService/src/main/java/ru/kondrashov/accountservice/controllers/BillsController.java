@@ -4,8 +4,6 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
-import org.apache.logging.log4j.Logger;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -34,16 +32,13 @@ public class BillsController {
     private final PaymentsMapping paymentsMapping;
     private final AdjustmentMapping adjustmentMapping;
     private final TransferMapping transferMapping;
-    private final Logger logger;
 
     @GetMapping
     @ApiOperation(value = "Get all bills by account ID", tags = { "BILLS" })
     @ResponseStatus(HttpStatus.OK)
     public Collection<BillResponseDTO> getBillsByAccountId(
             @ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
-            @ApiParam(value = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
-            @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
+            @ApiParam(value = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId){
         return billsService.getBillsByAccountId(accountId)
                 .stream()
                 .map(billsMapping::mapToBillResponseDTO)
@@ -57,10 +52,7 @@ public class BillsController {
     public void save(
             @ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
             @ApiParam(value = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
-            @ApiParam("Bill to add. Cannot null or empty.") @RequestBody @Valid BillRequestDTO billRequestDTO,
-            @RequestHeader HttpHeaders header){
-
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills\""+" received a POST request from the server "+header.getHost()+" with content type "+header.getContentType());
+            @ApiParam("Bill to add. Cannot null or empty.") @RequestBody @Valid BillRequestDTO billRequestDTO){
         billsService.save(billsMapping.mapToBill(billRequestDTO));
     }
 
@@ -72,10 +64,7 @@ public class BillsController {
             @ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
             @ApiParam(value = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
             @ApiParam(value = "Id of the bill to be update. Cannot be empty.") @PathVariable("id") UUID id,
-            @ApiParam("Bill to update. Cannot null or empty.") @RequestBody @Valid BillRequestDTO bill,
-            @RequestHeader HttpHeaders header){
-
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
+            @ApiParam("Bill to update. Cannot null or empty.") @RequestBody @Valid BillRequestDTO bill){
         billsService.update(id,billsMapping.mapToBill(bill));
     }
 
@@ -85,9 +74,7 @@ public class BillsController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
                        @ApiParam(value = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
-                       @ApiParam(value = "Id of the bill to be delete. Cannot be empty.") @PathVariable("id") UUID id,
-                       @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
+                       @ApiParam(value = "Id of the bill to be delete. Cannot be empty.") @PathVariable("id") UUID id){
         billsService.delete(id);
     }
 
@@ -98,9 +85,7 @@ public class BillsController {
     public void commitPayment(@ApiParam(value = "Id of the person. Cannot be empty.")  @PathVariable("personId") UUID personId,
                               @ApiParam(value = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
                               @ApiParam(value = "Id of the bill. Cannot be empty.") @PathVariable("billId") UUID billId,
-                              @ApiParam("Payment to commit. Cannot null or empty.") @RequestBody @Valid PaymentRequestDTO paymentRequestDTO,
-                              @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
+                              @ApiParam("Payment to commit. Cannot null or empty.") @RequestBody @Valid PaymentRequestDTO paymentRequestDTO){
         billsService.commitPayment(billId,paymentsMapping.mapToPayment(paymentRequestDTO));
     }
 
@@ -110,9 +95,7 @@ public class BillsController {
     public void commitAdjustment(@ApiParam(value = "Id of the person. Cannot be empty.")  @PathVariable("personId") UUID personId,
                                  @ApiParam(value = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
                                  @ApiParam(value = "Id of the bill. Cannot be empty.") @PathVariable("id") UUID billId,
-                                 @ApiParam("Adjustment to commit. Cannot null or empty.") @RequestBody @Valid AdjustmentRequestDTO adjustmentRequestDTO,
-                                 @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
+                                 @ApiParam("Adjustment to commit. Cannot null or empty.") @RequestBody @Valid AdjustmentRequestDTO adjustmentRequestDTO){
         billsService.commitAdjustment(billId,adjustmentMapping.mapToAdjustment(adjustmentRequestDTO));
     }
 
@@ -123,9 +106,7 @@ public class BillsController {
                                @ApiParam(value = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
                                @ApiParam(value = "Id of the source bill. Cannot be empty.") @PathVariable("sourceId") UUID sourceId,
                                @ApiParam(value = "Id of the beneficiary bill. Cannot be empty.") @PathVariable("beneficiaryBillId") UUID beneficiaryBillId,
-                               @ApiParam("Transfer to commit. Cannot null or empty.") @RequestBody @Valid TransferRequestDTO transferRequestDTO,
-                               @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
+                               @ApiParam("Transfer to commit. Cannot null or empty.") @RequestBody @Valid TransferRequestDTO transferRequestDTO){
         billsService.commitTransfer(sourceId,beneficiaryBillId,transferMapping.mapToTransfer(transferRequestDTO));
     }
 
@@ -134,9 +115,7 @@ public class BillsController {
     @ApiOperation(value = "Get all financial transactions of bill", tags = { "BILLS" })
     public Collection<FinancialTransactionResponseDTO> getFinancialTransactionsByBillId(@ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
                                                                                         @ApiParam(value = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
-                                                                                        @ApiParam(value = "Id of the bill. Cannot be empty.") @PathVariable("id") UUID billId,
-                                                                                        @RequestHeader HttpHeaders header){
-        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}/transactions\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
+                                                                                        @ApiParam(value = "Id of the bill. Cannot be empty.") @PathVariable("id") UUID billId){
         Collection<FinancialTransactionResponseDTO> financialTransactionResponseDTOS = new ArrayList<>();
 
         financialTransactionResponseDTOS.addAll(billsService.
