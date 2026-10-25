@@ -16,7 +16,8 @@ import java.util.UUID;
 @Entity
 @Data
 @NoArgsConstructor
-@Table(name = "bills", schema = "public")
+@Table(name = "bills", schema = "public",
+        indexes = @Index(name = "idx_bills_account_id", columnList = "account_id"))
 public class Bill {
 
     @Id
