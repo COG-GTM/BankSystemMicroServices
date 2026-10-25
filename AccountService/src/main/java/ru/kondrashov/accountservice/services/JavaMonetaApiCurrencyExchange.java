@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentMap;
 @RequiredArgsConstructor
 public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange {
 
-    static final int AMOUNT_SCALE = 2;
+    static final int FALLBACK_SCALE = 2;
 
     private final Logger logger;
 
@@ -31,7 +31,7 @@ public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange 
     public BigDecimal exchange(Currency originalCurrency, Currency targetCurrency, BigDecimal amount) {
 
         if (originalCurrency.equals(targetCurrency)) {
-            return amount.setScale(AMOUNT_SCALE, RoundingMode.HALF_EVEN);
+            return amount;
         }
 
         MonetaryAmount originalMonetaryAmount = Monetary.getDefaultAmountFactory()
@@ -40,10 +40,15 @@ public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange 
                 .create();
 
         BigDecimal result = MoneyUtils.getBigDecimal(originalMonetaryAmount.with(conversionTo(targetCurrency)).getNumber())
-                .setScale(AMOUNT_SCALE, RoundingMode.HALF_EVEN);
+                .setScale(minorUnitScale(targetCurrency), RoundingMode.HALF_EVEN);
         logger.info("Currency conversion from {} to {} in the amount of {} {} is performed",
                 originalCurrency.getCurrencyCode(), targetCurrency.getCurrencyCode(), amount, originalCurrency.getCurrencyCode());
         return result;
+    }
+
+    private static int minorUnitScale(Currency currency) {
+        int fractionDigits = currency.getDefaultFractionDigits();
+        return fractionDigits < 0 ? FALLBACK_SCALE : fractionDigits;
     }
 
     private CurrencyConversion conversionTo(Currency targetCurrency) {
