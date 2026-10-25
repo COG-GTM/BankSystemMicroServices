@@ -100,18 +100,7 @@ Contains the general logic of working and validating account, bill and transacti
   "amount": 700,
   "currency": "RUB",
   "message": "Payment for a purchase in the OK store in the amount of 700 RUB",
-  "time": "2021-04-20T12:27:59.873Z",
-  "bill": {
-      "account": {
-          "id": "58612097-bc0d-4de3-b32b-2221c81ec8e1",
-          "name": "Salary",
-          "creationDate": "2021-04-20",
-          "personId": "c5a6757f-fec4-41f3-a6a6-eb03d70c0d6f"
-      },
-    "amount": 10,
-    "currency": "USD",
-    "isOverdraft": false
-  }
+  "time": "2021-04-20T12:27:59.873Z"
 }
 ```
 ##### Commit an adjustment:
@@ -120,18 +109,7 @@ Contains the general logic of working and validating account, bill and transacti
   "amount": 10,
   "currency": "USD",
   "message": "Adjustment of the account in the amount of 10 USD",
-  "time": "2021-04-20T12:27:59.873Z",
-  "bill": {
-      "account": {
-          "id": "58612097-bc0d-4de3-b32b-2221c81ec8e1",
-          "name": "Salary",
-          "creationDate": "2021-04-20",
-          "personId": "c5a6757f-fec4-41f3-a6a6-eb03d70c0d6f"
-      },
-    "amount": 0,
-    "currency": "USD",
-    "isOverdraft": false
-  }
+  "time": "2021-04-20T12:27:59.873Z"
 }
 ```
 ##### Commit a transfer:
@@ -140,33 +118,10 @@ Contains the general logic of working and validating account, bill and transacti
   "amount": 10,
   "time": "2021-04-20T12:27:59.880Z",
   "currency": "USD",
-  "message": "Transfer of funds between accounts",
-  "sourceBill": {
-    "account": {
-      "creationDate": "2021-04-20",
-      "id": "58612097-bc0d-4de3-b32b-2221c81ec8e1",
-      "name": "Salary",
-      "personId": "c5a6757f-fec4-41f3-a6a6-eb03d70c0d6f"
-    },
-    "amount": 10,
-    "currency": "USD",
-    "id": "987ae068-7960-4119-bc51-914e2e0c71a0",
-    "isOverdraft": false
-  },
-  "beneficiaryBill": {
-    "account": {
-      "creationDate": "2021-04-20",
-      "id": "58612097-bc0d-4de3-b32b-2221c81ec8e1",
-      "name": "Salary",
-      "personId": "c5a6757f-fec4-41f3-a6a6-eb03d70c0d6f"
-    },
-    "amount": 0,
-    "currency": "RUB",
-    "id": "2b10fd68-f8fd-4cdb-b9ad-eae860828c5c",
-    "isOverdraft": true
-  }
+  "message": "Transfer of funds between accounts"
 }
 ```
+Payment, adjustment and transfer bodies carry only `amount` (required, >= 0), `currency`, `message` and optional `time`; bills are identified by the path IDs.
 ### Common Service
 Provides a single access point for the client and implements a visual interface.
 
