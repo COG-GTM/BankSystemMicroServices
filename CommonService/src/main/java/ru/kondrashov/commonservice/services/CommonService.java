@@ -38,5 +38,5 @@ public interface CommonService {
 
     void deleteBill(UUID personId, UUID accountId, UUID billId);
 
-    Collection<FinancialTransactionRequestDTO> getFinancialTransactionsByBillId(UUID personId, UUID accountId, UUID billId);
+    FinancialTransactionsPage getFinancialTransactionsByBillId(UUID personId, UUID accountId, UUID billId, int page);
 }

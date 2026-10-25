@@ -51,6 +51,13 @@
         </tr>
     </th:block>
 </table>
+<nav aria-label="Transaction history pages">
+    <a th:if="${transactionsPage > 0}" rel="prev"
+       th:href="@{/common/v1/info/people/{personId}/accounts/{accountId}/bills/{billId}(personId=${personId},accountId=${bill.getAccount().getId()},billId=${bill.getId()},page=${transactionsPage - 1})}">Newer</a>
+    <span th:text="'Page '+${transactionsPage + 1}"></span>
+    <a th:if="${hasNextTransactionsPage}" rel="next"
+       th:href="@{/common/v1/info/people/{personId}/accounts/{accountId}/bills/{billId}(personId=${personId},accountId=${bill.getAccount().getId()},billId=${bill.getId()},page=${transactionsPage + 1})}">Older</a>
+</nav>
 
 </body>
 </html>

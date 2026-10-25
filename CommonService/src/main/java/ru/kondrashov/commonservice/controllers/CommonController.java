@@ -12,7 +12,6 @@ import ru.kondrashov.commonservice.controllers.dto.*;
 import ru.kondrashov.commonservice.services.CommonService;
 
 import javax.validation.Valid;
-import java.util.Collection;
 import java.util.Currency;
 import java.util.UUID;
 
@@ -57,7 +56,8 @@ public class CommonController {
 
     @GetMapping("/info/people/{personId}/accounts/{accountId}/bills/{billId}")
     @ResponseStatus (HttpStatus.OK)
-    public String getBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId, Model model) {
+    public String getBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId,
+                          @RequestParam(value = "page", defaultValue = "0") int page, Model model) {
         model.addAttribute(
                 "bill",
                 commonService.
@@ -67,8 +67,10 @@ public class CommonController {
                         .findFirst().orElseThrow(() -> new RuntimeException("Account with id " + accountId+" dont have bill with id "+billId))
         );
         model.addAttribute("personId", personId);
-        Collection<FinancialTransactionRequestDTO> financialTransactionRequestDTOS = commonService.getFinancialTransactionsByBillId(personId, accountId, billId);
-        model.addAttribute("transactions", financialTransactionRequestDTOS);
+        FinancialTransactionsPage transactionsPage = commonService.getFinancialTransactionsByBillId(personId, accountId, billId, Math.max(page, 0));
+        model.addAttribute("transactions", transactionsPage.getTransactions());
+        model.addAttribute("transactionsPage", transactionsPage.getPage());
+        model.addAttribute("hasNextTransactionsPage", transactionsPage.isHasNextPage());
 
         return "bills/bill";
     }
