@@ -1,0 +1,18 @@
+# Postgres for running the legacy stack (Java 8 / Spring Boot 2.4.4) locally.
+# Credentials and database names match the services' application.yml / application-test.yml.
+services:
+  postgres:
+    image: postgres:13
+    container_name: banksystem-legacy-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "12345"
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
