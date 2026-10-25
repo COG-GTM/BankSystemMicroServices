@@ -19,7 +19,8 @@ import java.util.UUID;
 @Entity
 @Data
 @NoArgsConstructor
-@Table(name = "payments", schema = "public")
+@Table(name = "payments", schema = "public",
+        indexes = @Index(name = "idx_payments_bill_id", columnList = "bill_id"))
 public class Payment extends FinancialTransaction {
 
     @ManyToOne(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)

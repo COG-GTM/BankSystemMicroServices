@@ -17,7 +17,8 @@ import static javax.persistence.TemporalType.TIMESTAMP;
 
 @Entity
 @Data
-@Table(name = "accounts", schema = "public")
+@Table(name = "accounts", schema = "public",
+        indexes = @Index(name = "idx_accounts_person_id", columnList = "person_id"))
 @EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor
 public class Account {
