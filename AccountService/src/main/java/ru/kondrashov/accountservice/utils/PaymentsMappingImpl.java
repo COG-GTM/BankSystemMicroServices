@@ -16,7 +16,7 @@ public class PaymentsMappingImpl implements PaymentsMapping {
                 paymentRequestDTO.getAmount(),
                 paymentRequestDTO.getTime(),
                 paymentRequestDTO.getMessage(),
-                paymentRequestDTO.getBill());
+                null);
     }
 
     @Override

@@ -20,16 +20,11 @@ class TransferMappingImplTest {
     @Test
     void mapToTransfer() {
 
-        Bill sourceBill = new Bill();
-        Bill beneficiaryBill = new Bill();
-
         TransferRequestDTO transferRequestDTO = new TransferRequestDTO(
                 Currency.getInstance("USD"),
                 BigDecimal.TEN,
                 LocalDateTime.now(),
-                "Transfer",
-                sourceBill,
-                beneficiaryBill
+                "Transfer"
         );
 
         Transfer transfer = transferMapping.mapToTransfer(transferRequestDTO);
@@ -37,8 +32,8 @@ class TransferMappingImplTest {
         assertEquals(transfer.getCurrency(),        transferRequestDTO.getCurrency());
         assertEquals(transfer.getAmount(),          transferRequestDTO.getAmount());
         assertEquals(transfer.getMessage(),         transferRequestDTO.getMessage());
-        assertEquals(transfer.getSourceBill(),      transferRequestDTO.getSourceBill());
-        assertEquals(transfer.getBeneficiaryBill(), transferRequestDTO.getBeneficiaryBill());
+        assertNull(transfer.getSourceBill());
+        assertNull(transfer.getBeneficiaryBill());
         assertEquals(transfer.getTime(),            transferRequestDTO.getTime());
     }
 

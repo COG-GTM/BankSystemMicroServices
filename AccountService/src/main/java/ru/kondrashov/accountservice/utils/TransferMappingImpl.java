@@ -18,8 +18,8 @@ public class TransferMappingImpl implements TransferMapping {
                 transferRequestDTO.getAmount(),
                 transferRequestDTO.getTime(),
                 transferRequestDTO.getMessage(),
-                transferRequestDTO.getSourceBill(),
-                transferRequestDTO.getBeneficiaryBill()
+                null,
+                null
         );
     }
 

@@ -44,7 +44,7 @@ public class BillsController {
             @ApiParam(value = "Id of the account to be obtained. Cannot be empty.") @PathVariable("accountId") UUID accountId,
             @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
-        return billsService.getBillsByAccountId(accountId)
+        return billsService.getBillsByAccountId(personId, accountId)
                 .stream()
                 .map(billsMapping::mapToBillResponseDTO)
                 .collect(Collectors.toList());
@@ -61,7 +61,7 @@ public class BillsController {
             @RequestHeader HttpHeaders header){
 
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills\""+" received a POST request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.save(billsMapping.mapToBill(billRequestDTO));
+        billsService.save(personId, accountId, billsMapping.mapToBill(billRequestDTO));
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -76,7 +76,7 @@ public class BillsController {
             @RequestHeader HttpHeaders header){
 
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.update(id,billsMapping.mapToBill(bill));
+        billsService.update(personId, accountId, id, billsMapping.mapToBill(bill));
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -88,7 +88,7 @@ public class BillsController {
                        @ApiParam(value = "Id of the bill to be delete. Cannot be empty.") @PathVariable("id") UUID id,
                        @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.delete(id);
+        billsService.delete(personId, accountId, id);
     }
 
 
@@ -101,7 +101,7 @@ public class BillsController {
                               @ApiParam("Payment to commit. Cannot null or empty.") @RequestBody @Valid PaymentRequestDTO paymentRequestDTO,
                               @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{billId}/payments\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.commitPayment(billId,paymentsMapping.mapToPayment(paymentRequestDTO));
+        billsService.commitPayment(personId, accountId, billId, paymentsMapping.mapToPayment(paymentRequestDTO));
     }
 
     @PutMapping("/{id}/adjustments")
@@ -113,7 +113,7 @@ public class BillsController {
                                  @ApiParam("Adjustment to commit. Cannot null or empty.") @RequestBody @Valid AdjustmentRequestDTO adjustmentRequestDTO,
                                  @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{billId}/adjustments\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.commitAdjustment(billId,adjustmentMapping.mapToAdjustment(adjustmentRequestDTO));
+        billsService.commitAdjustment(personId, accountId, billId, adjustmentMapping.mapToAdjustment(adjustmentRequestDTO));
     }
 
     @PutMapping("/{sourceId}/transfer/{beneficiaryBillId}")
@@ -126,7 +126,7 @@ public class BillsController {
                                @ApiParam("Transfer to commit. Cannot null or empty.") @RequestBody @Valid TransferRequestDTO transferRequestDTO,
                                @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{sourceId}/transfer/{beneficiaryBillId}\""+" received a PUT request from the server "+header.getHost()+" with content type "+header.getContentType());
-        billsService.commitTransfer(sourceId,beneficiaryBillId,transferMapping.mapToTransfer(transferRequestDTO));
+        billsService.commitTransfer(personId, accountId, sourceId, beneficiaryBillId, transferMapping.mapToTransfer(transferRequestDTO));
     }
 
     @GetMapping("/{id}/transactions")
@@ -137,6 +137,7 @@ public class BillsController {
                                                                                         @ApiParam(value = "Id of the bill. Cannot be empty.") @PathVariable("id") UUID billId,
                                                                                         @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}/transactions\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
+        billsService.getBill(personId, accountId, billId);
         Collection<FinancialTransactionResponseDTO> financialTransactionResponseDTOS = new ArrayList<>();
 
         financialTransactionResponseDTOS.addAll(billsService.
