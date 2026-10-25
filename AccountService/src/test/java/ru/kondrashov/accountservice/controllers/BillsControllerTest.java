@@ -13,6 +13,7 @@ import ru.kondrashov.accountservice.entities.Account;
 import ru.kondrashov.accountservice.services.interfaces.BillsService;
 import ru.kondrashov.accountservice.utils.interfaces.AdjustmentMapping;
 import ru.kondrashov.accountservice.utils.interfaces.BillsMapping;
+import ru.kondrashov.accountservice.utils.interfaces.FinancialTransactionMapping;
 import ru.kondrashov.accountservice.utils.interfaces.PaymentsMapping;
 import ru.kondrashov.accountservice.utils.interfaces.TransferMapping;
 
@@ -48,6 +49,9 @@ class BillsControllerTest {
 
     @MockBean
     private TransferMapping transferMapping;
+
+    @MockBean
+    private FinancialTransactionMapping financialTransactionMapping;
 
     @Test
     void whenValidUrlAndMethodAndContentType_thenReturns201() throws Exception {

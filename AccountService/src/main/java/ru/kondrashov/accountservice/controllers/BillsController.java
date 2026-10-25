@@ -13,6 +13,7 @@ import ru.kondrashov.accountservice.controllers.dto.*;
 import ru.kondrashov.accountservice.services.interfaces.BillsService;
 import ru.kondrashov.accountservice.utils.interfaces.AdjustmentMapping;
 import ru.kondrashov.accountservice.utils.interfaces.BillsMapping;
+import ru.kondrashov.accountservice.utils.interfaces.FinancialTransactionMapping;
 import org.springframework.transaction.annotation.Transactional;
 import ru.kondrashov.accountservice.utils.interfaces.PaymentsMapping;
 import ru.kondrashov.accountservice.utils.interfaces.TransferMapping;
@@ -34,6 +35,7 @@ public class BillsController {
     private final PaymentsMapping paymentsMapping;
     private final AdjustmentMapping adjustmentMapping;
     private final TransferMapping transferMapping;
+    private final FinancialTransactionMapping financialTransactionMapping;
     private final Logger logger;
 
     @GetMapping
@@ -142,7 +144,7 @@ public class BillsController {
         financialTransactionResponseDTOS.addAll(billsService.
                 getAdjustmentsByBillId(billId).
                 stream().
-                map(adjustmentMapping::mapToFinancialTransactionResponseDTO).
+                map(financialTransactionMapping::mapToFinancialTransactionResponseDTO).
                 collect(Collectors.toList()));
 
         financialTransactionResponseDTOS.
@@ -151,7 +153,7 @@ public class BillsController {
                                 billsService.
                                         getPaymentsByBillId(billId).
                                         stream().
-                                        map(paymentsMapping::mapToFinancialTransactionResponseDTO).
+                                        map(financialTransactionMapping::mapToFinancialTransactionResponseDTO).
                                         collect(Collectors.toList())
                         )
                 );
@@ -159,10 +161,10 @@ public class BillsController {
         financialTransactionResponseDTOS.addAll(billsService.
                 getTransfersByBeneficiaryBillId(billId).
                 stream().
-                map(transferMapping::mapToFinancialTransactionResponseDTO).
+                map(financialTransactionMapping::mapToFinancialTransactionResponseDTO).
                 collect(Collectors.toList())
         );
-        financialTransactionResponseDTOS.addAll(setAmountNegative(billsService.getTransfersBySourceBillId(billId).stream().map(transferMapping::mapToFinancialTransactionResponseDTO).collect(Collectors.toList())));
+        financialTransactionResponseDTOS.addAll(setAmountNegative(billsService.getTransfersBySourceBillId(billId).stream().map(financialTransactionMapping::mapToFinancialTransactionResponseDTO).collect(Collectors.toList())));
 
         return financialTransactionResponseDTOS;
     }
