@@ -1,7 +1,6 @@
 package ru.kondrashov.accountservice.utils;
 
 import org.springframework.stereotype.Component;
-import ru.kondrashov.accountservice.controllers.dto.FinancialTransactionResponseDTO;
 import ru.kondrashov.accountservice.controllers.dto.PaymentRequestDTO;
 import ru.kondrashov.accountservice.controllers.dto.PaymentResponseDTO;
 import ru.kondrashov.accountservice.entities.Payment;
@@ -28,16 +27,5 @@ public class PaymentsMappingImpl implements PaymentsMapping {
                 payment.getTime(),
                 payment.getMessage()
                 );
-    }
-
-    @Override
-    public FinancialTransactionResponseDTO mapToFinancialTransactionResponseDTO(Payment payment) {
-        return new FinancialTransactionResponseDTO(
-                payment.getId(),
-                payment.getCurrency(),
-                payment.getAmount(),
-                payment.getTime(),
-                payment.getMessage()
-        );
     }
 }

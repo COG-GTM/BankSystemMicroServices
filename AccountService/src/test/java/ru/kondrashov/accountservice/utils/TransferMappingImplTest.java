@@ -1,7 +1,6 @@
 package ru.kondrashov.accountservice.utils;
 
 import org.junit.jupiter.api.Test;
-import ru.kondrashov.accountservice.controllers.dto.FinancialTransactionResponseDTO;
 import ru.kondrashov.accountservice.controllers.dto.TransferRequestDTO;
 import ru.kondrashov.accountservice.controllers.dto.TransferResponseDTO;
 import ru.kondrashov.accountservice.entities.Bill;
@@ -64,28 +63,5 @@ class TransferMappingImplTest {
         assertEquals(transfer.getSourceBill(),      transferResponseDTO.getSourceBill());
         assertEquals(transfer.getBeneficiaryBill(), transferResponseDTO.getBeneficiaryBill());
         assertEquals(transfer.getTime(),            transferResponseDTO.getTime());
-    }
-
-    @Test
-    void mapToFinancialTransactionResponseDTO() {
-
-        Bill sourceBill = new Bill();
-        Bill beneficiaryBill = new Bill();
-
-        Transfer transfer = new Transfer(
-                Currency.getInstance("USD"),
-                BigDecimal.TEN,
-                LocalDateTime.now(),
-                "Transfer",
-                sourceBill,
-                beneficiaryBill
-        );
-
-        FinancialTransactionResponseDTO financialTransactionResponseDTO = transferMapping.mapToFinancialTransactionResponseDTO(transfer);
-
-        assertEquals(transfer.getCurrency(),        financialTransactionResponseDTO.getCurrency());
-        assertEquals(transfer.getAmount(),          financialTransactionResponseDTO.getAmount());
-        assertEquals(transfer.getMessage(),         financialTransactionResponseDTO.getMessage());
-        assertEquals(transfer.getTime(),            financialTransactionResponseDTO.getTime());
     }
 }

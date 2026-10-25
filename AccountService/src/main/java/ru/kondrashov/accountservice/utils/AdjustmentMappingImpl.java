@@ -3,7 +3,6 @@ package ru.kondrashov.accountservice.utils;
 import org.springframework.stereotype.Component;
 import ru.kondrashov.accountservice.controllers.dto.AdjustmentRequestDTO;
 import ru.kondrashov.accountservice.controllers.dto.AdjustmentResponseDTO;
-import ru.kondrashov.accountservice.controllers.dto.FinancialTransactionResponseDTO;
 import ru.kondrashov.accountservice.entities.Adjustment;
 import ru.kondrashov.accountservice.utils.interfaces.AdjustmentMapping;
 
@@ -29,17 +28,6 @@ public class AdjustmentMappingImpl implements AdjustmentMapping {
                 adjustment.getTime(),
                 adjustment.getMessage()
 
-        );
-    }
-
-    @Override
-    public FinancialTransactionResponseDTO mapToFinancialTransactionResponseDTO(Adjustment adjustment) {
-        return new FinancialTransactionResponseDTO(
-                adjustment.getId(),
-                adjustment.getCurrency(),
-                adjustment.getAmount(),
-                adjustment.getTime(),
-                adjustment.getMessage()
         );
     }
 }
