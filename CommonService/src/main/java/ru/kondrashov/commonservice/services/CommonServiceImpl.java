@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 import ru.kondrashov.commonservice.controllers.dto.*;
 
@@ -102,104 +104,80 @@ public class CommonServiceImpl implements CommonService{
 
 
     @Override
-    public void createPerson(PersonResponseDTO person) throws Exception {
-        logger.info("Send POST request to "+peopleUrl);
-        ResponseEntity<PersonResponseDTO> responseEntity =
-                restTemplate.postForEntity(peopleUrl, person,PersonResponseDTO.class);
-        if(responseEntity.getStatusCode() != HttpStatus.CREATED){
-            logger.error(responseEntity.toString());
-            throw new Exception(responseEntity.toString());
-        }
-        logger.info("Got response with status code "+ responseEntity.getStatusCode());
+    public void createPerson(PersonResponseDTO person) {
+        post(peopleUrl, person, PersonResponseDTO.class);
     }
 
     @Override
-    public void createAccount(UUID personId, AccountResponseDTO account) throws Exception {
-        logger.info("Send POST request to "+String.format(accountsUrl, personId));
-        ResponseEntity<AccountResponseDTO> responseEntity =
-                restTemplate.postForEntity(String.format(accountsUrl, personId), account, AccountResponseDTO.class);
-        if(responseEntity.getStatusCode() != HttpStatus.CREATED){
-            logger.error(responseEntity.toString());
-            throw new Exception(responseEntity.toString());
-        }
-        logger.info("Got response with status code "+ responseEntity.getStatusCode());
+    public void createAccount(UUID personId, AccountResponseDTO account) {
+        post(String.format(accountsUrl, personId), account, AccountResponseDTO.class);
     }
 
     @Override
-    public void createBill(UUID personId, UUID accountId, BillResponseDTO bill) throws Exception {
-        logger.info("Send POST request to "+String.format(billsUrl, personId, accountId));
-        ResponseEntity<BillResponseDTO> responseEntity =
-                restTemplate.postForEntity(String.format(billsUrl, personId, accountId), bill, BillResponseDTO.class);
-        if(responseEntity.getStatusCode() != HttpStatus.CREATED){
-            logger.error(responseEntity.toString());
-            throw new Exception(responseEntity.toString());
-        }
-        logger.info("Got response with status code "+ responseEntity.getStatusCode());
+    public void createBill(UUID personId, UUID accountId, BillResponseDTO bill) {
+        post(String.format(billsUrl, personId, accountId), bill, BillResponseDTO.class);
     }
 
 
     @Override
     public void updatePerson(UUID id, PersonResponseDTO personResponseDTO){
-        logger.info("Send PUT request to "+String.format(personUrl,id));
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.put("id", Collections.singletonList(id.toString()));
-        HttpEntity<PersonResponseDTO> personRequestDTOHttpEntity = new HttpEntity<>(personResponseDTO, params);
-        ResponseEntity<PersonResponseDTO> responseEntity = restTemplate.exchange(String.format(personUrl,id),HttpMethod.PUT, personRequestDTOHttpEntity, PersonResponseDTO.class);
-        logger.info("Got response with status code "+responseEntity.getStatusCode());
+        send(HttpMethod.PUT, String.format(personUrl,id), new HttpEntity<>(personResponseDTO, params), PersonResponseDTO.class);
     }
 
     @Override
     public void updateAccount(UUID personId, UUID accountId, AccountResponseDTO accountResponseDTO) {
-        logger.info("Send PUT request to "+String.format(accountUrl, personId, accountId));
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.put("id", Collections.singletonList(accountId.toString()));
-        HttpEntity<AccountResponseDTO> accountResponseDTOHttpEntity = new HttpEntity<>(accountResponseDTO, params);
-        ResponseEntity<AccountResponseDTO> responseEntity = restTemplate.exchange(String.format(accountUrl, personId, accountId),HttpMethod.PUT, accountResponseDTOHttpEntity, AccountResponseDTO.class);
-        logger.info("Got response with status code "+responseEntity.getStatusCode());
+        send(HttpMethod.PUT, String.format(accountUrl, personId, accountId), new HttpEntity<>(accountResponseDTO, params), AccountResponseDTO.class);
     }
 
 
     @Override
     public void updateBill(UUID personId, UUID accountId, UUID billId, BillResponseDTO billResponseDTO) {
-        logger.info("Send PUT request to "+String.format(billUrl, personId, accountId, billId));
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.put("id", Collections.singletonList(billId.toString()));
-        HttpEntity<BillResponseDTO> billResponseDTOHttpEntity = new HttpEntity<>(billResponseDTO, params);
-        ResponseEntity<BillResponseDTO> responseEntity = restTemplate.exchange(String.format(billUrl, personId, accountId, billId), HttpMethod.PUT, billResponseDTOHttpEntity, BillResponseDTO.class);
-        logger.info("Got response with status code "+responseEntity.getStatusCode());
+        send(HttpMethod.PUT, String.format(billUrl, personId, accountId, billId), new HttpEntity<>(billResponseDTO, params), BillResponseDTO.class);
     }
 
 
     @Override
     public void deletePerson(UUID id) {
-        logger.info("Send DELETE request to "+String.format(personUrl,id));
         for (AccountRequestDTO account:getAccountsByPerson(id)) {
             deleteAccount(id,account.getId());
         }
-
-        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.put("id", Collections.singletonList(id.toString()));
-        ResponseEntity<Object> responseEntity = restTemplate.exchange(String.format(personUrl,id), HttpMethod.DELETE, null, Object.class);
-        logger.info("Got response with status code "+responseEntity.getStatusCode());
+        send(HttpMethod.DELETE, String.format(personUrl,id), null, Object.class);
     }
 
     @Override
     public void deleteAccount(UUID personId, UUID accountId) {
-        logger.info("Send DELETE request to "+String.format(accountUrl, personId, accountId));
-
-        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.put("id", Collections.singletonList(accountId.toString()));
-        ResponseEntity<Object> responseEntity = restTemplate.exchange(String.format(accountUrl, personId, accountId), HttpMethod.DELETE, null, Object.class);
-        logger.info("Got response with status code "+responseEntity.getStatusCode());
+        send(HttpMethod.DELETE, String.format(accountUrl, personId, accountId), null, Object.class);
     }
 
     @Override
     public void deleteBill(UUID personId, UUID accountId, UUID billId) {
-        logger.info("Send DELETE request to "+String.format(billUrl, personId, accountId, billId));
+        send(HttpMethod.DELETE, String.format(billUrl, personId, accountId, billId), null, Object.class);
+    }
 
-        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.put("id", Collections.singletonList(accountId.toString()));
-        ResponseEntity<Object> responseEntity = restTemplate.exchange(String.format(billUrl, personId, accountId, billId), HttpMethod.DELETE, null, Object.class);
-        logger.info("Got response with status code "+responseEntity.getStatusCode());
+    private <T> void post(String url, Object body, Class<T> responseType) {
+        ResponseEntity<T> responseEntity = send(HttpMethod.POST, url, new HttpEntity<>(body), responseType);
+        if (responseEntity.getStatusCode() != HttpStatus.CREATED) {
+            throw new DownstreamServiceException(HttpMethod.POST, url, responseEntity.getStatusCodeValue(), null, null);
+        }
+    }
+
+    private <T> ResponseEntity<T> send(HttpMethod method, String url, HttpEntity<?> entity, Class<T> responseType) {
+        logger.info("Send " + method + " request to " + url);
+        ResponseEntity<T> responseEntity;
+        try {
+            responseEntity = restTemplate.exchange(url, method, entity, responseType);
+        } catch (RestClientResponseException e) {
+            throw new DownstreamServiceException(method, url, e.getRawStatusCode(), e.getResponseBodyAsString(), e);
+        } catch (RestClientException e) {
+            throw new DownstreamServiceException(method, url, null, null, e);
+        }
+        logger.info("Got response with status code " + responseEntity.getStatusCode());
+        return responseEntity;
     }
 }

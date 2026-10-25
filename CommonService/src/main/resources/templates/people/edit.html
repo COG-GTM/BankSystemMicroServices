@@ -5,6 +5,7 @@
     <title>Edit person</title>
 </head>
 <body>
+<div style="color:red" th:if="${error}" th:text="${error}">Error</div>
 <form th:method="PUT" th:action="@{/common/v1/update/people/{id}(id=${id})}" th:object="${person}">
     <label for="firstname">Enter first name: </label>
     <input type="text" th:field="*{firstName}" id="firstname"/>

@@ -5,6 +5,7 @@
     <title>Create person</title>
 </head>
 <body>
+<div style="color:red" th:if="${error}" th:text="${error}">Error</div>
 <form th:method="POST" th:action="@{/common/v1/create/people}" th:object="${person}">
     <label for="firstname">Enter first name: </label>
     <input type="text" th:field="*{firstName}" id="firstname"/>

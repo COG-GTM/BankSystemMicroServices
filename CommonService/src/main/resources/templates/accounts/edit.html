@@ -5,6 +5,7 @@
     <title>Edit account</title>
 </head>
 <body>
+    <div style="color:red" th:if="${error}" th:text="${error}">Error</div>
     <form th:method = "PUT" th:action="@{/common/v1/update/people/{personId}/accounts/{accountId}(personId=${account.getPersonId()}, accountId=${accountId})}" th:object="${account}">
         <label for="name">Enter name: </label>
         <input type="text" th:field="*{name}" id="name"/>
