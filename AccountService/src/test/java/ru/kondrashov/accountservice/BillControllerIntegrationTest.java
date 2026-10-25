@@ -29,6 +29,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Currency;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.UUID;
@@ -429,6 +430,37 @@ public class BillControllerIntegrationTest {
 
         assertThat(readTransactions(all)).hasSize(4);
         assertThat(all.getResponse().getHeader(BillsController.PAGE_SIZE_HEADER)).isEqualTo("100");
+
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void getFinancialTransactions_ordersUndatedLastAndPagesSelfTransfersStably() throws Exception {
+        Currency usd = Currency.getInstance("USD");
+        Account account = initAccount();
+        init(usd, new BigDecimal(1000), true, account);
+        Bill bill = billsRepository.getBillsByAccount_Id(account.getId()).stream().findFirst().get();
+        LocalDateTime t0 = LocalDateTime.of(2021, 3, 1, 10, 0);
+
+        adjustmentsRepository.save(new Adjustment(usd, new BigDecimal("1.00"), null, "undated", bill));
+        transferRepository.save(new Transfer(usd, new BigDecimal("10.00"), t0, "self", bill, bill));
+        paymentsRepository.save(new Payment(usd, new BigDecimal("2.00"), t0.minusMinutes(1), "older", bill));
+
+        List<BigDecimal> amounts = new ArrayList<>();
+        List<String> messages = new ArrayList<>();
+        for (int page = 0; page < 4; page++) {
+            MvcResult result = mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/transactions", account.getPersonId(), account.getId(), bill.getId())
+                    .param("page", String.valueOf(page)).param("size", "1"))
+                    .andExpect(status().isOk()).andReturn();
+            List<FinancialTransactionResponseDTO> transactions = readTransactions(result);
+            assertThat(transactions).hasSize(1);
+            amounts.add(transactions.get(0).getAmount());
+            messages.add(transactions.get(0).getMessage());
+        }
+
+        assertThat(messages).containsExactly("self", "self", "older", "undated");
+        assertThat(amounts).usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("10"), new BigDecimal("-10"), new BigDecimal("-2"), new BigDecimal("1"));
 
         accountsService.delete(account.getId());
     }

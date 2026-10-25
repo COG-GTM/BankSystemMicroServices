@@ -15,7 +15,8 @@ import java.util.UUID;
 /**
  * Signed, newest-first transaction history of a bill read as a single projection,
  * so no Payment/Adjustment/Transfer entities (and their EAGER bills) are hydrated.
- * Outflows (payments, outgoing transfers) are negated in SQL.
+ * Outflows (payments, outgoing transfers) are negated in SQL. {@code kind} keeps the
+ * order total when one transfer appears twice (source and beneficiary are the same bill).
  */
 @Repository
 @RequiredArgsConstructor
@@ -23,14 +24,14 @@ public class BillTransactionHistoryRepository {
 
     static final String HISTORY_SQL =
             "SELECT h.id, h.currency, h.amount, h.time, h.message FROM (" +
-            " SELECT a.id, a.currency, a.amount AS amount, a.time, a.message FROM public.adjustments a WHERE a.bill_id = :billId" +
+            " SELECT a.id, a.currency, a.amount AS amount, a.time, a.message, 0 AS kind FROM public.adjustments a WHERE a.bill_id = :billId" +
             " UNION ALL" +
-            " SELECT p.id, p.currency, -p.amount AS amount, p.time, p.message FROM public.payments p WHERE p.bill_id = :billId" +
+            " SELECT p.id, p.currency, -p.amount AS amount, p.time, p.message, 1 AS kind FROM public.payments p WHERE p.bill_id = :billId" +
             " UNION ALL" +
-            " SELECT t.id, t.currency, t.amount AS amount, t.time, t.message FROM public.transfers t WHERE t.beneficiary_bill_id = :billId" +
+            " SELECT t.id, t.currency, t.amount AS amount, t.time, t.message, 2 AS kind FROM public.transfers t WHERE t.beneficiary_bill_id = :billId" +
             " UNION ALL" +
-            " SELECT t.id, t.currency, -t.amount AS amount, t.time, t.message FROM public.transfers t WHERE t.source_bill_id = :billId" +
-            ") h ORDER BY h.time DESC, h.id DESC LIMIT :limit OFFSET :offset";
+            " SELECT t.id, t.currency, -t.amount AS amount, t.time, t.message, 3 AS kind FROM public.transfers t WHERE t.source_bill_id = :billId" +
+            ") h ORDER BY h.time DESC NULLS LAST, h.id DESC, h.kind LIMIT :limit OFFSET :offset";
 
     private static final RowMapper<FinancialTransactionResponseDTO> ROW_MAPPER = (rs, rowNum) -> {
         Timestamp time = rs.getTimestamp("time");
