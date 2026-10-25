@@ -9,8 +9,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.client.ExpectedCount;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.test.web.client.ResponseCreator;
 import ru.kondrashov.commonservice.exceptions.PersonDeletionException;
 
+import java.io.IOException;
+import java.net.ConnectException;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -65,6 +68,7 @@ class CommonServiceImplTest {
         assertThat(exp.getPersonId()).isEqualTo(personId);
         assertThat(exp.getFailedStep()).isEqualTo(PersonDeletionException.Step.DELETE_ACCOUNTS);
         assertThat(exp.isAccountsDeleted()).isFalse();
+        assertThat(exp.isOutcomeKnown()).isTrue();
         assertThat(exp.getMessage()).contains("nothing was deleted");
     }
 
@@ -84,6 +88,82 @@ class CommonServiceImplTest {
         assertThat(exp).isNotNull();
         assertThat(exp.getFailedStep()).isEqualTo(PersonDeletionException.Step.DELETE_PERSON);
         assertThat(exp.isAccountsDeleted()).isTrue();
-        assertThat(exp.getMessage()).contains("accounts were already deleted");
+        assertThat(exp.isOutcomeKnown()).isTrue();
+        assertThat(exp.getMessage()).contains("accounts were already deleted", "person record still exists");
+    }
+
+    @Test
+    void accountStepWithoutResponseReportsUnknownOutcome() {
+        server.expect(ExpectedCount.once(), requestTo(String.format(ACCOUNTS_URL, personId)))
+                .andExpect(method(HttpMethod.DELETE))
+                .andRespond(connectionLost());
+
+        PersonDeletionException exp = catchThrowableOfType(
+                () -> commonService.deletePerson(personId), PersonDeletionException.class);
+
+        server.verify();
+        assertThat(exp).isNotNull();
+        assertThat(exp.getFailedStep()).isEqualTo(PersonDeletionException.Step.DELETE_ACCOUNTS);
+        assertThat(exp.isAccountsDeleted()).isFalse();
+        assertThat(exp.isOutcomeKnown()).isFalse();
+        assertThat(exp.getMessage()).contains("may or may not have been deleted").doesNotContain("nothing was deleted");
+    }
+
+    @Test
+    void personStepWithoutResponseReportsUnknownPersonState() {
+        server.expect(ExpectedCount.once(), requestTo(String.format(ACCOUNTS_URL, personId)))
+                .andExpect(method(HttpMethod.DELETE))
+                .andRespond(withStatus(HttpStatus.NO_CONTENT));
+        server.expect(ExpectedCount.once(), requestTo(String.format(PERSON_URL, personId)))
+                .andExpect(method(HttpMethod.DELETE))
+                .andRespond(connectionLost());
+
+        PersonDeletionException exp = catchThrowableOfType(
+                () -> commonService.deletePerson(personId), PersonDeletionException.class);
+
+        server.verify();
+        assertThat(exp).isNotNull();
+        assertThat(exp.getFailedStep()).isEqualTo(PersonDeletionException.Step.DELETE_PERSON);
+        assertThat(exp.isAccountsDeleted()).isTrue();
+        assertThat(exp.isOutcomeKnown()).isFalse();
+        assertThat(exp.getMessage()).contains("may or may not have been deleted").doesNotContain("still exists");
+    }
+
+    @Test
+    void accountServiceUnreachableReportsNothingDeleted() {
+        server.expect(ExpectedCount.once(), requestTo(String.format(ACCOUNTS_URL, personId)))
+                .andExpect(method(HttpMethod.DELETE))
+                .andRespond(request -> {
+                    throw new ConnectException("Connection refused");
+                });
+
+        PersonDeletionException exp = catchThrowableOfType(
+                () -> commonService.deletePerson(personId), PersonDeletionException.class);
+
+        server.verify();
+        assertThat(exp).isNotNull();
+        assertThat(exp.getFailedStep()).isEqualTo(PersonDeletionException.Step.DELETE_ACCOUNTS);
+        assertThat(exp.isOutcomeKnown()).isTrue();
+        assertThat(exp.getMessage()).contains("nothing was deleted");
+    }
+
+    @Test
+    void absentPersonCountsAsDeleted() {
+        server.expect(ExpectedCount.once(), requestTo(String.format(ACCOUNTS_URL, personId)))
+                .andExpect(method(HttpMethod.DELETE))
+                .andRespond(withStatus(HttpStatus.NO_CONTENT));
+        server.expect(ExpectedCount.once(), requestTo(String.format(PERSON_URL, personId)))
+                .andExpect(method(HttpMethod.DELETE))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+        commonService.deletePerson(personId);
+
+        server.verify();
+    }
+
+    private static ResponseCreator connectionLost() {
+        return request -> {
+            throw new IOException("Connection reset");
+        };
     }
 }

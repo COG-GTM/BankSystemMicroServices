@@ -251,6 +251,7 @@ public class CommonController {
         model.addAttribute("personId", exp.getPersonId());
         model.addAttribute("failedStep", exp.getFailedStep());
         model.addAttribute("accountsDeleted", exp.isAccountsDeleted());
+        model.addAttribute("outcomeKnown", exp.isOutcomeKnown());
         return "errors/person-deletion";
     }
 }
