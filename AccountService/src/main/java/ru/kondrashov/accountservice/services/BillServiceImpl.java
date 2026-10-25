@@ -42,16 +42,19 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void save(Bill bill) {
         billsRepository.save(bill);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(UUID id) {
         billsRepository.delete(getBill(id));
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(UUID id, Bill newBill) {
         Bill oldBill = getBill(id);
         oldBill.setAmount(currencyConversion.exchange(oldBill.getCurrency(),newBill.getCurrency(),newBill.getAmount()));
@@ -62,11 +65,12 @@ public class BillServiceImpl implements BillsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitAdjustment(UUID billId, Adjustment adjustment) {
 
-        Bill bill = getBill(billId);
+        Bill bill = getBillForUpdate(billId);
 
-       increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
+        increaseBillsAmount(bill,currencyConversion.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
 
         adjustmentsService.save(adjustment);
     }
@@ -75,7 +79,7 @@ public class BillServiceImpl implements BillsService {
     @Transactional(rollbackFor = Exception.class)
     public void commitPayment(UUID billId, Payment payment) {
 
-        Bill bill = getBill(billId);
+        Bill bill = getBillForUpdate(billId);
 
         decreaseBillsAmount(bill,currencyConversion.exchange(payment.getCurrency(),bill.getCurrency(),payment.getAmount()));
 
@@ -84,10 +88,19 @@ public class BillServiceImpl implements BillsService {
 
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
 
-        Bill sourceBill = getBill(sourceBillId);
-        Bill beneficiaryBill = getBill(beneficiaryBillId);
+        // Lock both rows in id order so opposite-direction transfers cannot deadlock.
+        Bill sourceBill;
+        Bill beneficiaryBill;
+        if (sourceBillId.compareTo(beneficiaryBillId) <= 0) {
+            sourceBill = getBillForUpdate(sourceBillId);
+            beneficiaryBill = getBillForUpdate(beneficiaryBillId);
+        } else {
+            beneficiaryBill = getBillForUpdate(beneficiaryBillId);
+            sourceBill = getBillForUpdate(sourceBillId);
+        }
 
         decreaseBillsAmount(sourceBill, currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount()));
         increaseBillsAmount(beneficiaryBill, currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount()));
@@ -115,6 +128,10 @@ public class BillServiceImpl implements BillsService {
         return transferService.getTransfersByBeneficiaryBill_Id(billId);
     }
 
+
+    private Bill getBillForUpdate(UUID id) {
+        return billsRepository.findByIdForUpdate(id).orElseThrow(()->new BillNotFoundException("Bill with id = "+id+" not found."));
+    }
 
     private void decreaseBillsAmount(Bill bill, BigDecimal amount){
 

@@ -8,7 +8,6 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import ru.kondrashov.accountservice.controllers.dto.AccountRequestDTO;
 import ru.kondrashov.accountservice.controllers.dto.AccountResponseDTO;
@@ -44,7 +43,6 @@ public class AccountsController {
                 .collect(Collectors.toList());
     }
 
-    @Transactional(rollbackFor = Exception.class)
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @ApiOperation(value = "Add a new account", tags = { "ACCOUNTS" })
@@ -55,7 +53,6 @@ public class AccountsController {
         accountsService.save(accountMapping.mapToAccount(account));
     }
 
-    @Transactional(rollbackFor = Exception.class)
     @PutMapping("/{id}")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @ApiOperation(value = "Update a account", tags = { "ACCOUNTS" })
@@ -67,7 +64,6 @@ public class AccountsController {
         accountsService.update(id,accountMapping.mapToAccount(account));
     }
 
-    @Transactional(rollbackFor = Exception.class)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @ApiOperation(value = "Delete a account", tags = { "ACCOUNTS" })
