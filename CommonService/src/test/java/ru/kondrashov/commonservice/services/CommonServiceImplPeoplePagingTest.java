@@ -71,6 +71,12 @@ class CommonServiceImplPeoplePagingTest {
     }
 
     @Test
+    void maxIntPageHasNoNext() {
+        assertThat(new PeoplePageDTO(java.util.Collections.<PersonRequestDTO>emptyList(),
+                Integer.MAX_VALUE, 50, 100, 2).hasNext()).isFalse();
+    }
+
+    @Test
     void fallsBackWhenPagingHeadersAreMissing() {
         server.expect(requestTo(PEOPLE_URL + "?page=0&size=50"))
                 .andRespond(withSuccess(TWO_PEOPLE, MediaType.APPLICATION_JSON));

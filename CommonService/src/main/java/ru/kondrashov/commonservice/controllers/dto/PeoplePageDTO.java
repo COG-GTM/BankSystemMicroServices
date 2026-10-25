@@ -20,6 +20,6 @@ public class PeoplePageDTO {
     }
 
     public boolean hasNext() {
-        return page + 1 < totalPages;
+        return page < totalPages - 1;
     }
 }
