@@ -1,6 +1,7 @@
 package ru.kondrashov.accountservice.services;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.kondrashov.accountservice.entities.Account;
 import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.repositories.AccountsRepository;
@@ -53,5 +54,11 @@ public class AccountsServiceImpl implements AccountsService {
     @Override
     public void delete(UUID id) {
         accountsRepository.delete(getAccount(id));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int deleteAllByPersonId(UUID personId) {
+        return accountsRepository.deleteAllByPersonIdInBulk(personId);
     }
 }

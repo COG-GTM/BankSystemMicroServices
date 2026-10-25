@@ -172,11 +172,11 @@ public class CommonServiceImpl implements CommonService{
 
     @Override
     public void deletePerson(UUID id) {
-        logger.info("Send DELETE request to "+String.format(personUrl,id));
-        for (AccountRequestDTO account:getAccountsByPerson(id)) {
-            deleteAccount(id,account.getId());
-        }
+        logger.info("Send DELETE request to "+String.format(accountsUrl,id));
+        ResponseEntity<Object> accountsResponse = restTemplate.exchange(String.format(accountsUrl,id), HttpMethod.DELETE, null, Object.class);
+        logger.info("Got response with status code "+accountsResponse.getStatusCode());
 
+        logger.info("Send DELETE request to "+String.format(personUrl,id));
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.put("id", Collections.singletonList(id.toString()));
         ResponseEntity<Object> responseEntity = restTemplate.exchange(String.format(personUrl,id), HttpMethod.DELETE, null, Object.class);
