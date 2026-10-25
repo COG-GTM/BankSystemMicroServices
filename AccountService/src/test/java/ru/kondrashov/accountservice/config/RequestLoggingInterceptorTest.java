@@ -120,4 +120,24 @@ class RequestLoggingInterceptorTest {
                 "The controller \"/v1/people/{personId}/accounts\" received a GET request /v1/people/" + personId
                         + "/accounts from the server common-service:8080 with content type null");
     }
+
+    @Test
+    void replacesControlCharactersInClientSuppliedValues() throws Exception {
+        mockMvc.perform(get("/v1/people/{personId}/accounts", UUID.randomUUID())
+                .header("Host", "evil\r\nINFO forged entry")
+                .contentType("text/plain\u2028x"))
+                .andExpect(status().isOk());
+
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).getMessage().getFormattedMessage())
+                .endsWith("from the server evil__INFO forged entry with content type text/plain_x")
+                .doesNotContain("\r", "\n", "\u2028");
+    }
+
+    @Test
+    void logSafeLeavesPrintableTextAndNullUntouched() {
+        assertThat(RequestLoggingInterceptor.logSafe("/v1/people/a b?c=%0A")).isEqualTo("/v1/people/a b?c=%0A");
+        assertThat(RequestLoggingInterceptor.logSafe("a\tb\u0085c\u2029")).isEqualTo("a_b_c_");
+        assertThat(RequestLoggingInterceptor.logSafe(null)).isNull();
+    }
 }
