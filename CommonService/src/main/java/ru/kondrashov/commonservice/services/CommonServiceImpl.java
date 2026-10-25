@@ -39,20 +39,20 @@ public class CommonServiceImpl implements CommonService{
     private String transactionsUrl;
 
     @Override
-    public PersonRequestDTO getPersonById(UUID uuid){
-        return restTemplate.getForObject(String.format(personUrl,uuid), PersonRequestDTO.class);
+    public PersonResponseDTO getPersonById(UUID uuid){
+        return restTemplate.getForObject(String.format(personUrl,uuid), PersonResponseDTO.class);
 
     }
 
     @Override
-    public Collection<PersonRequestDTO> getPeople() {
+    public Collection<PersonResponseDTO> getPeople() {
         logger.info("Send GET request to "+peopleUrl);
-        ResponseEntity<List<PersonRequestDTO>> responseEntity =
+        ResponseEntity<List<PersonResponseDTO>> responseEntity =
                 restTemplate.exchange(
                         peopleUrl,
                         HttpMethod.GET,
                         null,
-                        new ParameterizedTypeReference<List<PersonRequestDTO>>() {}
+                        new ParameterizedTypeReference<List<PersonResponseDTO>>() {}
                 );
         logger.info("Got response with status code "+ responseEntity.getStatusCode());
         return responseEntity.getBody();
@@ -102,10 +102,10 @@ public class CommonServiceImpl implements CommonService{
 
 
     @Override
-    public void createPerson(PersonResponseDTO person) throws Exception {
+    public void createPerson(PersonRequestDTO person) throws Exception {
         logger.info("Send POST request to "+peopleUrl);
-        ResponseEntity<PersonResponseDTO> responseEntity =
-                restTemplate.postForEntity(peopleUrl, person,PersonResponseDTO.class);
+        ResponseEntity<Void> responseEntity =
+                restTemplate.postForEntity(peopleUrl, person, Void.class);
         if(responseEntity.getStatusCode() != HttpStatus.CREATED){
             logger.error(responseEntity.toString());
             throw new Exception(responseEntity.toString());
@@ -139,12 +139,12 @@ public class CommonServiceImpl implements CommonService{
 
 
     @Override
-    public void updatePerson(UUID id, PersonResponseDTO personResponseDTO){
+    public void updatePerson(UUID id, PersonRequestDTO personRequestDTO){
         logger.info("Send PUT request to "+String.format(personUrl,id));
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.put("id", Collections.singletonList(id.toString()));
-        HttpEntity<PersonResponseDTO> personRequestDTOHttpEntity = new HttpEntity<>(personResponseDTO, params);
-        ResponseEntity<PersonResponseDTO> responseEntity = restTemplate.exchange(String.format(personUrl,id),HttpMethod.PUT, personRequestDTOHttpEntity, PersonResponseDTO.class);
+        HttpEntity<PersonRequestDTO> personRequestDTOHttpEntity = new HttpEntity<>(personRequestDTO, params);
+        ResponseEntity<Void> responseEntity = restTemplate.exchange(String.format(personUrl,id),HttpMethod.PUT, personRequestDTOHttpEntity, Void.class);
         logger.info("Got response with status code "+responseEntity.getStatusCode());
     }
 
