@@ -11,8 +11,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import ru.kondrashov.commonservice.controllers.dto.*;
+import ru.kondrashov.commonservice.exceptions.PersonDeletionException;
 
 import java.util.*;
 
@@ -170,17 +172,46 @@ public class CommonServiceImpl implements CommonService{
     }
 
 
+    /**
+     * Deletes a person and everything AccountService holds for them, in this order:
+     * <ol>
+     *     <li>all of the person's accounts, in one all-or-nothing call to AccountService;</li>
+     *     <li>the person record in PersonService.</li>
+     * </ol>
+     * Accounts go first so a failure never leaves accounts pointing at a person that no longer exists.
+     * The two services do not share a transaction: if step 2 fails, the accounts stay deleted and a
+     * {@link PersonDeletionException} reports that; repeating the delete finishes the job.
+     */
     @Override
     public void deletePerson(UUID id) {
-        logger.info("Send DELETE request to "+String.format(personUrl,id));
-        for (AccountRequestDTO account:getAccountsByPerson(id)) {
-            deleteAccount(id,account.getId());
-        }
+        logger.info("Deleting person "+id+": step 1/2 delete accounts, step 2/2 delete person");
+        deleteAccountsOfPerson(id);
+        deletePersonRecord(id);
+        logger.info("Deleted person "+id);
+    }
 
-        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.put("id", Collections.singletonList(id.toString()));
-        ResponseEntity<Object> responseEntity = restTemplate.exchange(String.format(personUrl,id), HttpMethod.DELETE, null, Object.class);
-        logger.info("Got response with status code "+responseEntity.getStatusCode());
+    private void deleteAccountsOfPerson(UUID personId) {
+        String url = String.format(accountsUrl, personId);
+        logger.info("Step 1/2: send DELETE request to "+url);
+        try {
+            ResponseEntity<Object> responseEntity = restTemplate.exchange(url, HttpMethod.DELETE, null, Object.class);
+            logger.info("Step 1/2: accounts of person "+personId+" deleted, status code "+responseEntity.getStatusCode());
+        } catch (RestClientException e) {
+            logger.error("Step 1/2: deleting accounts of person "+personId+" failed, nothing was deleted", e);
+            throw new PersonDeletionException(personId, PersonDeletionException.Step.DELETE_ACCOUNTS, false, e);
+        }
+    }
+
+    private void deletePersonRecord(UUID personId) {
+        String url = String.format(personUrl, personId);
+        logger.info("Step 2/2: send DELETE request to "+url);
+        try {
+            ResponseEntity<Object> responseEntity = restTemplate.exchange(url, HttpMethod.DELETE, null, Object.class);
+            logger.info("Step 2/2: person "+personId+" deleted, status code "+responseEntity.getStatusCode());
+        } catch (RestClientException e) {
+            logger.error("Step 2/2: deleting person "+personId+" failed after its accounts were deleted", e);
+            throw new PersonDeletionException(personId, PersonDeletionException.Step.DELETE_PERSON, true, e);
+        }
     }
 
     @Override

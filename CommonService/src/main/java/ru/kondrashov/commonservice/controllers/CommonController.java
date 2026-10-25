@@ -9,6 +9,7 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import ru.kondrashov.commonservice.controllers.dto.*;
+import ru.kondrashov.commonservice.exceptions.PersonDeletionException;
 import ru.kondrashov.commonservice.services.CommonService;
 
 import javax.validation.Valid;
@@ -242,5 +243,14 @@ public class CommonController {
     public String deleteBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId){
         commonService.deleteBill(personId, accountId, billId);
         return String.format("redirect:/common/v1/info/people/%s/accounts/%s", personId, accountId);
+    }
+
+    @ExceptionHandler(PersonDeletionException.class)
+    @ResponseStatus(HttpStatus.BAD_GATEWAY)
+    public String personDeletionFailed(PersonDeletionException exp, Model model){
+        model.addAttribute("personId", exp.getPersonId());
+        model.addAttribute("failedStep", exp.getFailedStep());
+        model.addAttribute("accountsDeleted", exp.isAccountsDeleted());
+        return "errors/person-deletion";
     }
 }
