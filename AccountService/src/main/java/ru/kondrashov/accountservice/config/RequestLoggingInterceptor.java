@@ -35,6 +35,6 @@ public class RequestLoggingInterceptor implements HandlerInterceptor {
     }
 
     private static String stripLineBreaks(String value) {
-        return value == null ? null : value.replaceAll("[\\r\\n]", "_");
+        return value == null ? null : value.replaceAll("[\\r\\n\\u000B\\f\\u0085\\u2028\\u2029]", "_");
     }
 }

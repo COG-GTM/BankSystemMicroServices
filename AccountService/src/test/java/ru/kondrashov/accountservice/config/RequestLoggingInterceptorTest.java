@@ -36,11 +36,11 @@ class RequestLoggingInterceptorTest {
     void stripsLineBreaksFromHeaderValues() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/v1/things");
         request.setAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE, "/v1/things");
-        request.addHeader("Host", "evil\r\nINFO forged");
+        request.addHeader("Host", "evil\r\nINFO\u2028forged\u2029x\u0085y\u000Bz\fw");
 
         interceptor.preHandle(request, new MockHttpServletResponse(), handlerMethod());
 
-        verify(logger).info(anyString(), eq("/v1/things"), eq("GET"), eq("evil__INFO forged"), eq((Object) null));
+        verify(logger).info(anyString(), eq("/v1/things"), eq("GET"), eq("evil__INFO_forged_x_y_z_w"), eq((Object) null));
     }
 
     @Test
