@@ -49,24 +49,32 @@ class JavaMonetaApiCurrencyExchangeTest {
     }
 
     @Test
-    void rejectsAmountsFinerThanSourceCurrencyMinorUnit() {
-        assertThatThrownBy(() -> exchange.exchange(USD, USD, new BigDecimal("0.004")))
+    void transactionAmountFinerThanItsCurrencyMinorUnitIsRejected() {
+        assertThatThrownBy(() -> exchange.exchangeTransactionAmount(USD, USD, new BigDecimal("0.004")))
                 .isInstanceOf(InvalidAmountException.class);
-        assertThatThrownBy(() -> exchange.exchange(JPY, JPY, new BigDecimal("100.5")))
+        assertThatThrownBy(() -> exchange.exchangeTransactionAmount(JPY, JPY, new BigDecimal("100.5")))
                 .isInstanceOf(InvalidAmountException.class);
     }
 
     @Test
-    void acceptsTrailingZerosBeyondMinorUnit() {
-        assertThat(exchange.exchange(USD, USD, new BigDecimal("10.0100"))).isEqualTo(new BigDecimal("10.01"));
+    void transactionAmountWithTrailingZerosIsAccepted() {
+        assertThat(exchange.exchangeTransactionAmount(USD, USD, new BigDecimal("10.0100"))).isEqualTo(new BigDecimal("10.01"));
     }
 
     @Test
-    void rejectsConversionThatRoundsToZero() {
+    void transactionAmountThatConvertsToZeroIsRejected() {
         JavaMonetaApiCurrencyExchange tinyRate = withConvertedValue(new BigDecimal("0.0032"));
 
-        assertThatThrownBy(() -> tinyRate.exchange(BHD, USD, new BigDecimal("0.001")))
+        assertThatThrownBy(() -> tinyRate.exchangeTransactionAmount(BHD, USD, new BigDecimal("0.001")))
                 .isInstanceOf(InvalidAmountException.class);
+    }
+
+    @Test
+    void exchangeDoesNotValidatePrecisionAgainstSourceCurrency() {
+        JavaMonetaApiCurrencyExchange fixedRate = withConvertedValue(new BigDecimal("1.234"));
+
+        assertThat(fixedRate.exchange(USD, BHD, new BigDecimal("1.234"))).isEqualTo(new BigDecimal("1.234"));
+        assertThat(exchange.exchange(USD, USD, new BigDecimal("0.004"))).isEqualTo(new BigDecimal("0.00"));
     }
 
     private static JavaMonetaApiCurrencyExchange withConvertedValue(BigDecimal converted) {

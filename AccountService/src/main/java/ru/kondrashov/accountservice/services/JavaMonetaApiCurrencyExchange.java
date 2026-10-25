@@ -27,13 +27,20 @@ public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange 
     @Override
     public BigDecimal exchange(Currency originalCurrency, Currency targetCurrency, BigDecimal amount) {
 
-        requireMinorUnitPrecision(amount, originalCurrency);
         BigDecimal result = roundToMinorUnits(convert(originalCurrency, targetCurrency, amount), targetCurrency);
-        if (result.signum() == 0 && amount.signum() != 0) {
-            throw new InvalidAmountException("Amount " + amount + " " + originalCurrency.getCurrencyCode() + " is less than one minor unit of " + targetCurrency.getCurrencyCode());
-        }
         logger.info("Currency conversion from " + originalCurrency.getCurrencyCode() + " to " + targetCurrency.getCurrencyCode() + " in the amount of " + amount + " " + originalCurrency.getCurrencyCode() + " is performed");
         return result;
+    }
+
+    @Override
+    public BigDecimal exchangeTransactionAmount(Currency transactionCurrency, Currency billCurrency, BigDecimal amount) {
+
+        requireMinorUnitPrecision(amount, transactionCurrency);
+        BigDecimal applied = exchange(transactionCurrency, billCurrency, amount);
+        if (applied.signum() == 0 && amount.signum() != 0) {
+            throw new InvalidAmountException("Amount " + amount + " " + transactionCurrency.getCurrencyCode() + " is less than one minor unit of " + billCurrency.getCurrencyCode());
+        }
+        return applied;
     }
 
     protected BigDecimal convert(Currency originalCurrency, Currency targetCurrency, BigDecimal amount) {
