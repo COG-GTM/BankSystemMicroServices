@@ -13,7 +13,7 @@ import java.util.Currency;
 @Data
 public class TransferResponseDTO {
 
-    @NotNull(message = "Message should not null")
+    @NotNull(message = "Currency should not be null")
     private Currency currency;
 
     @Min(message = "Amount should be more than zero", value = 0)
@@ -22,12 +22,12 @@ public class TransferResponseDTO {
     @DateTimeFormat(pattern = "yyyy-MM-dd hh:mm:ss")
     private LocalDateTime time = LocalDateTime.now();
 
-    @NotEmpty(message = "Message should not empty")
+    @NotEmpty(message = "Message should not be empty")
     private String message;
 
-    @NotNull(message = "Bill should not be null")
+    @NotNull(message = "Source bill should not be null")
     private BillRequestDTO sourceBill;
 
-    @NotNull(message = "Bill should not be null")
+    @NotNull(message = "Beneficiary bill should not be null")
     private BillRequestDTO beneficiaryBill;
 }
