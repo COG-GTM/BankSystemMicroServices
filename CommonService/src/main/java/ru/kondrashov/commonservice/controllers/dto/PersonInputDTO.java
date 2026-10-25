@@ -1,21 +1,24 @@
-package ru.kondrashov.personservice.controllers.dto;
+package ru.kondrashov.commonservice.controllers.dto;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import javax.validation.constraints.*;
+import javax.validation.constraints.Email;
+import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 import java.time.LocalDate;
-import java.time.Period;
-import java.util.Date;
 
+/**
+ * Person create/edit form body, forwarded as-is to PersonService POST/PUT /v1/people.
+ * Mirrors PersonService's PersonInputDTO constraints so the form can show errors before the call.
+ */
 @NoArgsConstructor
-@AllArgsConstructor
 @Getter
 @Setter
-public class PersonRequestDTO {
+public class PersonInputDTO {
 
     @NotEmpty(message = "First name should not be empty")
     @Size(min = 1, max = 30)
@@ -35,6 +38,4 @@ public class PersonRequestDTO {
     @NotEmpty(message = "Email should not be empty")
     @Email(message = "Email should be valid")
     private String email;
-
-
 }

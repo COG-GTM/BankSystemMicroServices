@@ -7,9 +7,9 @@ import java.util.UUID;
 
 public interface CommonService {
 
-    PersonRequestDTO getPersonById(UUID uuid);
+    PersonViewDTO getPersonById(UUID uuid);
 
-    Collection<PersonRequestDTO> getPeople();
+    Collection<PersonViewDTO> getPeople();
 
     Collection<AccountRequestDTO> getAccountsByPerson(UUID id);
 
@@ -17,14 +17,14 @@ public interface CommonService {
 
 
 
-    void createPerson(PersonResponseDTO person) throws Exception;
+    void createPerson(PersonInputDTO person) throws Exception;
 
     void createAccount(UUID personId, AccountResponseDTO account) throws Exception;
 
     void createBill(UUID personId, UUID accountId, BillResponseDTO bill) throws Exception;
 
 
-    void updatePerson(UUID id, PersonResponseDTO personResponseDTO);
+    void updatePerson(UUID id, PersonInputDTO personInputDTO);
 
     void updateAccount(UUID personId, UUID accountId, AccountResponseDTO accountResponseDTO);
 
