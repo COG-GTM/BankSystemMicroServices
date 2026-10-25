@@ -6,7 +6,10 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.Currency;
 
+import ru.kondrashov.accountservice.exceptions.InvalidAmountException;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JavaMonetaApiCurrencyExchangeTest {
 
@@ -43,6 +46,27 @@ class JavaMonetaApiCurrencyExchangeTest {
         JavaMonetaApiCurrencyExchange fixedRate = withConvertedValue(new BigDecimal("1234.5678"));
 
         assertThat(fixedRate.exchange(USD, XAU, BigDecimal.ONE)).isEqualTo(new BigDecimal("1234.57"));
+    }
+
+    @Test
+    void rejectsAmountsFinerThanSourceCurrencyMinorUnit() {
+        assertThatThrownBy(() -> exchange.exchange(USD, USD, new BigDecimal("0.004")))
+                .isInstanceOf(InvalidAmountException.class);
+        assertThatThrownBy(() -> exchange.exchange(JPY, JPY, new BigDecimal("100.5")))
+                .isInstanceOf(InvalidAmountException.class);
+    }
+
+    @Test
+    void acceptsTrailingZerosBeyondMinorUnit() {
+        assertThat(exchange.exchange(USD, USD, new BigDecimal("10.0100"))).isEqualTo(new BigDecimal("10.01"));
+    }
+
+    @Test
+    void rejectsConversionThatRoundsToZero() {
+        JavaMonetaApiCurrencyExchange tinyRate = withConvertedValue(new BigDecimal("0.0032"));
+
+        assertThatThrownBy(() -> tinyRate.exchange(BHD, USD, new BigDecimal("0.001")))
+                .isInstanceOf(InvalidAmountException.class);
     }
 
     private static JavaMonetaApiCurrencyExchange withConvertedValue(BigDecimal converted) {

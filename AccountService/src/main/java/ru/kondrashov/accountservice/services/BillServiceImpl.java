@@ -89,8 +89,11 @@ public class BillServiceImpl implements BillsService {
         Bill sourceBill = getBill(sourceBillId);
         Bill beneficiaryBill = getBill(beneficiaryBillId);
 
-        decreaseBillsAmount(sourceBill, currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount()));
-        increaseBillsAmount(beneficiaryBill, currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount()));
+        BigDecimal debit = currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount());
+        BigDecimal credit = currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount());
+
+        decreaseBillsAmount(sourceBill, debit);
+        increaseBillsAmount(beneficiaryBill, credit);
 
         transferService.save(transfer);
     }
