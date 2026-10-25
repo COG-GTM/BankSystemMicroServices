@@ -39,62 +39,62 @@ public class CommonServiceImpl implements CommonService{
     private String transactionsUrl;
 
     @Override
-    public PersonRequestDTO getPersonById(UUID uuid){
-        return restTemplate.getForObject(String.format(personUrl,uuid), PersonRequestDTO.class);
+    public PersonResponseDTO getPersonById(UUID uuid){
+        return restTemplate.getForObject(String.format(personUrl,uuid), PersonResponseDTO.class);
 
     }
 
     @Override
-    public Collection<PersonRequestDTO> getPeople() {
+    public Collection<PersonResponseDTO> getPeople() {
         logger.info("Send GET request to "+peopleUrl);
-        ResponseEntity<List<PersonRequestDTO>> responseEntity =
+        ResponseEntity<List<PersonResponseDTO>> responseEntity =
                 restTemplate.exchange(
                         peopleUrl,
                         HttpMethod.GET,
                         null,
-                        new ParameterizedTypeReference<List<PersonRequestDTO>>() {}
+                        new ParameterizedTypeReference<List<PersonResponseDTO>>() {}
                 );
         logger.info("Got response with status code "+ responseEntity.getStatusCode());
         return responseEntity.getBody();
     }
 
     @Override
-    public Collection<AccountRequestDTO> getAccountsByPerson(UUID id) {
+    public Collection<AccountResponseDTO> getAccountsByPerson(UUID id) {
         logger.info("Send GET request to "+String.format(accountsUrl,id));
-        ResponseEntity<List<AccountRequestDTO>> responseEntity =
+        ResponseEntity<List<AccountResponseDTO>> responseEntity =
                 restTemplate.exchange(
                         String.format(accountsUrl,id),
                         HttpMethod.GET,
                         null,
-                        new ParameterizedTypeReference<List<AccountRequestDTO>>() {}
+                        new ParameterizedTypeReference<List<AccountResponseDTO>>() {}
                 );
         logger.info("Got response with status code "+ responseEntity.getStatusCode());
         return responseEntity.getBody();
     }
 
     @Override
-    public Collection<BillRequestDTO> getBillsByAccountId(UUID personId, UUID accountId) {
+    public Collection<BillResponseDTO> getBillsByAccountId(UUID personId, UUID accountId) {
         logger.info("Send GET request to "+String.format(billsUrl,personId,accountId));
-        ResponseEntity<List<BillRequestDTO>> responseEntity =
+        ResponseEntity<List<BillResponseDTO>> responseEntity =
                 restTemplate.exchange(
                         String.format(billsUrl,personId,accountId),
                         HttpMethod.GET,
                         null,
-                        new ParameterizedTypeReference<List<BillRequestDTO>>() {}
+                        new ParameterizedTypeReference<List<BillResponseDTO>>() {}
                 );
         logger.info("Got response with status code "+ responseEntity.getStatusCode());
         return responseEntity.getBody();
     }
 
     @Override
-    public Collection<FinancialTransactionRequestDTO> getFinancialTransactionsByBillId(UUID personId, UUID accountId, UUID billId) {
+    public Collection<FinancialTransactionResponseDTO> getFinancialTransactionsByBillId(UUID personId, UUID accountId, UUID billId) {
         logger.info("Send GET request to "+String.format(transactionsUrl,personId, accountId, billId));
-        ResponseEntity<List<FinancialTransactionRequestDTO>> responseEntity =
+        ResponseEntity<List<FinancialTransactionResponseDTO>> responseEntity =
                 restTemplate.exchange(
                         String.format(transactionsUrl,personId, accountId, billId),
                         HttpMethod.GET,
                         null,
-                        new ParameterizedTypeReference<List<FinancialTransactionRequestDTO>>() {}
+                        new ParameterizedTypeReference<List<FinancialTransactionResponseDTO>>() {}
                 );
         logger.info("Got response with status code "+ responseEntity.getStatusCode());
         return responseEntity.getBody();
@@ -102,10 +102,10 @@ public class CommonServiceImpl implements CommonService{
 
 
     @Override
-    public void createPerson(PersonResponseDTO person) throws Exception {
+    public void createPerson(PersonRequestDTO person) throws Exception {
         logger.info("Send POST request to "+peopleUrl);
-        ResponseEntity<PersonResponseDTO> responseEntity =
-                restTemplate.postForEntity(peopleUrl, person,PersonResponseDTO.class);
+        ResponseEntity<PersonRequestDTO> responseEntity =
+                restTemplate.postForEntity(peopleUrl, person,PersonRequestDTO.class);
         if(responseEntity.getStatusCode() != HttpStatus.CREATED){
             logger.error(responseEntity.toString());
             throw new Exception(responseEntity.toString());
@@ -114,10 +114,10 @@ public class CommonServiceImpl implements CommonService{
     }
 
     @Override
-    public void createAccount(UUID personId, AccountResponseDTO account) throws Exception {
+    public void createAccount(UUID personId, AccountRequestDTO account) throws Exception {
         logger.info("Send POST request to "+String.format(accountsUrl, personId));
-        ResponseEntity<AccountResponseDTO> responseEntity =
-                restTemplate.postForEntity(String.format(accountsUrl, personId), account, AccountResponseDTO.class);
+        ResponseEntity<AccountRequestDTO> responseEntity =
+                restTemplate.postForEntity(String.format(accountsUrl, personId), account, AccountRequestDTO.class);
         if(responseEntity.getStatusCode() != HttpStatus.CREATED){
             logger.error(responseEntity.toString());
             throw new Exception(responseEntity.toString());
@@ -126,10 +126,10 @@ public class CommonServiceImpl implements CommonService{
     }
 
     @Override
-    public void createBill(UUID personId, UUID accountId, BillResponseDTO bill) throws Exception {
+    public void createBill(UUID personId, UUID accountId, BillRequestDTO bill) throws Exception {
         logger.info("Send POST request to "+String.format(billsUrl, personId, accountId));
-        ResponseEntity<BillResponseDTO> responseEntity =
-                restTemplate.postForEntity(String.format(billsUrl, personId, accountId), bill, BillResponseDTO.class);
+        ResponseEntity<BillRequestDTO> responseEntity =
+                restTemplate.postForEntity(String.format(billsUrl, personId, accountId), bill, BillRequestDTO.class);
         if(responseEntity.getStatusCode() != HttpStatus.CREATED){
             logger.error(responseEntity.toString());
             throw new Exception(responseEntity.toString());
@@ -139,33 +139,33 @@ public class CommonServiceImpl implements CommonService{
 
 
     @Override
-    public void updatePerson(UUID id, PersonResponseDTO personResponseDTO){
+    public void updatePerson(UUID id, PersonRequestDTO personRequestDTO){
         logger.info("Send PUT request to "+String.format(personUrl,id));
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.put("id", Collections.singletonList(id.toString()));
-        HttpEntity<PersonResponseDTO> personRequestDTOHttpEntity = new HttpEntity<>(personResponseDTO, params);
-        ResponseEntity<PersonResponseDTO> responseEntity = restTemplate.exchange(String.format(personUrl,id),HttpMethod.PUT, personRequestDTOHttpEntity, PersonResponseDTO.class);
+        HttpEntity<PersonRequestDTO> personRequestDTOHttpEntity = new HttpEntity<>(personRequestDTO, params);
+        ResponseEntity<PersonRequestDTO> responseEntity = restTemplate.exchange(String.format(personUrl,id),HttpMethod.PUT, personRequestDTOHttpEntity, PersonRequestDTO.class);
         logger.info("Got response with status code "+responseEntity.getStatusCode());
     }
 
     @Override
-    public void updateAccount(UUID personId, UUID accountId, AccountResponseDTO accountResponseDTO) {
+    public void updateAccount(UUID personId, UUID accountId, AccountRequestDTO accountRequestDTO) {
         logger.info("Send PUT request to "+String.format(accountUrl, personId, accountId));
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.put("id", Collections.singletonList(accountId.toString()));
-        HttpEntity<AccountResponseDTO> accountResponseDTOHttpEntity = new HttpEntity<>(accountResponseDTO, params);
-        ResponseEntity<AccountResponseDTO> responseEntity = restTemplate.exchange(String.format(accountUrl, personId, accountId),HttpMethod.PUT, accountResponseDTOHttpEntity, AccountResponseDTO.class);
+        HttpEntity<AccountRequestDTO> accountRequestDTOHttpEntity = new HttpEntity<>(accountRequestDTO, params);
+        ResponseEntity<AccountRequestDTO> responseEntity = restTemplate.exchange(String.format(accountUrl, personId, accountId),HttpMethod.PUT, accountRequestDTOHttpEntity, AccountRequestDTO.class);
         logger.info("Got response with status code "+responseEntity.getStatusCode());
     }
 
 
     @Override
-    public void updateBill(UUID personId, UUID accountId, UUID billId, BillResponseDTO billResponseDTO) {
+    public void updateBill(UUID personId, UUID accountId, UUID billId, BillRequestDTO billRequestDTO) {
         logger.info("Send PUT request to "+String.format(billUrl, personId, accountId, billId));
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.put("id", Collections.singletonList(billId.toString()));
-        HttpEntity<BillResponseDTO> billResponseDTOHttpEntity = new HttpEntity<>(billResponseDTO, params);
-        ResponseEntity<BillResponseDTO> responseEntity = restTemplate.exchange(String.format(billUrl, personId, accountId, billId), HttpMethod.PUT, billResponseDTOHttpEntity, BillResponseDTO.class);
+        HttpEntity<BillRequestDTO> billRequestDTOHttpEntity = new HttpEntity<>(billRequestDTO, params);
+        ResponseEntity<BillRequestDTO> responseEntity = restTemplate.exchange(String.format(billUrl, personId, accountId, billId), HttpMethod.PUT, billRequestDTOHttpEntity, BillRequestDTO.class);
         logger.info("Got response with status code "+responseEntity.getStatusCode());
     }
 
@@ -173,7 +173,7 @@ public class CommonServiceImpl implements CommonService{
     @Override
     public void deletePerson(UUID id) {
         logger.info("Send DELETE request to "+String.format(personUrl,id));
-        for (AccountRequestDTO account:getAccountsByPerson(id)) {
+        for (AccountResponseDTO account:getAccountsByPerson(id)) {
             deleteAccount(id,account.getId());
         }
 

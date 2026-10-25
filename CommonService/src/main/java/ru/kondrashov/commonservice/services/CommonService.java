@@ -7,28 +7,28 @@ import java.util.UUID;
 
 public interface CommonService {
 
-    PersonRequestDTO getPersonById(UUID uuid);
+    PersonResponseDTO getPersonById(UUID uuid);
 
-    Collection<PersonRequestDTO> getPeople();
+    Collection<PersonResponseDTO> getPeople();
 
-    Collection<AccountRequestDTO> getAccountsByPerson(UUID id);
+    Collection<AccountResponseDTO> getAccountsByPerson(UUID id);
 
-    Collection<BillRequestDTO> getBillsByAccountId(UUID personId, UUID accountId);
-
-
-
-    void createPerson(PersonResponseDTO person) throws Exception;
-
-    void createAccount(UUID personId, AccountResponseDTO account) throws Exception;
-
-    void createBill(UUID personId, UUID accountId, BillResponseDTO bill) throws Exception;
+    Collection<BillResponseDTO> getBillsByAccountId(UUID personId, UUID accountId);
 
 
-    void updatePerson(UUID id, PersonResponseDTO personResponseDTO);
 
-    void updateAccount(UUID personId, UUID accountId, AccountResponseDTO accountResponseDTO);
+    void createPerson(PersonRequestDTO person) throws Exception;
 
-    void updateBill(UUID personId, UUID accountId, UUID billId, BillResponseDTO billResponseDTO);
+    void createAccount(UUID personId, AccountRequestDTO account) throws Exception;
+
+    void createBill(UUID personId, UUID accountId, BillRequestDTO bill) throws Exception;
+
+
+    void updatePerson(UUID id, PersonRequestDTO personRequestDTO);
+
+    void updateAccount(UUID personId, UUID accountId, AccountRequestDTO accountRequestDTO);
+
+    void updateBill(UUID personId, UUID accountId, UUID billId, BillRequestDTO billRequestDTO);
 
 
 
@@ -38,5 +38,5 @@ public interface CommonService {
 
     void deleteBill(UUID personId, UUID accountId, UUID billId);
 
-    Collection<FinancialTransactionRequestDTO> getFinancialTransactionsByBillId(UUID personId, UUID accountId, UUID billId);
+    Collection<FinancialTransactionResponseDTO> getFinancialTransactionsByBillId(UUID personId, UUID accountId, UUID billId);
 }

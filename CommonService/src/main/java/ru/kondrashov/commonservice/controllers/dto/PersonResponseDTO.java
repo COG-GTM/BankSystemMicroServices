@@ -5,16 +5,17 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import javax.validation.constraints.Email;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import javax.validation.constraints.*;
 import java.time.LocalDate;
+import java.util.UUID;
 
 @NoArgsConstructor
 @Getter
 @Setter
 public class PersonResponseDTO {
+
+    @NotEmpty
+    private UUID id;
 
     @NotEmpty(message = "First name should not be empty")
     @Size(min = 1, max = 30)
@@ -34,4 +35,6 @@ public class PersonResponseDTO {
     @NotEmpty(message = "Email should not be empty")
     @Email(message = "Email should be valid")
     private String email;
+
 }
+
