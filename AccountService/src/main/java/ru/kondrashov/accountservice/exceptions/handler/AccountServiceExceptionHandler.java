@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
+import ru.kondrashov.accountservice.exceptions.SameBillTransferException;
 
 @ControllerAdvice
 public class AccountServiceExceptionHandler {
@@ -40,6 +41,17 @@ public class AccountServiceExceptionHandler {
                         exp.getMessage(),
                         400,
                         "NotEnoughMoneyException"),
+                HttpStatus.BAD_REQUEST);
+
+    }
+
+    @ExceptionHandler(SameBillTransferException.class)
+    public ResponseEntity<AccountServiceExceptionTemplate> sameBillTransferExceptions(SameBillTransferException exp) {
+        return new ResponseEntity<>(
+                new AccountServiceExceptionTemplate(
+                        exp.getMessage(),
+                        400,
+                        "SameBillTransferException"),
                 HttpStatus.BAD_REQUEST);
 
     }

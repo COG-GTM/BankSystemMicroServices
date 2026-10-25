@@ -1,5 +1,7 @@
 package ru.kondrashov.commonservice.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import ru.kondrashov.commonservice.controllers.dto.*;
 
@@ -22,6 +26,7 @@ public class CommonServiceImpl implements CommonService{
 
     private final RestTemplate restTemplate;
     private final Logger logger;
+    private final ObjectMapper objectMapper;
 
     @Value("${people.URL}")
     private String peopleUrl;
@@ -37,6 +42,8 @@ public class CommonServiceImpl implements CommonService{
     private String billUrl;
     @Value("${transactions.URL}")
     private String transactionsUrl;
+    @Value("${transfer.URL}")
+    private String transferUrl;
 
     @Override
     public PersonRequestDTO getPersonById(UUID uuid){
@@ -135,6 +142,35 @@ public class CommonServiceImpl implements CommonService{
             throw new Exception(responseEntity.toString());
         }
         logger.info("Got response with status code "+ responseEntity.getStatusCode());
+    }
+
+    @Override
+    public void createTransfer(UUID personId, UUID accountId, UUID sourceBillId, TransferResponseDTO transfer) {
+        String url = String.format(transferUrl, personId, accountId, sourceBillId, transfer.getBeneficiaryBillId());
+        logger.info("Send PUT request to "+url);
+        try {
+            ResponseEntity<Void> responseEntity = restTemplate.exchange(url, HttpMethod.PUT, new HttpEntity<>(transfer), Void.class);
+            logger.info("Got response with status code "+responseEntity.getStatusCode());
+        } catch (HttpStatusCodeException e) {
+            logger.error("Transfer rejected with status code "+e.getStatusCode());
+            throw new TransferRejectedException(e.getStatusCode(), extractErrorMessage(e));
+        } catch (ResourceAccessException e) {
+            logger.error("Account service unreachable during transfer: "+e.getMessage());
+            throw new TransferRejectedException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Account service is unavailable, so the transfer outcome could not be confirmed. Check the bill balance before trying again.");
+        }
+    }
+
+    private String extractErrorMessage(HttpStatusCodeException e) {
+        try {
+            String message = objectMapper.readTree(e.getResponseBodyAsString()).path("message").asText("");
+            if (!message.isEmpty()) {
+                return message;
+            }
+        } catch (JsonProcessingException ignored) {
+            // fall through to the generic status message
+        }
+        return "Account service responded with " + e.getStatusCode();
     }
 
 

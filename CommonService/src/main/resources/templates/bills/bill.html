@@ -23,12 +23,13 @@
 </style>
 <body>
 <h2>Bill</h2>
+<p role="status" th:if="${transferSuccess}" th:text="${transferSuccess}">Transfer completed</p>
 <p th:text="'ID: '+${bill.getId()}"></p>
 <a th:href="@{/common/v1/info/people/{personId}/accounts/{accountId}(personId=${personId},accountId=${bill.getAccount().getId()})}" th:text="'Account: '+${bill.getAccount().getId()}"></a>
 <p th:text="'Amount: '+${bill.getAmount()}+' '+${bill.getCurrency().getCurrencyCode()}"></p>
 <p th:text="'Is overdraft: '+${bill.isOverdraft()}"></p>
 
-<form th:action="@{/common/v1/create/people/{personId}/accounts/{accountId}/bills/{billId}/transfers/new(personId=${personId},accountId=${accountId},billId=${billId})}" th:method="GET">
+<form th:action="@{/common/v1/create/people/{personId}/accounts/{accountId}/bills/{billId}/transfers/new(personId=${personId},accountId=${bill.getAccount().getId()},billId=${bill.getId()})}" th:method="GET">
     <input type="submit" value="Transfer money">
 </form>
 

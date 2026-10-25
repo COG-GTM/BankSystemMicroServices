@@ -20,16 +20,16 @@ public class AdjustmentResponseDTO {
 
     private UUID id;
 
-    @NotNull(message = "Message should not null")
+    @NotNull(message = "Currency should not be null")
     private Currency currency;
 
-    @Min(message = "Amount should be more than zero", value = 0)
+    @Min(message = "Amount should not be negative", value = 0)
     private BigDecimal amount;
 
     @DateTimeFormat(pattern = "yyyy-MM-dd hh:mm:ss")
     private LocalDateTime time = LocalDateTime.now();
 
-    @NotEmpty(message = "Message should not empty")
+    @NotEmpty(message = "Message should not be empty")
     private String message;
 
 }

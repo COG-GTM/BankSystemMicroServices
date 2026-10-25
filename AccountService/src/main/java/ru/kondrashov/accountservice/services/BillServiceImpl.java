@@ -9,6 +9,7 @@ import ru.kondrashov.accountservice.entities.Payment;
 import ru.kondrashov.accountservice.entities.Transfer;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
+import ru.kondrashov.accountservice.exceptions.SameBillTransferException;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.interfaces.*;
 
@@ -84,10 +85,16 @@ public class BillServiceImpl implements BillsService {
 
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void commitTransfer(UUID sourceBillId, UUID beneficiaryBillId, Transfer transfer){
 
+        if(sourceBillId.equals(beneficiaryBillId)){
+            throw new SameBillTransferException("Source and beneficiary bill should differ: " + sourceBillId);
+        }
         Bill sourceBill = getBill(sourceBillId);
         Bill beneficiaryBill = getBill(beneficiaryBillId);
+        transfer.setSourceBill(sourceBill);
+        transfer.setBeneficiaryBill(beneficiaryBill);
 
         decreaseBillsAmount(sourceBill, currencyConversion.exchange(transfer.getCurrency(), sourceBill.getCurrency(),transfer.getAmount()));
         increaseBillsAmount(beneficiaryBill, currencyConversion.exchange(transfer.getCurrency(), beneficiaryBill.getCurrency(),transfer.getAmount()));
