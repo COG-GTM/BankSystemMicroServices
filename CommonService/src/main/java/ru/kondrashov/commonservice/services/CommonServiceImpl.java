@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import ru.kondrashov.commonservice.controllers.dto.*;
 
@@ -84,6 +85,32 @@ public class CommonServiceImpl implements CommonService{
                 );
         logger.info("Got response with status code "+ responseEntity.getStatusCode());
         return responseEntity.getBody();
+    }
+
+    @Override
+    public AccountRequestDTO getAccount(UUID personId, UUID accountId) {
+        String url = String.format(accountUrl, personId, accountId);
+        logger.info("Send GET request to "+url);
+        try {
+            ResponseEntity<AccountRequestDTO> responseEntity = restTemplate.getForEntity(url, AccountRequestDTO.class);
+            logger.info("Got response with status code "+ responseEntity.getStatusCode());
+            return responseEntity.getBody();
+        } catch (HttpClientErrorException.NotFound e) {
+            throw new RuntimeException("Person with id " + personId+" dont have account with id "+accountId);
+        }
+    }
+
+    @Override
+    public BillRequestDTO getBill(UUID personId, UUID accountId, UUID billId) {
+        String url = String.format(billUrl, personId, accountId, billId);
+        logger.info("Send GET request to "+url);
+        try {
+            ResponseEntity<BillRequestDTO> responseEntity = restTemplate.getForEntity(url, BillRequestDTO.class);
+            logger.info("Got response with status code "+ responseEntity.getStatusCode());
+            return responseEntity.getBody();
+        } catch (HttpClientErrorException.NotFound e) {
+            throw new RuntimeException("Account with id " + accountId+" dont have bill with id "+billId);
+        }
     }
 
     @Override

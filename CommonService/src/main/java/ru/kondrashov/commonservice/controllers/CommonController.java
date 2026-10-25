@@ -15,6 +15,9 @@ import javax.validation.Valid;
 import java.util.Collection;
 import java.util.Currency;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 
 @Controller
 @RequestMapping(value = "/common/v1", produces = MediaType.TEXT_HTML_VALUE)
@@ -23,6 +26,7 @@ public class CommonController {
 
     private final CommonService commonService;
     private final Logger logger;
+    private final ExecutorService remoteCallExecutor;
 
     @GetMapping("/info/people")
     @ResponseStatus (HttpStatus.OK)
@@ -42,15 +46,10 @@ public class CommonController {
     @GetMapping("/info/people/{personId}/accounts/{accountId}")
     @ResponseStatus (HttpStatus.OK)
     public String getAccount(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, Model model) {
-        model.addAttribute(
-                "account",
-                commonService.
-                        getAccountsByPerson(personId)
-                        .stream()
-                        .filter(account -> account.getId().equals(accountId))
-                        .findFirst().orElseThrow(() -> new RuntimeException("Person with id " + personId+" dont have account with id "+accountId))
-        );
-        model.addAttribute("bills",commonService.getBillsByAccountId(personId, accountId));
+        CompletableFuture<Collection<BillRequestDTO>> bills =
+                CompletableFuture.supplyAsync(() -> commonService.getBillsByAccountId(personId, accountId), remoteCallExecutor);
+        model.addAttribute("account", commonService.getAccount(personId, accountId));
+        model.addAttribute("bills", await(bills));
         model.addAttribute("personId", personId);
         return "accounts/account";
     }
@@ -58,17 +57,11 @@ public class CommonController {
     @GetMapping("/info/people/{personId}/accounts/{accountId}/bills/{billId}")
     @ResponseStatus (HttpStatus.OK)
     public String getBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId, Model model) {
-        model.addAttribute(
-                "bill",
-                commonService.
-                        getBillsByAccountId(personId, accountId)
-                        .stream()
-                        .filter(bill -> bill.getId().equals(billId))
-                        .findFirst().orElseThrow(() -> new RuntimeException("Account with id " + accountId+" dont have bill with id "+billId))
-        );
+        CompletableFuture<Collection<FinancialTransactionRequestDTO>> transactions =
+                CompletableFuture.supplyAsync(() -> commonService.getFinancialTransactionsByBillId(personId, accountId, billId), remoteCallExecutor);
+        model.addAttribute("bill", commonService.getBill(personId, accountId, billId));
         model.addAttribute("personId", personId);
-        Collection<FinancialTransactionRequestDTO> financialTransactionRequestDTOS = commonService.getFinancialTransactionsByBillId(personId, accountId, billId);
-        model.addAttribute("transactions", financialTransactionRequestDTOS);
+        model.addAttribute("transactions", await(transactions));
 
         return "bills/bill";
     }
@@ -146,7 +139,7 @@ public class CommonController {
             bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
             return "/bills/new";
         }
-        AccountRequestDTO accountRequestDTO = commonService.getAccountsByPerson(personId).stream().filter(account -> account.getId().equals(accountId)).findFirst().get();
+        AccountRequestDTO accountRequestDTO = commonService.getAccount(personId, accountId);
         bill.setAccount(accountRequestDTO);
         try {
             commonService.createBill(personId,accountId,bill);
@@ -167,7 +160,7 @@ public class CommonController {
     @GetMapping("/update/people/{personId}/accounts/{accountId}/edit")
     @ResponseStatus(HttpStatus.OK)
     public String editAccount(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, Model model){
-        model.addAttribute("account", commonService.getAccountsByPerson(personId).stream().filter(account->account.getId().equals(accountId)).findFirst().get());
+        model.addAttribute("account", commonService.getAccount(personId, accountId));
         model.addAttribute("id",accountId);
         model.addAttribute("personId",personId);
         return "accounts/edit";
@@ -176,7 +169,7 @@ public class CommonController {
     @GetMapping("/update/people/{personId}/accounts/{accountId}/bills/{billId}/edit")
     @ResponseStatus(HttpStatus.OK)
     public String editBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId, Model model){
-        model.addAttribute("bill", commonService.getBillsByAccountId(personId,accountId).stream().filter(bill->bill.getId().equals(billId)).findFirst().get());
+        model.addAttribute("bill", commonService.getBill(personId, accountId, billId));
         model.addAttribute("currencies", Currency.getAvailableCurrencies());
         model.addAttribute("accountId",accountId);
         model.addAttribute("personId",personId);
@@ -217,7 +210,7 @@ public class CommonController {
             return "bills/edit";
         }
 
-        billResponseDTO.setAccount(commonService.getAccountsByPerson(personId).stream().filter(ac->ac.getId().equals(accountId)).findFirst().get());
+        billResponseDTO.setAccount(commonService.getAccount(personId, accountId));
         commonService.updateBill(personId, accountId, billId, billResponseDTO);
         return String.format("redirect:/common/v1/info/people/%s/accounts/%s", personId,accountId);
 
@@ -242,5 +235,16 @@ public class CommonController {
     public String deleteBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId){
         commonService.deleteBill(personId, accountId, billId);
         return String.format("redirect:/common/v1/info/people/%s/accounts/%s", personId, accountId);
+    }
+
+    private static <T> T await(CompletableFuture<T> future) {
+        try {
+            return future.join();
+        } catch (CompletionException e) {
+            if (e.getCause() instanceof RuntimeException) {
+                throw (RuntimeException) e.getCause();
+            }
+            throw e;
+        }
     }
 }

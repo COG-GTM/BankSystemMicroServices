@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import ru.kondrashov.accountservice.controllers.dto.*;
+import ru.kondrashov.accountservice.entities.Bill;
+import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
 import ru.kondrashov.accountservice.services.interfaces.BillsService;
 import ru.kondrashov.accountservice.utils.interfaces.AdjustmentMapping;
 import ru.kondrashov.accountservice.utils.interfaces.BillsMapping;
@@ -48,6 +50,24 @@ public class BillsController {
                 .stream()
                 .map(billsMapping::mapToBillResponseDTO)
                 .collect(Collectors.toList());
+    }
+
+    @GetMapping("/{id}")
+    @ApiOperation(value = "Get bill by ID", tags = { "BILLS" })
+    @ResponseStatus(HttpStatus.OK)
+    public BillResponseDTO getBill(
+            @ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
+            @ApiParam(value = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
+            @ApiParam(value = "Id of the bill to be obtained. Cannot be empty.") @PathVariable("id") UUID id,
+            @RequestHeader HttpHeaders header){
+        logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
+        Bill bill = billsService.getBill(id);
+        if (bill.getAccount() == null
+                || !accountId.equals(bill.getAccount().getId())
+                || !personId.equals(bill.getAccount().getPersonId())) {
+            throw new BillNotFoundException("Bill with id = "+id+" not found.");
+        }
+        return billsMapping.mapToBillResponseDTO(bill);
     }
 
     @Transactional(rollbackFor = Exception.class)
