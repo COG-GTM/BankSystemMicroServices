@@ -1,7 +1,9 @@
 package ru.kondrashov.accountservice.entities;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.Hibernate;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import javax.persistence.GeneratedValue;
@@ -17,7 +19,9 @@ import java.util.Currency;
 import java.util.UUID;
 
 @MappedSuperclass
-@Data
+@Getter
+@Setter
+@ToString
 public abstract class FinancialTransaction {
 
     @Id
@@ -44,4 +48,17 @@ public abstract class FinancialTransaction {
     }
 
     public FinancialTransaction(){}
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+        FinancialTransaction other = (FinancialTransaction) o;
+        return id != null && id.equals(other.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return Hibernate.getClass(this).hashCode();
+    }
 }
