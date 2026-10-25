@@ -5,6 +5,7 @@
     <title>New account</title>
 </head>
 <body>
+    <div style="color:red" th:if="${error}" th:text="${error}">Error</div>
     <form th:method = "POST" th:action="@{/common/v1/create/people/{id}/accounts(id=${id})}" th:object="${account}">
         <label for="name">Enter name: </label>
         <input type="text" th:field="*{name}" id="name"/>

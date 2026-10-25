@@ -17,11 +17,11 @@ public interface CommonService {
 
 
 
-    void createPerson(PersonResponseDTO person) throws Exception;
+    void createPerson(PersonResponseDTO person);
 
-    void createAccount(UUID personId, AccountResponseDTO account) throws Exception;
+    void createAccount(UUID personId, AccountResponseDTO account);
 
-    void createBill(UUID personId, UUID accountId, BillResponseDTO bill) throws Exception;
+    void createBill(UUID personId, UUID accountId, BillResponseDTO bill);
 
 
     void updatePerson(UUID id, PersonResponseDTO personResponseDTO);

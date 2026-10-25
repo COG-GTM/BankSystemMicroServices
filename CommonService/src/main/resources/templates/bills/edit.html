@@ -5,6 +5,7 @@
     <title>Edit bill</title>
 </head>
 <body>
+<div style="color:red" th:if="${error}" th:text="${error}">Error</div>
 <h2>Fill bills details</h2>
 
 <form th:method="PUT" th:action="@{/common/v1/update/people/{personId}/accounts/{accountId}/bills/{billId}(personId=${personId},accountId=${accountId}, billId=${billId})}" th:object="${bill}">

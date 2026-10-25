@@ -5,6 +5,7 @@
     <title>Create bill</title>
 </head>
 <body>
+    <div style="color:red" th:if="${error}" th:text="${error}">Error</div>
     <h2>Fill bills details</h2>
 
 <form th:method="POST" th:action="@{/common/v1/create/people/{personId}/accounts/{accountId}/bills(personId=${personId}, accountId=${accountId})}" th:object="${bill}">

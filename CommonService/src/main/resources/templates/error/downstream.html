@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Request failed</title>
+</head>
+<body>
+<h2>Request failed</h2>
+<div style="color:red" th:text="${error}">Error</div>
+<br/>
+<a th:href="@{/common/v1/info/people}">Back to people</a>
+</body>
+</html>
