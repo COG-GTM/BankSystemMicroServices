@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 import ru.kondrashov.commonservice.controllers.dto.*;
 
 import java.util.*;
@@ -45,17 +47,39 @@ public class CommonServiceImpl implements CommonService{
     }
 
     @Override
-    public Collection<PersonRequestDTO> getPeople() {
-        logger.info("Send GET request to "+peopleUrl);
+    public PeoplePageDTO getPeople(int page, int size) {
+        String url = UriComponentsBuilder.fromHttpUrl(peopleUrl)
+                .queryParam("page", page)
+                .queryParam("size", size)
+                .toUriString();
+        logger.info("Send GET request to "+url);
         ResponseEntity<List<PersonRequestDTO>> responseEntity =
                 restTemplate.exchange(
-                        peopleUrl,
+                        url,
                         HttpMethod.GET,
                         null,
                         new ParameterizedTypeReference<List<PersonRequestDTO>>() {}
                 );
         logger.info("Got response with status code "+ responseEntity.getStatusCode());
-        return responseEntity.getBody();
+        List<PersonRequestDTO> people = responseEntity.getBody() == null
+                ? Collections.<PersonRequestDTO>emptyList()
+                : responseEntity.getBody();
+        HttpHeaders headers = responseEntity.getHeaders();
+        long totalElements = headerAsLong(headers, "X-Total-Count", (long) page * size + people.size());
+        int totalPages = (int) headerAsLong(headers, "X-Total-Pages", (totalElements + size - 1) / size);
+        return new PeoplePageDTO(people, page, size, totalElements, totalPages);
+    }
+
+    private static long headerAsLong(HttpHeaders headers, String name, long fallback) {
+        String value = headers.getFirst(name);
+        if (value == null) {
+            return fallback;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
     }
 
     @Override

@@ -10,6 +10,15 @@
     <a th:href="@{/common/v1/info/people/{id}(id=${person.getId()})}" th:text = "${person.getFirstName()}+' '+${person.getLastName()}">user</a>
 </div>
 
+<div th:if="${peoplePage.getTotalPages() > 1}">
+    <a th:if="${peoplePage.hasPrevious()}"
+       th:href="@{/common/v1/info/people(page=${peoplePage.getPage() - 1},size=${peoplePage.getSize()})}">Previous</a>
+    <span th:text="'Page ' + ${peoplePage.getPage() + 1} + ' of ' + ${peoplePage.getTotalPages()}">Page 1 of 1</span>
+    <a th:if="${peoplePage.hasNext()}"
+       th:href="@{/common/v1/info/people(page=${peoplePage.getPage() + 1},size=${peoplePage.getSize()})}">Next</a>
+</div>
+<div th:text="${peoplePage.getTotalElements()} + ' people'">0 people</div>
+
 <br>
 <hr>
 <a href="/common/v1/create/people/new">Create person</a>
