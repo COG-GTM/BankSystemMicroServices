@@ -1,7 +1,5 @@
 package ru.kondrashov.accountservice.config;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import springfox.documentation.builders.RequestHandlerSelectors;
@@ -15,11 +13,6 @@ import static springfox.documentation.builders.PathSelectors.regex;
 @Configuration
 @EnableSwagger2
 public class ApplicationSpringConfig {
-
-    @Bean
-    public Logger logger(){
-        return LogManager.getRootLogger();
-    }
 
     @Bean
     public Docket api()
