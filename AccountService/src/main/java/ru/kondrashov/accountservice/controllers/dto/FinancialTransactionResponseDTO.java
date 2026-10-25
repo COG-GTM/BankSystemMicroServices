@@ -5,9 +5,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Currency;
@@ -20,15 +17,13 @@ public class FinancialTransactionResponseDTO {
 
     private UUID id;
 
-    @NotNull(message = "Message should not null")
     private Currency currency;
 
     private BigDecimal amount;
 
-    @DateTimeFormat(pattern = "yyyy-MM-dd hh:mm:ss")
+    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime time = LocalDateTime.now();
 
-    @NotEmpty(message = "Message should not empty")
     private String message;
 
 }

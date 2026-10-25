@@ -1,41 +1,29 @@
 package ru.kondrashov.accountservice.controllers.dto;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
+import lombok.ToString;
 import ru.kondrashov.accountservice.entities.Bill;
 
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Currency;
 import java.util.UUID;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
 @NoArgsConstructor
-@AllArgsConstructor
-public class TransferResponseDTO {
+public class TransferResponseDTO extends FinancialTransactionResponseDTO {
 
-    private UUID id;
-
-    @NotNull(message = "Message should not null")
-    private Currency currency;
-
-    @Min(message = "Amount should be more than zero", value = 0)
-    private BigDecimal amount;
-
-    @DateTimeFormat(pattern = "yyyy-MM-dd hh:mm:ss")
-    private LocalDateTime time = LocalDateTime.now();
-
-    @NotEmpty(message = "Message should not empty")
-    private String message;
-
-    @NotNull(message = "Bill should not be null")
     private Bill sourceBill;
 
-    @NotNull(message = "Bill should not be null")
     private Bill beneficiaryBill;
+
+    public TransferResponseDTO(UUID id, Currency currency, BigDecimal amount, LocalDateTime time, String message, Bill sourceBill, Bill beneficiaryBill) {
+        super(id, currency, amount, time, message);
+        this.sourceBill = sourceBill;
+        this.beneficiaryBill = beneficiaryBill;
+    }
 }
