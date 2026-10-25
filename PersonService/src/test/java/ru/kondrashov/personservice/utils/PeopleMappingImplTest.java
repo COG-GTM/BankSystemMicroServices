@@ -1,8 +1,8 @@
 package ru.kondrashov.personservice.utils;
 
 import org.junit.jupiter.api.Test;
-import ru.kondrashov.personservice.controllers.dto.PersonRequestDTO;
-import ru.kondrashov.personservice.controllers.dto.PersonResponseDTO;
+import ru.kondrashov.personservice.controllers.dto.PersonInputDTO;
+import ru.kondrashov.personservice.controllers.dto.PersonViewDTO;
 import ru.kondrashov.personservice.entities.Person;
 
 
@@ -17,7 +17,7 @@ class PeopleMappingImplTest {
 
     @Test
     void mapToPerson() {
-        PersonRequestDTO personRequestDTO = new PersonRequestDTO(
+        PersonInputDTO personInputDTO = new PersonInputDTO(
                 "Bill",
                 "Johnson",
                 LocalDate.of(2000,12,26),
@@ -25,17 +25,17 @@ class PeopleMappingImplTest {
                 "BillJohnson@mail.com"
         );
 
-        Person person = peopleMapping.mapToPerson(personRequestDTO);
+        Person person = peopleMapping.mapToPerson(personInputDTO);
 
-        assertEquals(person.getFirstName(),personRequestDTO.getFirstName());
-        assertEquals(person.getLastName(),personRequestDTO.getLastName());
-        assertEquals(person.getBirthdate(),personRequestDTO.getBirthdate());
-        assertEquals(person.getEmail(),personRequestDTO.getEmail());
-        assertEquals(person.getPhoneNumber(),personRequestDTO.getPhoneNumber());
+        assertEquals(person.getFirstName(),personInputDTO.getFirstName());
+        assertEquals(person.getLastName(),personInputDTO.getLastName());
+        assertEquals(person.getBirthdate(),personInputDTO.getBirthdate());
+        assertEquals(person.getEmail(),personInputDTO.getEmail());
+        assertEquals(person.getPhoneNumber(),personInputDTO.getPhoneNumber());
      }
 
     @Test
-    void mapToPersonResponseDTO() {
+    void mapToPersonViewDTO() {
 
         Person person = new Person(
                 UUID.randomUUID(),
@@ -46,12 +46,12 @@ class PeopleMappingImplTest {
                 "BillJohnson@mail.com"
         );
 
-        PersonResponseDTO personResponseDTO = peopleMapping.mapToPersonResponseDTO(person);
+        PersonViewDTO personViewDTO = peopleMapping.mapToPersonViewDTO(person);
 
-        assertEquals(person.getFirstName(),     personResponseDTO.getFirstName());
-        assertEquals(person.getLastName(),      personResponseDTO.getLastName());
-        assertEquals(person.getBirthdate(),     personResponseDTO.getBirthdate());
-        assertEquals(person.getEmail(),         personResponseDTO.getEmail());
-        assertEquals(person.getPhoneNumber(),   personResponseDTO.getPhoneNumber());
+        assertEquals(person.getFirstName(),     personViewDTO.getFirstName());
+        assertEquals(person.getLastName(),      personViewDTO.getLastName());
+        assertEquals(person.getBirthdate(),     personViewDTO.getBirthdate());
+        assertEquals(person.getEmail(),         personViewDTO.getEmail());
+        assertEquals(person.getPhoneNumber(),   personViewDTO.getPhoneNumber());
     }
 }

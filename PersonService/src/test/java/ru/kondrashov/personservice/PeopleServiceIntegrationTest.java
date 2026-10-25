@@ -10,7 +10,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
-import ru.kondrashov.personservice.controllers.dto.PersonRequestDTO;
+import ru.kondrashov.personservice.controllers.dto.PersonInputDTO;
 import ru.kondrashov.personservice.entities.Person;
 import ru.kondrashov.personservice.repositories.PeopleRepository;
 import ru.kondrashov.personservice.services.PeopleService;
@@ -48,12 +48,12 @@ public class PeopleServiceIntegrationTest {
         String phoneNumber = "+7 1234859520";
         String email = "miketyson@mail.com";
 
-        PersonRequestDTO personRequestDTO = new PersonRequestDTO(name, lastName, birthdate, phoneNumber, email);
+        PersonInputDTO personInputDTO = new PersonInputDTO(name, lastName, birthdate, phoneNumber, email);
 
         mockMvc.perform(
                 post("/v1/people")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(personRequestDTO)))
+                        .content(objectMapper.writeValueAsString(personInputDTO)))
                 .andExpect(status().isCreated());
     }
 

@@ -8,17 +8,15 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import javax.validation.constraints.*;
 import java.time.LocalDate;
-import java.time.Period;
-import java.util.Date;
-import java.util.UUID;
 
+/**
+ * Inbound body of POST/PUT /v1/people. The only place PersonService validates person fields.
+ */
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Setter
-public class PersonResponseDTO {
-
-    private UUID id;
+public class PersonInputDTO {
 
     @NotEmpty(message = "First name should not be empty")
     @Size(min = 1, max = 30)
@@ -38,6 +36,5 @@ public class PersonResponseDTO {
     @NotEmpty(message = "Email should not be empty")
     @Email(message = "Email should be valid")
     private String email;
-
 
 }
