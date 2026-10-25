@@ -12,7 +12,7 @@ import java.util.Currency;
 import java.util.UUID;
 
 @Data
-public class FinancialTransactionRequestDTO {
+public class FinancialTransactionResponseDTO {
 
     private UUID id;
 

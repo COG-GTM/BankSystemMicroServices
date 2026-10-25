@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.Currency;
 
 @Data
-public class TransferResponseDTO {
+public class TransferRequestDTO {
 
     @NotNull(message = "Message should not null")
     private Currency currency;
@@ -26,8 +26,8 @@ public class TransferResponseDTO {
     private String message;
 
     @NotNull(message = "Bill should not be null")
-    private BillRequestDTO sourceBill;
+    private BillResponseDTO sourceBill;
 
     @NotNull(message = "Bill should not be null")
-    private BillRequestDTO beneficiaryBill;
+    private BillResponseDTO beneficiaryBill;
 }

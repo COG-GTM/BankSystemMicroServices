@@ -67,8 +67,8 @@ public class CommonController {
                         .findFirst().orElseThrow(() -> new RuntimeException("Account with id " + accountId+" dont have bill with id "+billId))
         );
         model.addAttribute("personId", personId);
-        Collection<FinancialTransactionRequestDTO> financialTransactionRequestDTOS = commonService.getFinancialTransactionsByBillId(personId, accountId, billId);
-        model.addAttribute("transactions", financialTransactionRequestDTOS);
+        Collection<FinancialTransactionResponseDTO> financialTransactionResponseDTOS = commonService.getFinancialTransactionsByBillId(personId, accountId, billId);
+        model.addAttribute("transactions", financialTransactionResponseDTOS);
 
         return "bills/bill";
     }
@@ -76,14 +76,14 @@ public class CommonController {
     @GetMapping("/create/people/new")
     @ResponseStatus(HttpStatus.OK)
     public String newPerson(Model model){
-        model.addAttribute("person", new PersonResponseDTO());
+        model.addAttribute("person", new PersonRequestDTO());
         return "people/new";
     }
 
     @GetMapping("/create/people/{personId}/accounts/new")
     @ResponseStatus(HttpStatus.OK)
     public String newAccount(@PathVariable("personId") UUID id, Model model){
-        model.addAttribute("account", new AccountResponseDTO());
+        model.addAttribute("account", new AccountRequestDTO());
         model.addAttribute("id",id);
         return "accounts/new";
     }
@@ -91,7 +91,7 @@ public class CommonController {
     @GetMapping("/create/people/{personId}/accounts/{accountId}/bills/new")
     @ResponseStatus(HttpStatus.OK)
     public String newBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, Model model){
-        model.addAttribute("bill", new BillResponseDTO());
+        model.addAttribute("bill", new BillRequestDTO());
         model.addAttribute("currencies", Currency.getAvailableCurrencies());
         model.addAttribute("accountId", accountId);
         model.addAttribute("personId", personId);
@@ -103,14 +103,14 @@ public class CommonController {
     public String newTransfer (@PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId, Model model){
         model.addAttribute("accountId", accountId);
         model.addAttribute("billId",billId);
-        model.addAttribute("transfer", new TransferResponseDTO());
+        model.addAttribute("transfer", new TransferRequestDTO());
         model.addAttribute("people", commonService.getPeople());
         return "/bills/transfers/new";
     }
 
     @PostMapping("/create/people")
     @ResponseStatus(HttpStatus.FOUND)
-    public String createPerson(@ModelAttribute("person") @Valid PersonResponseDTO person, BindingResult bindingResult){
+    public String createPerson(@ModelAttribute("person") @Valid PersonRequestDTO person, BindingResult bindingResult){
         if(bindingResult.hasErrors()){
             bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
             return "people/new";
@@ -125,7 +125,7 @@ public class CommonController {
 
     @PostMapping("/create/people/{id}/accounts")
     @ResponseStatus(HttpStatus.FOUND)
-    public String createAccount(@ModelAttribute("account") @Valid AccountResponseDTO account, BindingResult bindingResult, @PathVariable("id") UUID id){
+    public String createAccount(@ModelAttribute("account") @Valid AccountRequestDTO account, BindingResult bindingResult, @PathVariable("id") UUID id){
         if(bindingResult.hasErrors()){
             bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
             return "accounts/new";
@@ -141,19 +141,19 @@ public class CommonController {
 
     @PostMapping("create/people/{personId}/accounts/{accountId}/bills")
     @ResponseStatus(HttpStatus.FOUND)
-    public String createBill(@ModelAttribute("bill") @Valid BillResponseDTO bill, BindingResult bindingResult, @PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId){
+    public String createBill(@ModelAttribute("bill") @Valid BillRequestDTO bill, BindingResult bindingResult, @PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId){
         if(bindingResult.hasErrors()){
             bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
             return "/bills/new";
         }
-        AccountRequestDTO accountRequestDTO = commonService.getAccountsByPerson(personId).stream().filter(account -> account.getId().equals(accountId)).findFirst().get();
-        bill.setAccount(accountRequestDTO);
+        AccountResponseDTO accountResponseDTO = commonService.getAccountsByPerson(personId).stream().filter(account -> account.getId().equals(accountId)).findFirst().get();
+        bill.setAccount(accountResponseDTO);
         try {
             commonService.createBill(personId,accountId,bill);
         } catch (Exception e) {
             return "/bills/new";
         }
-        return String.format("redirect:/common/v1/info/people/%s/accounts/%s",accountRequestDTO.getPersonId(),accountRequestDTO.getId());
+        return String.format("redirect:/common/v1/info/people/%s/accounts/%s",accountResponseDTO.getPersonId(),accountResponseDTO.getId());
     }
 
     @GetMapping("/update/people/{id}/edit")
@@ -187,38 +187,38 @@ public class CommonController {
 
     @PutMapping("/update/people/{id}")
     @ResponseStatus(HttpStatus.FOUND)
-    public String updatePerson(@PathVariable UUID id, @ModelAttribute("person") @Valid PersonResponseDTO personResponseDTO, BindingResult bindingResult) {
+    public String updatePerson(@PathVariable UUID id, @ModelAttribute("person") @Valid PersonRequestDTO personRequestDTO, BindingResult bindingResult) {
         if(bindingResult.hasErrors()){
             bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
             return "people/edit";
         }
-        commonService.updatePerson(id, personResponseDTO);
+        commonService.updatePerson(id, personRequestDTO);
         return "redirect:/common/v1/info/people/"+id;
 
     }
 
     @PutMapping("/update/people/{personId}/accounts/{accountId}")
     @ResponseStatus(HttpStatus.FOUND)
-    public String updateAccount(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @ModelAttribute("account") @Valid AccountResponseDTO accountResponseDTO, BindingResult bindingResult) {
+    public String updateAccount(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @ModelAttribute("account") @Valid AccountRequestDTO accountRequestDTO, BindingResult bindingResult) {
         if(bindingResult.hasErrors()){
             bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
             return "accounts/edit";
         }
-        commonService.updateAccount(personId, accountId, accountResponseDTO);
+        commonService.updateAccount(personId, accountId, accountRequestDTO);
         return "redirect:/common/v1/info/people/"+personId;
 
     }
 
     @PutMapping("/update/people/{personId}/accounts/{accountId}/bills/{billId}")
     @ResponseStatus(HttpStatus.FOUND)
-    public String updateBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId, @ModelAttribute("bill") @Valid BillResponseDTO billResponseDTO, BindingResult bindingResult) {
+    public String updateBill(@PathVariable("personId") UUID personId, @PathVariable("accountId") UUID accountId, @PathVariable("billId") UUID billId, @ModelAttribute("bill") @Valid BillRequestDTO billRequestDTO, BindingResult bindingResult) {
         if(bindingResult.hasErrors()){
             bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
             return "bills/edit";
         }
 
-        billResponseDTO.setAccount(commonService.getAccountsByPerson(personId).stream().filter(ac->ac.getId().equals(accountId)).findFirst().get());
-        commonService.updateBill(personId, accountId, billId, billResponseDTO);
+        billRequestDTO.setAccount(commonService.getAccountsByPerson(personId).stream().filter(ac->ac.getId().equals(accountId)).findFirst().get());
+        commonService.updateBill(personId, accountId, billId, billRequestDTO);
         return String.format("redirect:/common/v1/info/people/%s/accounts/%s", personId,accountId);
 
     }
