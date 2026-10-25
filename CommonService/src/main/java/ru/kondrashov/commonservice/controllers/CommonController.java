@@ -76,7 +76,7 @@ public class CommonController {
     @GetMapping("/create/people/new")
     @ResponseStatus(HttpStatus.OK)
     public String newPerson(Model model){
-        model.addAttribute("person", new PersonResponseDTO());
+        model.addAttribute("person", new PersonRequestDTO());
         return "people/new";
     }
 
@@ -110,7 +110,7 @@ public class CommonController {
 
     @PostMapping("/create/people")
     @ResponseStatus(HttpStatus.FOUND)
-    public String createPerson(@ModelAttribute("person") @Valid PersonResponseDTO person, BindingResult bindingResult){
+    public String createPerson(@ModelAttribute("person") @Valid PersonRequestDTO person, BindingResult bindingResult){
         if(bindingResult.hasErrors()){
             bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
             return "people/new";
@@ -187,12 +187,12 @@ public class CommonController {
 
     @PutMapping("/update/people/{id}")
     @ResponseStatus(HttpStatus.FOUND)
-    public String updatePerson(@PathVariable UUID id, @ModelAttribute("person") @Valid PersonResponseDTO personResponseDTO, BindingResult bindingResult) {
+    public String updatePerson(@PathVariable UUID id, @ModelAttribute("person") @Valid PersonRequestDTO personRequestDTO, BindingResult bindingResult) {
         if(bindingResult.hasErrors()){
             bindingResult.getFieldErrors().forEach(fieldError -> logger.error(fieldError));
             return "people/edit";
         }
-        commonService.updatePerson(id, personResponseDTO);
+        commonService.updatePerson(id, personRequestDTO);
         return "redirect:/common/v1/info/people/"+id;
 
     }
