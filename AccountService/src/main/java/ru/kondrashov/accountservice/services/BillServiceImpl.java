@@ -1,19 +1,26 @@
 package ru.kondrashov.accountservice.services;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.kondrashov.accountservice.controllers.dto.FinancialTransactionResponseDTO;
 import ru.kondrashov.accountservice.entities.Adjustment;
 import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.entities.Payment;
 import ru.kondrashov.accountservice.entities.Transfer;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
+import ru.kondrashov.accountservice.exceptions.InvalidPageRequestException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
+import ru.kondrashov.accountservice.repositories.BillTransactionHistoryRepository;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
 import ru.kondrashov.accountservice.services.interfaces.*;
 
 import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -25,6 +32,7 @@ public class BillServiceImpl implements BillsService {
     private final AdjustmentsService adjustmentsService;
     private final TransferService transferService;
     private final FinancialCurrencyExchange currencyConversion;
+    private final BillTransactionHistoryRepository transactionHistoryRepository;
 
     @Override
     public Collection<Bill> getBills() {
@@ -113,6 +121,21 @@ public class BillServiceImpl implements BillsService {
     @Override
     public Collection<Transfer> getTransfersByBeneficiaryBillId(UUID billId) {
         return transferService.getTransfersByBeneficiaryBill_Id(billId);
+    }
+
+    @Override
+    public Slice<FinancialTransactionResponseDTO> getFinancialTransactions(UUID billId, int page, int size) {
+        if (page < 0) {
+            throw new InvalidPageRequestException("Page index must not be negative.");
+        }
+        if (size < 1 || size > MAX_TRANSACTIONS_PAGE_SIZE) {
+            throw new InvalidPageRequestException("Page size must be between 1 and " + MAX_TRANSACTIONS_PAGE_SIZE + ".");
+        }
+        List<FinancialTransactionResponseDTO> rows =
+                transactionHistoryRepository.findHistory(billId, (long) page * size, size + 1);
+        boolean hasNext = rows.size() > size;
+        List<FinancialTransactionResponseDTO> content = hasNext ? rows.subList(0, size) : rows;
+        return new SliceImpl<>(content, PageRequest.of(page, size), hasNext);
     }
 
 

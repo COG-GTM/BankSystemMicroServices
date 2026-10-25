@@ -14,7 +14,11 @@ import java.util.Currency;
 @Entity
 @Data
 @NoArgsConstructor
-@Table(name = "transfers",schema = "public")
+@Table(name = "transfers", schema = "public",
+        indexes = {
+                @Index(name = "idx_transfers_source_bill_time", columnList = "sourceBill_id, time, id"),
+                @Index(name = "idx_transfers_beneficiary_bill_time", columnList = "beneficiaryBill_id, time, id")
+        })
 public class Transfer extends FinancialTransaction{
 
     @ManyToOne(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)

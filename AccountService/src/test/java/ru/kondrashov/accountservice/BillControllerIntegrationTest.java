@@ -12,9 +12,13 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import ru.kondrashov.accountservice.controllers.BillsController;
 import ru.kondrashov.accountservice.controllers.dto.*;
 import ru.kondrashov.accountservice.entities.*;
+import ru.kondrashov.accountservice.repositories.AdjustmentsRepository;
 import ru.kondrashov.accountservice.repositories.BillsRepository;
+import ru.kondrashov.accountservice.repositories.PaymentsRepository;
+import ru.kondrashov.accountservice.repositories.TransferRepository;
 import ru.kondrashov.accountservice.services.JavaMonetaApiCurrencyExchange;
 import ru.kondrashov.accountservice.services.interfaces.AccountsService;
 import ru.kondrashov.accountservice.services.interfaces.BillsService;
@@ -26,6 +30,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Currency;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,6 +60,15 @@ public class BillControllerIntegrationTest {
 
     @Autowired
     private JavaMonetaApiCurrencyExchange currencyExchange;
+
+    @Autowired
+    private AdjustmentsRepository adjustmentsRepository;
+
+    @Autowired
+    private PaymentsRepository paymentsRepository;
+
+    @Autowired
+    private TransferRepository transferRepository;
 
     void init(Currency currency, BigDecimal amount, boolean over, Account account) throws Exception {
         BillRequestDTO billRequestDTO = new BillRequestDTO(currency, amount , over, account);
@@ -367,5 +381,70 @@ public class BillControllerIntegrationTest {
         assertThat(targetTransfer.getBeneficiaryBill()).isEqualTo(newTargetBill);
 
         accountsService.delete(account.getId());
+    }
+
+    @Test
+    void getFinancialTransactions_returnsSignedNewestFirstPages() throws Exception {
+        Currency usd = Currency.getInstance("USD");
+        Account account = initAccount();
+        init(usd, new BigDecimal(1000), true, account);
+        init(Currency.getInstance("EUR"), new BigDecimal(1000), true, account);
+        Bill bill = billsRepository.getBillsByAccount_Id(account.getId()).stream()
+                .filter(b -> b.getCurrency().equals(usd)).findFirst().get();
+        Bill otherBill = billsRepository.getBillsByAccount_Id(account.getId()).stream()
+                .filter(b -> !b.getCurrency().equals(usd)).findFirst().get();
+        LocalDateTime t0 = LocalDateTime.of(2021, 3, 1, 10, 0);
+
+        adjustmentsRepository.save(new Adjustment(usd, new BigDecimal("100.00"), t0, "adjustment", bill));
+        paymentsRepository.save(new Payment(usd, new BigDecimal("10.00"), t0.plusMinutes(1), "payment", bill));
+        transferRepository.save(new Transfer(usd, new BigDecimal("20.00"), t0.plusMinutes(2), "incoming", otherBill, bill));
+        transferRepository.save(new Transfer(usd, new BigDecimal("30.00"), t0.plusMinutes(3), "outgoing", bill, otherBill));
+        paymentsRepository.save(new Payment(usd, new BigDecimal("5.00"), t0.plusMinutes(4), "other bill payment", otherBill));
+
+        MvcResult first = mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/transactions", account.getPersonId(), account.getId(), bill.getId())
+                .param("size", "3"))
+                .andExpect(status().isOk()).andReturn();
+        MvcResult second = mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/transactions", account.getPersonId(), account.getId(), bill.getId())
+                .param("page", "1").param("size", "3"))
+                .andExpect(status().isOk()).andReturn();
+        MvcResult all = mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/transactions", account.getPersonId(), account.getId(), bill.getId()))
+                .andExpect(status().isOk()).andReturn();
+
+        List<FinancialTransactionResponseDTO> firstPage = readTransactions(first);
+        List<FinancialTransactionResponseDTO> secondPage = readTransactions(second);
+
+        assertThat(firstPage.stream().map(FinancialTransactionResponseDTO::getMessage).collect(Collectors.toList()))
+                .containsExactly("outgoing", "incoming", "payment");
+        assertThat(firstPage.stream().map(FinancialTransactionResponseDTO::getAmount).collect(Collectors.toList()))
+                .usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("-30"), new BigDecimal("20"), new BigDecimal("-10"));
+        assertThat(first.getResponse().getHeader(BillsController.HAS_NEXT_PAGE_HEADER)).isEqualTo("true");
+
+        assertThat(secondPage).hasSize(1);
+        assertThat(secondPage.get(0).getMessage()).isEqualTo("adjustment");
+        assertThat(secondPage.get(0).getAmount().compareTo(new BigDecimal("100"))).isEqualTo(0);
+        assertThat(secondPage.get(0).getCurrency()).isEqualTo(usd);
+        assertThat(secondPage.get(0).getTime()).isEqualTo(t0);
+        assertThat(second.getResponse().getHeader(BillsController.HAS_NEXT_PAGE_HEADER)).isEqualTo("false");
+
+        assertThat(readTransactions(all)).hasSize(4);
+        assertThat(all.getResponse().getHeader(BillsController.PAGE_SIZE_HEADER)).isEqualTo("100");
+
+        accountsService.delete(account.getId());
+    }
+
+    @Test
+    void getFinancialTransactions_rejectsInvalidPageRequests() throws Exception {
+        UUID id = UUID.randomUUID();
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/transactions", id, id, id).param("page", "-1"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/transactions", id, id, id).param("size", "0"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/v1/people/{personId}/accounts/{accountId}/bills/{billId}/transactions", id, id, id).param("size", "501"))
+                .andExpect(status().isBadRequest());
+    }
+
+    private List<FinancialTransactionResponseDTO> readTransactions(MvcResult result) throws Exception {
+        return objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<List<FinancialTransactionResponseDTO>>() {});
     }
 }

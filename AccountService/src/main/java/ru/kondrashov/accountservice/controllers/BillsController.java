@@ -5,9 +5,11 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.Logger;
+import org.springframework.data.domain.Slice;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.kondrashov.accountservice.controllers.dto.*;
 import ru.kondrashov.accountservice.services.interfaces.BillsService;
@@ -18,8 +20,8 @@ import ru.kondrashov.accountservice.utils.interfaces.PaymentsMapping;
 import ru.kondrashov.accountservice.utils.interfaces.TransferMapping;
 
 import javax.validation.Valid;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -28,6 +30,11 @@ import java.util.stream.Collectors;
 @Api(description= "Controller which provides methods for operations with bills", tags = {"BILLS"})
 @RequiredArgsConstructor
 public class BillsController {
+
+    static final String DEFAULT_TRANSACTIONS_PAGE_SIZE = "100";
+    public static final String PAGE_HEADER = "X-Page";
+    public static final String PAGE_SIZE_HEADER = "X-Page-Size";
+    public static final String HAS_NEXT_PAGE_HEADER = "X-Has-Next-Page";
 
     private final BillsService billsService;
     private final BillsMapping billsMapping;
@@ -130,47 +137,20 @@ public class BillsController {
     }
 
     @GetMapping("/{id}/transactions")
-    @ResponseStatus(HttpStatus.OK)
-    @ApiOperation(value = "Get all financial transactions of bill", tags = { "BILLS" })
-    public Collection<FinancialTransactionResponseDTO> getFinancialTransactionsByBillId(@ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
-                                                                                        @ApiParam(value = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
-                                                                                        @ApiParam(value = "Id of the bill. Cannot be empty.") @PathVariable("id") UUID billId,
-                                                                                        @RequestHeader HttpHeaders header){
+    @ApiOperation(value = "Get a page of financial transactions of bill, newest first", tags = { "BILLS" })
+    public ResponseEntity<List<FinancialTransactionResponseDTO>> getFinancialTransactionsByBillId(@ApiParam(value = "Id of the person. Cannot be empty.") @PathVariable("personId") UUID personId,
+                                                                                                  @ApiParam(value = "Id of the account. Cannot be empty.") @PathVariable("accountId") UUID accountId,
+                                                                                                  @ApiParam(value = "Id of the bill. Cannot be empty.") @PathVariable("id") UUID billId,
+                                                                                                  @ApiParam(value = "Zero-based page index.") @RequestParam(value = "page", defaultValue = "0") int page,
+                                                                                                  @ApiParam(value = "Page size, 1-" + BillsService.MAX_TRANSACTIONS_PAGE_SIZE + ".") @RequestParam(value = "size", defaultValue = DEFAULT_TRANSACTIONS_PAGE_SIZE) int size,
+                                                                                                  @RequestHeader HttpHeaders header){
         logger.info("The controller "+"\"/v1/people/{personId}/accounts/{accountId}/bills/{id}/transactions\""+" received a GET request from the server "+header.getHost()+" with content type "+header.getContentType());
-        Collection<FinancialTransactionResponseDTO> financialTransactionResponseDTOS = new ArrayList<>();
+        Slice<FinancialTransactionResponseDTO> transactions = billsService.getFinancialTransactions(billId, page, size);
 
-        financialTransactionResponseDTOS.addAll(billsService.
-                getAdjustmentsByBillId(billId).
-                stream().
-                map(adjustmentMapping::mapToFinancialTransactionResponseDTO).
-                collect(Collectors.toList()));
-
-        financialTransactionResponseDTOS.
-                addAll(
-                        setAmountNegative(
-                                billsService.
-                                        getPaymentsByBillId(billId).
-                                        stream().
-                                        map(paymentsMapping::mapToFinancialTransactionResponseDTO).
-                                        collect(Collectors.toList())
-                        )
-                );
-
-        financialTransactionResponseDTOS.addAll(billsService.
-                getTransfersByBeneficiaryBillId(billId).
-                stream().
-                map(transferMapping::mapToFinancialTransactionResponseDTO).
-                collect(Collectors.toList())
-        );
-        financialTransactionResponseDTOS.addAll(setAmountNegative(billsService.getTransfersBySourceBillId(billId).stream().map(transferMapping::mapToFinancialTransactionResponseDTO).collect(Collectors.toList())));
-
-        return financialTransactionResponseDTOS;
-    }
-
-    private Collection<FinancialTransactionResponseDTO> setAmountNegative(Collection<FinancialTransactionResponseDTO> financialTransactionResponseDTOS){
-
-        financialTransactionResponseDTOS.forEach(financialTransactionResponseDTO -> financialTransactionResponseDTO.setAmount(financialTransactionResponseDTO.getAmount().negate()));
-
-        return financialTransactionResponseDTOS;
+        return ResponseEntity.ok()
+                .header(PAGE_HEADER, String.valueOf(transactions.getNumber()))
+                .header(PAGE_SIZE_HEADER, String.valueOf(transactions.getSize()))
+                .header(HAS_NEXT_PAGE_HEADER, String.valueOf(transactions.hasNext()))
+                .body(transactions.getContent());
     }
 }

@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import ru.kondrashov.accountservice.exceptions.AccountNotFoundException;
 import ru.kondrashov.accountservice.exceptions.BillNotFoundException;
+import ru.kondrashov.accountservice.exceptions.InvalidPageRequestException;
 import ru.kondrashov.accountservice.exceptions.NotEnoughMoneyException;
 
 @ControllerAdvice
@@ -40,6 +41,17 @@ public class AccountServiceExceptionHandler {
                         exp.getMessage(),
                         400,
                         "NotEnoughMoneyException"),
+                HttpStatus.BAD_REQUEST);
+
+    }
+
+    @ExceptionHandler(InvalidPageRequestException.class)
+    public ResponseEntity<AccountServiceExceptionTemplate> invalidPageRequestExceptions(InvalidPageRequestException exp) {
+        return new ResponseEntity<>(
+                new AccountServiceExceptionTemplate(
+                        exp.getMessage(),
+                        400,
+                        "InvalidPageRequestException"),
                 HttpStatus.BAD_REQUEST);
 
     }

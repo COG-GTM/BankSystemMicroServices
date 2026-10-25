@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 import ru.kondrashov.commonservice.controllers.dto.*;
 
 import java.util.*;
@@ -37,6 +38,8 @@ public class CommonServiceImpl implements CommonService{
     private String billUrl;
     @Value("${transactions.URL}")
     private String transactionsUrl;
+    @Value("${transactions.page-size:50}")
+    private int transactionsPageSize;
 
     @Override
     public PersonRequestDTO getPersonById(UUID uuid){
@@ -87,17 +90,23 @@ public class CommonServiceImpl implements CommonService{
     }
 
     @Override
-    public Collection<FinancialTransactionRequestDTO> getFinancialTransactionsByBillId(UUID personId, UUID accountId, UUID billId) {
-        logger.info("Send GET request to "+String.format(transactionsUrl,personId, accountId, billId));
+    public FinancialTransactionsPage getFinancialTransactionsByBillId(UUID personId, UUID accountId, UUID billId, int page) {
+        String url = UriComponentsBuilder.fromHttpUrl(String.format(transactionsUrl, personId, accountId, billId))
+                .queryParam("page", page)
+                .queryParam("size", transactionsPageSize)
+                .toUriString();
+        logger.info("Send GET request to "+url);
         ResponseEntity<List<FinancialTransactionRequestDTO>> responseEntity =
                 restTemplate.exchange(
-                        String.format(transactionsUrl,personId, accountId, billId),
+                        url,
                         HttpMethod.GET,
                         null,
                         new ParameterizedTypeReference<List<FinancialTransactionRequestDTO>>() {}
                 );
         logger.info("Got response with status code "+ responseEntity.getStatusCode());
-        return responseEntity.getBody();
+        List<FinancialTransactionRequestDTO> transactions = responseEntity.getBody() == null ? new ArrayList<>() : responseEntity.getBody();
+        boolean hasNextPage = Boolean.parseBoolean(responseEntity.getHeaders().getFirst("X-Has-Next-Page"));
+        return new FinancialTransactionsPage(transactions, page, hasNextPage);
     }
 
 

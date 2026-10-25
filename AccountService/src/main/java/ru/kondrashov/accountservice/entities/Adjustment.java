@@ -12,7 +12,8 @@ import java.util.Currency;
 
 @Entity
 @Data
-@Table(name = "adjustments", schema = "public")
+@Table(name = "adjustments", schema = "public",
+        indexes = @Index(name = "idx_adjustments_bill_time", columnList = "bill_id, time, id"))
 public class Adjustment extends FinancialTransaction{
 
     @ManyToOne(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
