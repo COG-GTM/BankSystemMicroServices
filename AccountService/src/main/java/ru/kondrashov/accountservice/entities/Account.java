@@ -1,7 +1,10 @@
 package ru.kondrashov.accountservice.entities;
 
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.Hibernate;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -16,7 +19,9 @@ import java.util.UUID;
 import static javax.persistence.TemporalType.TIMESTAMP;
 
 @Entity
-@Data
+@Getter
+@Setter
+@ToString
 @Table(name = "accounts", schema = "public")
 @EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor
@@ -45,5 +50,16 @@ public class Account {
         this.personId = personId;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+        Account other = (Account) o;
+        return id != null && id.equals(other.getId());
+    }
 
+    @Override
+    public int hashCode() {
+        return Hibernate.getClass(this).hashCode();
+    }
 }

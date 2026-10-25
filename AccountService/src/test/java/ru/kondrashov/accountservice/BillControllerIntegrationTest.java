@@ -85,7 +85,7 @@ public class BillControllerIntegrationTest {
         Bill bill = billsRepository.
                 getBillsByAccount_Id(account.getId())
                 .stream()
-                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
+                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().getId().equals(account.getId()))
                 .findFirst().get();
 
         assertThat(bill).isNotNull();
@@ -104,7 +104,7 @@ public class BillControllerIntegrationTest {
         Bill bill = billsRepository.
                 getBillsByAccount_Id(account.getId())
                 .stream()
-                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
+                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().getId().equals(account.getId()))
                 .findFirst().get();
 
         Currency newCurrency = Currency.getInstance("RUB");
@@ -136,7 +136,7 @@ public class BillControllerIntegrationTest {
         Bill bill = billsRepository.
                 getBillsByAccount_Id(account.getId())
                 .stream()
-                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
+                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().getId().equals(account.getId()))
                 .findFirst().get();
 
         mockMvc.perform(MockMvcRequestBuilders
@@ -160,7 +160,7 @@ public class BillControllerIntegrationTest {
         Bill bill = billsRepository.
                 getBillsByAccount_Id(account.getId())
                 .stream()
-                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
+                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().getId().equals(account.getId()))
                 .findFirst().get();
 
         PaymentRequestDTO requestDTO = new PaymentRequestDTO(currency, paymentAmount, time,"Payment for order #1", bill);
@@ -185,7 +185,7 @@ public class BillControllerIntegrationTest {
         BigDecimal subtract = bill.getAmount().subtract(currencyExchange.exchange(payment.getCurrency(),bill.getCurrency(),payment.getAmount()));
         BigDecimal billAmount = bill1.getAmount();
 
-        assertThat(bill1.getAccount()).isEqualTo(account);
+        assertThat(bill1.getAccount().getId()).isEqualTo(account.getId());
         assertThat(billAmount.compareTo(subtract)).isEqualTo(0);
         assertThat(bill1.getCurrency()).isEqualTo(currency);
         assertThat(bill1.getIsOverdraft()).isEqualTo(overdraft);
@@ -211,7 +211,7 @@ public class BillControllerIntegrationTest {
         Bill bill = billsRepository.
                 getBillsByAccount_Id(account.getId())
                 .stream()
-                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
+                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().getId().equals(account.getId()))
                 .findFirst().get();
 
         PaymentRequestDTO requestDTO = new PaymentRequestDTO(currency, paymentAmount, time,"Payment for order #1", bill);
@@ -239,7 +239,7 @@ public class BillControllerIntegrationTest {
         Bill bill = billsRepository.
                 getBillsByAccount_Id(account.getId())
                 .stream()
-                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().equals(account))
+                .filter(bill1 -> bill1.getCurrency().equals(currency) && bill1.getIsOverdraft().equals(overdraft) && bill1.getAmount().compareTo(amount)==0 && bill1.getAccount().getId().equals(account.getId()))
                 .findFirst().get();
 
         AdjustmentRequestDTO requestDTO = new AdjustmentRequestDTO(currency, adjustmentAmount, time,"Adjustment", bill);
@@ -265,7 +265,7 @@ public class BillControllerIntegrationTest {
         BigDecimal sum = bill.getAmount().add(currencyExchange.exchange(adjustment.getCurrency(),bill.getCurrency(),adjustment.getAmount()));
         BigDecimal billAmount = bill1.getAmount();
 
-        assertThat(bill1.getAccount()).isEqualTo(account);
+        assertThat(bill1.getAccount().getId()).isEqualTo(account.getId());
         assertThat(billAmount.compareTo(sum)).isEqualTo(0);
         assertThat(bill1.getCurrency()).isEqualTo(currency);
         assertThat(bill1.getIsOverdraft()).isEqualTo(overdraft);
@@ -294,7 +294,7 @@ public class BillControllerIntegrationTest {
         Bill sourceBill = billsRepository.
                 getBillsByAccount_Id(account.getId())
                 .stream()
-                .filter(bill1 -> bill1.getCurrency().equals(sourceBIllCurrency) && bill1.getIsOverdraft().equals(sourceBillOverdraft) && bill1.getAmount().compareTo(sourceBillAmount)==0 && bill1.getAccount().equals(account))
+                .filter(bill1 -> bill1.getCurrency().equals(sourceBIllCurrency) && bill1.getIsOverdraft().equals(sourceBillOverdraft) && bill1.getAmount().compareTo(sourceBillAmount)==0 && bill1.getAccount().getId().equals(account.getId()))
                 .findFirst().get();
 
         init(targetBIllCurrency,targetBillAmount,targetBillOverdraft,account);
@@ -302,7 +302,7 @@ public class BillControllerIntegrationTest {
         Bill targetBill = billsRepository.
                 getBillsByAccount_Id(account.getId())
                 .stream()
-                .filter(bill1 -> bill1.getCurrency().equals(targetBIllCurrency) && bill1.getIsOverdraft().equals(targetBillOverdraft) && bill1.getAmount().compareTo(targetBillAmount)==0 && bill1.getAccount().equals(account))
+                .filter(bill1 -> bill1.getCurrency().equals(targetBIllCurrency) && bill1.getIsOverdraft().equals(targetBillOverdraft) && bill1.getAmount().compareTo(targetBillAmount)==0 && bill1.getAccount().getId().equals(account.getId()))
                 .findFirst().get();
 
         TransferRequestDTO transferRequestDTO = new TransferRequestDTO(transferBIllCurrency,transferAmount, LocalDateTime.now(), "Transfer", sourceBill, targetBill);
@@ -342,12 +342,12 @@ public class BillControllerIntegrationTest {
         BigDecimal newSourceBillAmount = sourceBill.getAmount().subtract(currencyExchange.exchange(transferRequestDTO.getCurrency(), sourceBill.getCurrency(),transferRequestDTO.getAmount()));
         BigDecimal newTargetBillAmount = targetBill.getAmount().add(currencyExchange.exchange(transferRequestDTO.getCurrency(), targetBill.getCurrency(),transferRequestDTO.getAmount()));
 
-        assertThat(newSourceBill.getAccount()).isEqualTo(account);
+        assertThat(newSourceBill.getAccount().getId()).isEqualTo(account.getId());
         assertThat(newSourceBill.getAmount().compareTo(newSourceBillAmount)).isEqualTo(0);
         assertThat(newSourceBill.getCurrency()).isEqualTo(sourceBIllCurrency);
         assertThat(newSourceBill.getIsOverdraft()).isEqualTo(sourceBillOverdraft);
 
-        assertThat(newTargetBill.getAccount()).isEqualTo(account);
+        assertThat(newTargetBill.getAccount().getId()).isEqualTo(account.getId());
         assertThat(newTargetBill.getAmount().compareTo(newTargetBillAmount)).isEqualTo(0);
         assertThat(newTargetBill.getCurrency()).isEqualTo(targetBIllCurrency);
         assertThat(newTargetBill.getIsOverdraft()).isEqualTo(targetBillOverdraft);
@@ -360,11 +360,11 @@ public class BillControllerIntegrationTest {
         assertThat(targetFinancialTransaction.getAmount().compareTo(transferAmount)).isEqualTo(0);
         assertThat(targetFinancialTransaction.getMessage()).isEqualToIgnoringCase("Transfer");
 
-        assertThat(sourceTransfer.getSourceBill()).isEqualTo(newSourceBill);
-        assertThat(sourceTransfer.getBeneficiaryBill()).isEqualTo(newTargetBill);
+        assertThat(sourceTransfer.getSourceBill().getId()).isEqualTo(newSourceBill.getId());
+        assertThat(sourceTransfer.getBeneficiaryBill().getId()).isEqualTo(newTargetBill.getId());
 
-        assertThat(targetTransfer.getSourceBill()).isEqualTo(newSourceBill);
-        assertThat(targetTransfer.getBeneficiaryBill()).isEqualTo(newTargetBill);
+        assertThat(targetTransfer.getSourceBill().getId()).isEqualTo(newSourceBill.getId());
+        assertThat(targetTransfer.getBeneficiaryBill().getId()).isEqualTo(newTargetBill.getId());
 
         accountsService.delete(account.getId());
     }
