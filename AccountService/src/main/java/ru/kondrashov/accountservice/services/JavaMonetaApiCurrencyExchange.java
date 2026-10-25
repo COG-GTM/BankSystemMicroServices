@@ -32,7 +32,7 @@ public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange 
         CurrencyConversion toTargetCurrency = MonetaryConversions.getConversion(targetCurrencyUnit);
 
         BigDecimal result = MoneyUtils.getBigDecimal(originalMonetaryAmount.with(toTargetCurrency).getNumber()).round(new MathContext(2, RoundingMode.HALF_EVEN));
-        logger.info("Currency conversion from"+originalCurrency.getCurrencyCode()+" to "+ targetCurrency.getCurrencyCode()+" in the amount of "+amount+" "+originalCurrency.getCurrencyCode()+" is performed");
+        logger.info("Currency conversion from {} to {} in the amount of {} {} is performed", originalCurrency.getCurrencyCode(), targetCurrency.getCurrencyCode(), amount, originalCurrency.getCurrencyCode());
         return result;
     }
 }
