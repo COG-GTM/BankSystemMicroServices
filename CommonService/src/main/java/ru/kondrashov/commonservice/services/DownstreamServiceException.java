@@ -5,15 +5,13 @@ import org.springframework.http.HttpStatus;
 
 public class DownstreamServiceException extends RuntimeException {
 
-    private static final int MAX_BODY_LENGTH = 1000;
-
     private final HttpMethod method;
     private final String url;
     private final Integer statusCode;
     private final String responseBody;
 
     public DownstreamServiceException(HttpMethod method, String url, Integer statusCode, String responseBody, Throwable cause) {
-        super(describe(method, url, statusCode, responseBody, cause), cause);
+        super(describe(method, url, statusCode, cause), cause);
         this.method = method;
         this.url = url;
         this.statusCode = statusCode;
@@ -44,18 +42,13 @@ public class DownstreamServiceException extends RuntimeException {
         return status == null ? String.valueOf(statusCode) : status.value() + " " + status.getReasonPhrase();
     }
 
-    private static String describe(HttpMethod method, String url, Integer statusCode, String responseBody, Throwable cause) {
+    private static String describe(HttpMethod method, String url, Integer statusCode, Throwable cause) {
         StringBuilder message = new StringBuilder()
                 .append(method).append(' ').append(url).append(" failed: ");
         if (statusCode != null) {
             message.append("status ").append(statusCode);
         } else {
             message.append(cause == null ? "no response" : cause.toString());
-        }
-        if (responseBody != null && !responseBody.isEmpty()) {
-            message.append(", body: ").append(responseBody.length() > MAX_BODY_LENGTH
-                    ? responseBody.substring(0, MAX_BODY_LENGTH) + "..."
-                    : responseBody);
         }
         return message.toString();
     }

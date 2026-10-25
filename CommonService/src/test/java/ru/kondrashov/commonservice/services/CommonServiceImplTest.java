@@ -89,7 +89,9 @@ class CommonServiceImplTest {
                     assertThat(e.getStatusCode()).isEqualTo(400);
                     assertThat(e.getResponseBody()).contains("email already used");
                     assertThat(e.getStatusDescription()).isEqualTo("400 Bad Request");
-                    assertThat(e.getMessage()).contains("POST " + PEOPLE_URL, "status 400", "email already used");
+                    assertThat(e.getMessage()).contains("POST " + PEOPLE_URL, "status 400")
+                            .doesNotContain("email already used");
+                    assertThat(e.getCause()).isNull();
                 });
     }
 

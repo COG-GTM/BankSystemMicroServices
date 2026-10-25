@@ -173,7 +173,7 @@ public class CommonServiceImpl implements CommonService{
         try {
             responseEntity = restTemplate.exchange(url, method, entity, responseType);
         } catch (RestClientResponseException e) {
-            throw new DownstreamServiceException(method, url, e.getRawStatusCode(), e.getResponseBodyAsString(), e);
+            throw new DownstreamServiceException(method, url, e.getRawStatusCode(), e.getResponseBodyAsString(), null);
         } catch (RestClientException e) {
             throw new DownstreamServiceException(method, url, null, null, e);
         }

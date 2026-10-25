@@ -135,6 +135,17 @@ class CommonControllerTest {
     }
 
     @Test
+    void updateAccountDownstreamRejectionKeepsRetryUrl() throws Exception {
+        doThrow(downstream(HttpMethod.PUT, 409)).when(commonService).updateAccount(eq(personId), eq(accountId), any(AccountResponseDTO.class));
+
+        mockMvc.perform(put("/common/v1/update/people/{p}/accounts/{a}", personId, accountId)
+                        .param("name", "Renamed").param("creationDate", "2024-01-01"))
+                .andExpect(view().name("accounts/edit"))
+                .andExpect(content().string(containsString("Could not update account: downstream service responded 409 Conflict.")))
+                .andExpect(content().string(containsString("action=\"/common/v1/update/people/" + personId + "/accounts/" + accountId + "\"")));
+    }
+
+    @Test
     void deleteDownstreamFailureRendersErrorPage() throws Exception {
         doThrow(downstream(HttpMethod.DELETE, 409)).when(commonService).deleteBill(personId, accountId, billId);
 
