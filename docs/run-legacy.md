@@ -13,7 +13,7 @@ This runs the current, unmodified stack: Java 8, Spring Boot 2.4.4, Maven, Postg
 - JDK 8 (`JAVA_HOME` pointing at it). Newer JDKs are not part of the legacy baseline.
 - Maven 3.6+ (no Maven wrapper is committed).
 - Docker with the Compose plugin.
-- Free ports 5432, 8080, 8081, 8082.
+- Free ports 5432, 8080, 8081, 8082. Postgres is published on `127.0.0.1` only.
 
 ## 1. Start PostgreSQL
 
@@ -67,12 +67,18 @@ curl -s -XPOST localhost:8082/v1/people -H 'Content-Type: application/json' \
 `PersonService/src/main/resources/hibernate.properties` set `hibernate.hbm2ddl.auto = create`: Hibernate
 drops and recreates the schema each time a service starts, so **all data in that service's database is lost
 on restart**. This is legacy behaviour and is intentionally left unchanged here (the target stack replaces it
-with Flyway). The test resources use `create-drop` against the `*-db-test` databases.
+with Flyway). The test resources use `create-drop`; see the warning in step 4.
 
 ## 4. Run the tests
 
-With the Postgres container running (integration tests use the `test` profile and the `*-db-test`
-databases):
+With the Postgres container running.
+
+> **Warning: `mvn test` wipes the live service databases.** The `*IntegrationTest` classes use the `test`
+> profile and the `*-db-test` databases, but the unprofiled context tests (`AccountServiceApplicationTests`,
+> `PersonServiceApplicationTests`) load the main `application.yml`, i.e. `account-service-db` /
+> `person-service-db`, together with the test-classpath `hibernate.properties` (`create-drop`). Running the
+> tests therefore drops and recreates the schema of the databases the running services use. Run the tests
+> before loading data you care about (or restart the services afterwards).
 
 ```sh
 export JAVA_HOME=/path/to/jdk8
