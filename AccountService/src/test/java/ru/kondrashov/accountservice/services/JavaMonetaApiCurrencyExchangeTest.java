@@ -22,6 +22,9 @@ class JavaMonetaApiCurrencyExchangeTest {
     private static final Currency USD = Currency.getInstance("USD");
     private static final Currency EUR = Currency.getInstance("EUR");
     private static final Currency RUB = Currency.getInstance("RUB");
+    private static final Currency JPY = Currency.getInstance("JPY");
+    private static final Currency KWD = Currency.getInstance("KWD");
+    private static final Currency XAU = Currency.getInstance("XAU");
 
     private final RecordingExchange exchange = new RecordingExchange(new BigDecimal("0.5"));
 
@@ -45,6 +48,15 @@ class JavaMonetaApiCurrencyExchangeTest {
         assertThat(exchange.exchange(USD, EUR, new BigDecimal("2469.13"))).isEqualTo(new BigDecimal("1234.56"));
         assertThat(exchange.exchange(USD, EUR, new BigDecimal("2469.15"))).isEqualTo(new BigDecimal("1234.58"));
         assertThat(exchange.exchange(USD, RUB, new BigDecimal("3"))).isEqualTo(new BigDecimal("1.50"));
+    }
+
+    @Test
+    void roundsToTargetMinorUnitsWhenFewerThanPersistedScale() {
+        assertThat(exchange.exchange(USD, JPY, new BigDecimal("2469.13"))).isEqualTo(new BigDecimal("1235.00"));
+        assertThat(exchange.exchange(USD, JPY, new BigDecimal("2469.00"))).isEqualTo(new BigDecimal("1234.00"));
+        assertThat(exchange.exchange(JPY, JPY, new BigDecimal("10.5"))).isEqualTo(new BigDecimal("10.00"));
+        assertThat(exchange.exchange(USD, KWD, new BigDecimal("2.002"))).isEqualTo(new BigDecimal("1.00"));
+        assertThat(exchange.exchange(USD, XAU, new BigDecimal("3.333"))).isEqualTo(new BigDecimal("1.67"));
     }
 
     @Test

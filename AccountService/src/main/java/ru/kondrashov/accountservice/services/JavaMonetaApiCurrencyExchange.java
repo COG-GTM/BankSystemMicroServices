@@ -32,7 +32,7 @@ public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange 
     public BigDecimal exchange(Currency originalCurrency, Currency targetCurrency, BigDecimal amount) {
 
         if (originalCurrency.equals(targetCurrency)) {
-            return amount.setScale(PERSISTED_AMOUNT_SCALE, RoundingMode.HALF_EVEN);
+            return roundForStorage(amount, targetCurrency);
         }
 
         MonetaryAmount originalMonetaryAmount = Monetary.getDefaultAmountFactory()
@@ -40,11 +40,17 @@ public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange 
                 .setNumber(amount)
                 .create();
 
-        BigDecimal result = MoneyUtils.getBigDecimal(originalMonetaryAmount.with(conversionTo(targetCurrency)).getNumber())
-                .setScale(PERSISTED_AMOUNT_SCALE, RoundingMode.HALF_EVEN);
+        BigDecimal result = roundForStorage(
+                MoneyUtils.getBigDecimal(originalMonetaryAmount.with(conversionTo(targetCurrency)).getNumber()), targetCurrency);
         logger.info("Currency conversion from {} to {} in the amount of {} {} is performed",
                 originalCurrency.getCurrencyCode(), targetCurrency.getCurrencyCode(), amount, originalCurrency.getCurrencyCode());
         return result;
+    }
+
+    private static BigDecimal roundForStorage(BigDecimal amount, Currency currency) {
+        int fractionDigits = currency.getDefaultFractionDigits();
+        int scale = fractionDigits < 0 ? PERSISTED_AMOUNT_SCALE : Math.min(fractionDigits, PERSISTED_AMOUNT_SCALE);
+        return amount.setScale(scale, RoundingMode.HALF_EVEN).setScale(PERSISTED_AMOUNT_SCALE);
     }
 
     private CurrencyConversion conversionTo(Currency targetCurrency) {
