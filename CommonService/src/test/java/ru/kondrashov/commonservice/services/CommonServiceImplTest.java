@@ -102,13 +102,14 @@ class CommonServiceImplTest {
     void deleteBillErrorIsWrappedLikeCreate() {
         String url = "http://accounts/v1/people/" + PERSON_ID + "/accounts/" + ACCOUNT_ID + "/bills/" + BILL_ID;
         server.expect(requestTo(url)).andExpect(method(HttpMethod.DELETE))
-                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR).body("boom"));
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR).contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"message\":\"could not execute statement; SQL [insert into bill ...]\"}"));
 
         DownstreamServiceException e = catchThrowableOfType(
                 () -> service.deleteBill(PERSON_ID, ACCOUNT_ID, BILL_ID), DownstreamServiceException.class);
 
         assertThat(e.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-        assertThat(e.getResponseBody()).isEqualTo("boom");
+        assertThat(e.getResponseBody()).contains("SQL [insert into bill");
         assertThat(e.getUserMessage()).isEqualTo("the downstream service responded 500 Internal Server Error");
     }
 }

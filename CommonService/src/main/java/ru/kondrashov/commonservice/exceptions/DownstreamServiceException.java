@@ -44,7 +44,8 @@ public class DownstreamServiceException extends RuntimeException {
             return "the downstream service is unavailable";
         }
         String userMessage = "the downstream service responded " + status.value() + " " + status.getReasonPhrase();
-        String detail = extractDetail(responseBody);
+        // Only 4xx bodies carry caller-facing messages; 5xx details stay in the logs.
+        String detail = status.is4xxClientError() ? extractDetail(responseBody) : null;
         return detail == null ? userMessage : userMessage + ": " + detail;
     }
 
