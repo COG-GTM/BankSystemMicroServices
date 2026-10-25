@@ -12,9 +12,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import ru.kondrashov.accountservice.controllers.dto.AccountRequestDTO;
 import ru.kondrashov.accountservice.entities.Account;
+import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.repositories.AccountsRepository;
+import ru.kondrashov.accountservice.repositories.BillsRepository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Currency;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,6 +40,9 @@ public class AccountsIntegrationTest {
 
     @Autowired
     private AccountsRepository accountsRepository;
+
+    @Autowired
+    private BillsRepository billsRepository;
 
     Account init(String name, LocalDate localDate, UUID personId) throws Exception {
         AccountRequestDTO accountRequestDTO = new AccountRequestDTO(name, localDate, personId);
@@ -92,5 +99,30 @@ public class AccountsIntegrationTest {
                 .andExpect(status().isNoContent());
 
         assertThat(accountsRepository.getAccountsByPersonId(personId).stream().findFirst().isPresent()).isFalse();
+    }
+
+    @Test
+    void deleteAllByPersonId() throws Exception {
+        UUID personId = UUID.randomUUID();
+        UUID otherPersonId = UUID.randomUUID();
+        Account salary = init("Salary", LocalDate.now(), personId);
+        init("Savings", LocalDate.now(), personId);
+        Account other = init("Other", LocalDate.now(), otherPersonId);
+        Bill salaryBill = billsRepository.save(new Bill(Currency.getInstance("USD"), BigDecimal.TEN, false, salary));
+        Bill otherBill = billsRepository.save(new Bill(Currency.getInstance("USD"), BigDecimal.ONE, false, other));
+
+        mockMvc.perform(MockMvcRequestBuilders.delete("/v1/people/{personId}/accounts", personId))
+                .andExpect(status().isNoContent());
+
+        assertThat(accountsRepository.getAccountsByPersonId(personId)).isEmpty();
+        assertThat(accountsRepository.getAccountsByPersonId(otherPersonId)).hasSize(1);
+        assertThat(billsRepository.findById(salaryBill.getId())).isEmpty();
+        assertThat(billsRepository.findById(otherBill.getId())).isPresent();
+    }
+
+    @Test
+    void deleteAllByPersonIdWithoutAccounts() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.delete("/v1/people/{personId}/accounts", UUID.randomUUID()))
+                .andExpect(status().isNoContent());
     }
 }

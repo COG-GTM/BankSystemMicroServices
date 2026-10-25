@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th ="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Person was not deleted</title>
+</head>
+<body>
+<h2>Person was not deleted</h2>
+
+<p th:text="'Person: '+${personId}"></p>
+<p th:text="'Failed step: '+${failedStep}"></p>
+<th:block th:if="${accountsDeleted}">
+    <p th:if="${outcomeKnown}">The person's accounts were already deleted, but the person record still exists. Delete the person again to finish.</p>
+    <p th:unless="${outcomeKnown}">The person's accounts were already deleted. PersonService did not answer, so the person record may or may not have been deleted. Delete the person again to finish.</p>
+</th:block>
+<th:block th:unless="${accountsDeleted}">
+    <p th:if="${outcomeKnown}">Nothing was deleted.</p>
+    <p th:unless="${outcomeKnown}">AccountService did not answer, so the person's accounts may or may not have been deleted. The person record was not touched. Delete the person again to finish.</p>
+</th:block>
+
+<a th:href="@{/common/v1/info/people}">Back to people</a>
+</body>
+</html>

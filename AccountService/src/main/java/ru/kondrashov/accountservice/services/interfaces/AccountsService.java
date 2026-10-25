@@ -14,4 +14,5 @@ public interface AccountsService {
     void save(Account account);
     void update(UUID id, Account account);
     void delete(UUID id);
+    int deleteAllByPersonId(UUID personId);
 }
