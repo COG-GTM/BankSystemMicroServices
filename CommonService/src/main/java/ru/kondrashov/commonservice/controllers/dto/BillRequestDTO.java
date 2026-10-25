@@ -25,8 +25,4 @@ public class BillRequestDTO {
     public Boolean isOverdraft(){
         return isOverdraft;
     }
-
-    public void isOverdraft(String isOverdraft){
-        this.isOverdraft = Boolean.getBoolean(isOverdraft);
-    }
 }
