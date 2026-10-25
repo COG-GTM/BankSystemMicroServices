@@ -12,9 +12,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import ru.kondrashov.accountservice.controllers.dto.AccountRequestDTO;
 import ru.kondrashov.accountservice.entities.Account;
+import ru.kondrashov.accountservice.entities.Bill;
 import ru.kondrashov.accountservice.repositories.AccountsRepository;
+import ru.kondrashov.accountservice.repositories.BillsRepository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Currency;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,6 +40,9 @@ public class AccountsIntegrationTest {
 
     @Autowired
     private AccountsRepository accountsRepository;
+
+    @Autowired
+    private BillsRepository billsRepository;
 
     Account init(String name, LocalDate localDate, UUID personId) throws Exception {
         AccountRequestDTO accountRequestDTO = new AccountRequestDTO(name, localDate, personId);
@@ -92,5 +99,32 @@ public class AccountsIntegrationTest {
                 .andExpect(status().isNoContent());
 
         assertThat(accountsRepository.getAccountsByPersonId(personId).stream().findFirst().isPresent()).isFalse();
+    }
+
+    @Test
+    void deleteAllByPersonId() throws Exception {
+        UUID personId = UUID.randomUUID();
+        UUID otherPersonId = UUID.randomUUID();
+        Account first = accountsRepository.save(new Account("Salary", LocalDate.now(), personId));
+        Account second = accountsRepository.save(new Account("Savings", LocalDate.now(), personId));
+        Account other = accountsRepository.save(new Account("Other", LocalDate.now(), otherPersonId));
+        Bill firstBill = billsRepository.save(new Bill(Currency.getInstance("USD"), BigDecimal.TEN, false, first));
+        Bill secondBill = billsRepository.save(new Bill(Currency.getInstance("EUR"), BigDecimal.ONE, true, second));
+        Bill otherBill = billsRepository.save(new Bill(Currency.getInstance("USD"), BigDecimal.TEN, false, other));
+
+        mockMvc.perform(MockMvcRequestBuilders.delete("/v1/people/{personId}/accounts", personId))
+                .andExpect(status().isNoContent());
+
+        assertThat(accountsRepository.getAccountsByPersonId(personId)).isEmpty();
+        assertThat(billsRepository.findById(firstBill.getId())).isEmpty();
+        assertThat(billsRepository.findById(secondBill.getId())).isEmpty();
+        assertThat(accountsRepository.getAccountsByPersonId(otherPersonId)).extracting(Account::getId).containsExactly(other.getId());
+        assertThat(billsRepository.findById(otherBill.getId())).isPresent();
+    }
+
+    @Test
+    void deleteAllByPersonIdWithoutAccounts() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.delete("/v1/people/{personId}/accounts", UUID.randomUUID()))
+                .andExpect(status().isNoContent());
     }
 }

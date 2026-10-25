@@ -67,6 +67,16 @@ public class AccountsController {
         accountsService.update(id,accountMapping.mapToAccount(account));
     }
 
+    @DeleteMapping
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @ApiOperation(value = "Delete all accounts of a person", tags = { "ACCOUNTS" })
+    public void deleteAllByPersonId(@ApiParam("Id of the person whose accounts are deleted. Cannot be empty.") @PathVariable("personId") UUID personId,
+                                    @RequestHeader HttpHeaders header){
+        logger.info("The controller "+"\"/v1/people/{personId}/accounts\""+" received a DELETE request from the server "+header.getHost()+" with content type "+header.getContentType());
+        int deleted = accountsService.deleteAllByPersonId(personId);
+        logger.info("Deleted "+deleted+" accounts of person "+personId);
+    }
+
     @Transactional(rollbackFor = Exception.class)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
