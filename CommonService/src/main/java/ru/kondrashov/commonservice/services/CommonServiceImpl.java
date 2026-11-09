@@ -1,7 +1,8 @@
 package ru.kondrashov.commonservice.services;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
@@ -21,7 +22,7 @@ import java.util.*;
 public class CommonServiceImpl implements CommonService{
 
     private final RestTemplate restTemplate;
-    private final Logger logger;
+    private static final Logger logger = LoggerFactory.getLogger(CommonServiceImpl.class);
 
     @Value("${people.URL}")
     private String peopleUrl;

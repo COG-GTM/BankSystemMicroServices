@@ -7,7 +7,7 @@
 ![](https://img.shields.io/badge/Code-Thymeleaf-informational?style=flat&logo=Thymeleaf&logoColor=white&color=4AB197)
 ![](https://img.shields.io/badge/Code-Lombok-informational?style=flat&logo=Lombok&logoColor=white&color=4AB197)
 ![](https://img.shields.io/badge/Test-JUnit-informational?style=flat&logo=jUnit&logoColor=white&color=4AB197)
-![](https://img.shields.io/badge/Log-Log4j2-informational?style=flat&logo=Log4j2&logoColor=white&color=4AB197)
+![](https://img.shields.io/badge/Log-SLF4J%20%2B%20Logback-informational?style=flat&color=4AB197)
 <br>
 This is a prototype of a banking system, which demonstrates [Microservice Architecture Pattern](http://martinfowler.com/microservices/) using Spring Boot.
 ## Technologies
@@ -16,7 +16,8 @@ This is a prototype of a banking system, which demonstrates [Microservice Archit
 - PostgreSQL
 - Hibernate
 - jUnit
-- Log4j2
+- SLF4J + Logback (structured JSON via logstash-logback-encoder)
+- Spring Boot Actuator
 - Thymeleaf
 - Swagger 2
 - Lombok
@@ -27,6 +28,12 @@ To launch classes Application.java in servecies customerService, accountService 
 ```
 Services commonService, accountService and customerService start on localhost ports 8080, 8081 and 8082 respectively.
 Postgre database initialized with some sample user.
+
+## Observability
+Every service follows the same observability standard:
+- Logging goes through SLF4J only. Output is structured JSON on stdout, configured by the shared [`observability/logback-spring.xml`](observability/logback-spring.xml), which each service build copies onto its classpath. Each line has `timestamp`, `service`, `level`, `logger`, `thread`, `message`, plus `correlationId` (and `traceId`/`spanId` when a tracer puts them in MDC).
+- A `CorrelationIdFilter` reads the `X-Correlation-Id` request header (or generates a UUID if it is missing or invalid), puts it in MDC as `correlationId` and echoes it on the response. CommonService forwards it to PersonService and AccountService on outgoing RestTemplate calls.
+- Actuator exposes `/actuator/health`, `/actuator/info` and `/actuator/metrics`.
 
 ## Functional Services
 BankSystem was decomposed into three core microservices. All of them are independently deployable applications, organized around certain business domains.

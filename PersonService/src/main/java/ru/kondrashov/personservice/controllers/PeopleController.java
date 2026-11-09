@@ -4,7 +4,8 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -29,7 +30,7 @@ public class PeopleController {
 
     private final PeopleService peopleService;
     private final PeopleMapping peopleMapping;
-    private final Logger logger;
+    private static final Logger logger = LoggerFactory.getLogger(PeopleController.class);
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)

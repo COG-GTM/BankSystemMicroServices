@@ -4,7 +4,8 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -34,7 +35,7 @@ public class BillsController {
     private final PaymentsMapping paymentsMapping;
     private final AdjustmentMapping adjustmentMapping;
     private final TransferMapping transferMapping;
-    private final Logger logger;
+    private static final Logger logger = LoggerFactory.getLogger(BillsController.class);
 
     @GetMapping
     @ApiOperation(value = "Get all bills by account ID", tags = { "BILLS" })

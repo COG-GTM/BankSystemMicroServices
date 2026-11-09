@@ -1,7 +1,8 @@
 package ru.kondrashov.accountservice.services;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.javamoney.moneta.spi.MoneyUtils;
 import org.springframework.stereotype.Service;
 import ru.kondrashov.accountservice.services.interfaces.FinancialCurrencyExchange;
@@ -20,7 +21,7 @@ import java.util.Currency;
 @RequiredArgsConstructor
 public class JavaMonetaApiCurrencyExchange implements FinancialCurrencyExchange {
 
-    private final Logger logger;
+    private static final Logger logger = LoggerFactory.getLogger(JavaMonetaApiCurrencyExchange.class);
 
     @Override
     public BigDecimal exchange(Currency originalCurrency, Currency targetCurrency, BigDecimal amount) {
