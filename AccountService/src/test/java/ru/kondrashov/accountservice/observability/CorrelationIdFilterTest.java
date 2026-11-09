@@ -6,6 +6,7 @@ import org.slf4j.MDC;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import javax.servlet.DispatcherType;
 import javax.servlet.FilterChain;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -81,6 +82,24 @@ class CorrelationIdFilterTest {
                 .isInstanceOf(IllegalStateException.class);
         assertThat(MDC.get(CORRELATION_ID_MDC_KEY)).isNull();
         assertThat(response.getHeader(CORRELATION_ID_HEADER)).isEqualTo("abc-123");
+    }
+
+    @Test
+    void errorDispatchReusesCorrelationIdOfOriginalRequest() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AtomicReference<String> mdcDuringRequest = new AtomicReference<>();
+        filter.doFilter(request, response, capturingChain(mdcDuringRequest));
+        String original = mdcDuringRequest.get();
+
+        request.setDispatcherType(DispatcherType.ERROR);
+        AtomicReference<String> mdcDuringErrorDispatch = new AtomicReference<>();
+        filter.doFilter(request, response, capturingChain(mdcDuringErrorDispatch));
+
+        assertThat(original).isNotBlank();
+        assertThat(mdcDuringErrorDispatch.get()).isEqualTo(original);
+        assertThat(response.getHeader(CORRELATION_ID_HEADER)).isEqualTo(original);
+        assertThat(MDC.get(CORRELATION_ID_MDC_KEY)).isNull();
     }
 
     private static FilterChain capturingChain(AtomicReference<String> mdcDuringRequest) {

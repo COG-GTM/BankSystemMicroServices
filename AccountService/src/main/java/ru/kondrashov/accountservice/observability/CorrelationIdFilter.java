@@ -24,13 +24,18 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
 
     public static final String CORRELATION_ID_HEADER = "X-Correlation-Id";
     public static final String CORRELATION_ID_MDC_KEY = "correlationId";
+    static final String CORRELATION_ID_ATTRIBUTE = CorrelationIdFilter.class.getName() + ".correlationId";
 
     private static final Pattern VALID_CORRELATION_ID = Pattern.compile("[A-Za-z0-9._-]{1,128}");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        String correlationId = resolveCorrelationId(request.getHeader(CORRELATION_ID_HEADER));
+        String correlationId = (String) request.getAttribute(CORRELATION_ID_ATTRIBUTE);
+        if (correlationId == null) {
+            correlationId = resolveCorrelationId(request.getHeader(CORRELATION_ID_HEADER));
+            request.setAttribute(CORRELATION_ID_ATTRIBUTE, correlationId);
+        }
         MDC.put(CORRELATION_ID_MDC_KEY, correlationId);
         response.setHeader(CORRELATION_ID_HEADER, correlationId);
         try {
@@ -38,6 +43,11 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         } finally {
             MDC.remove(CORRELATION_ID_MDC_KEY);
         }
+    }
+
+    @Override
+    protected boolean shouldNotFilterErrorDispatch() {
+        return false;
     }
 
     static String resolveCorrelationId(String headerValue) {
