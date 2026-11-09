@@ -1,7 +1,5 @@
 package ru.kondrashov.personservice.config;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import springfox.documentation.builders.RequestHandlerSelectors;
@@ -37,10 +35,5 @@ public class ApplicationConfig {
                 "API License URL"
         );
         return apiInfo;
-    }
-
-    @Bean
-    public Logger logger(){
-        return LogManager.getRootLogger();
     }
 }
